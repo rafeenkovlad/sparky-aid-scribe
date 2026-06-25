@@ -16,10 +16,19 @@ import {
 } from "./cliche";
 import { decodeVin } from "./storageApi";
 import { zoneById } from "./inspectionZones";
+import {
+  ZONE_TO_SECTION,
+  getSection,
+  findingKey,
+  type SectionSnake,
+} from "./inspectionSections";
+import { loadSectionTags, findTagId } from "./inspectionTags";
 import type {
   CarStep,
   CharacteristicsStep,
   DocumentReconciliationStep,
+  InspectionElementFinding,
+  PendingTagName,
   StepId,
   TestDriveStep,
   Thread,
