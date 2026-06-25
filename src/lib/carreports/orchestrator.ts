@@ -227,10 +227,10 @@ export async function extractForStep(
       if (typeof data.ownersCount === "number") c.ownersCount = data.ownersCount;
       else if (typeof data.ownersCount === "string" && /^\d+$/.test(data.ownersCount))
         c.ownersCount = Number(data.ownersCount);
-      if (typeof data.ownerMatches === "boolean") c.ownerMatches = data.ownerMatches;
-      if (typeof data.vinOnBodyMatches === "boolean") c.vinOnBodyMatches = data.vinOnBodyMatches;
-      if (typeof data.engineNumberMatches === "boolean")
-        c.engineNumberMatches = data.engineNumberMatches;
+      if (typeof data.ownerFullNameMatchWithPTSOrSTS === "boolean") c.ownerFullNameMatchWithPTSOrSTS = data.ownerFullNameMatchWithPTSOrSTS;
+      if (typeof data.vinOnBodyMatchWithPTSOrSTS === "boolean") c.vinOnBodyMatchWithPTSOrSTS = data.vinOnBodyMatchWithPTSOrSTS;
+      if (typeof data.engineModelMatchWithPTSOrSTS === "boolean")
+        c.engineModelMatchWithPTSOrSTS = data.engineModelMatchWithPTSOrSTS;
       if (typeof data.note === "string") c.note = data.note;
       const merged = { ...thread.draft.documentReconciliationStep, ...c };
       return { patch: { documentReconciliationStep: merged }, reply: summarizeDocs(merged) };
@@ -300,12 +300,12 @@ function summarizeTestDrive(td: Record<string, unknown> & Partial<TestDriveStep>
 function summarizeDocs(c: DocumentReconciliationStep): string {
   const parts: string[] = ["Зафиксировал сверку документов:"];
   if (typeof c.ownersCount === "number") parts.push(`• Владельцев по ПТС: ${c.ownersCount}`);
-  if (c.ownerMatches === true) parts.push("• Собственник совпадает");
-  if (c.ownerMatches === false) parts.push("• Собственник НЕ совпадает");
-  if (c.vinOnBodyMatches === true) parts.push("• VIN на кузове совпадает");
-  if (c.vinOnBodyMatches === false) parts.push("• VIN на кузове НЕ совпадает");
-  if (c.engineNumberMatches === true) parts.push("• Номер двигателя совпадает");
-  if (c.engineNumberMatches === false) parts.push("• Номер двигателя НЕ совпадает");
+  if (c.ownerFullNameMatchWithPTSOrSTS === true) parts.push("• Собственник совпадает");
+  if (c.ownerFullNameMatchWithPTSOrSTS === false) parts.push("• Собственник НЕ совпадает");
+  if (c.vinOnBodyMatchWithPTSOrSTS === true) parts.push("• VIN на кузове совпадает");
+  if (c.vinOnBodyMatchWithPTSOrSTS === false) parts.push("• VIN на кузове НЕ совпадает");
+  if (c.engineModelMatchWithPTSOrSTS === true) parts.push("• Номер двигателя совпадает");
+  if (c.engineModelMatchWithPTSOrSTS === false) parts.push("• Номер двигателя НЕ совпадает");
   if (c.note) parts.push(`• Заметка: ${c.note}`);
   parts.push("\nДалее — осмотр. (доступен на следующем этапе)");
   return parts.join("\n");

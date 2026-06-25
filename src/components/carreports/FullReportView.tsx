@@ -111,12 +111,12 @@ export function FullReportView({ thread, onClose }: Props) {
           <section className="report-section mb-5">
             <h2 className="text-lg font-semibold text-zinc-800 mb-2">3. Сверка документов</h2>
             {row("Кол-во собственников", doc.ownersCount)}
-            {doc.ownerMatches !== undefined && doc.ownerMatches !== null &&
-              row("Собственник совпадает", doc.ownerMatches ? "да" : "нет")}
-            {doc.vinOnBodyMatches !== undefined && doc.vinOnBodyMatches !== null &&
-              row("VIN на кузове", doc.vinOnBodyMatches ? "совпадает" : "не совпадает")}
-            {doc.engineNumberMatches !== undefined && doc.engineNumberMatches !== null &&
-              row("Номер двигателя", doc.engineNumberMatches ? "совпадает" : "не совпадает")}
+            {doc.ownerFullNameMatchWithPTSOrSTS !== undefined && doc.ownerFullNameMatchWithPTSOrSTS !== null &&
+              row("Собственник совпадает", doc.ownerFullNameMatchWithPTSOrSTS ? "да" : "нет")}
+            {doc.vinOnBodyMatchWithPTSOrSTS !== undefined && doc.vinOnBodyMatchWithPTSOrSTS !== null &&
+              row("VIN на кузове", doc.vinOnBodyMatchWithPTSOrSTS ? "совпадает" : "не совпадает")}
+            {doc.engineModelMatchWithPTSOrSTS !== undefined && doc.engineModelMatchWithPTSOrSTS !== null &&
+              row("Номер двигателя", doc.engineModelMatchWithPTSOrSTS ? "совпадает" : "не совпадает")}
             {row("Примечание", doc.note)}
           </section>
 

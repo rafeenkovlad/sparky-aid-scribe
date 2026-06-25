@@ -49,9 +49,9 @@ function summarizeDraft(d: ReportDraft): string {
   if (ch.driveType) lines.push(`Привод: ${ch.driveType}.`);
 
   if (doc.ownersCount != null) lines.push(`Владельцев по ПТС: ${doc.ownersCount}.`);
-  if (doc.ownerMatches === false) lines.push("Текущий владелец не совпадает с ПТС.");
-  if (doc.vinOnBodyMatches === false) lines.push("VIN на кузове не совпадает с документами.");
-  if (doc.engineNumberMatches === false) lines.push("Номер двигателя не совпадает с документами.");
+  if (doc.ownerFullNameMatchWithPTSOrSTS === false) lines.push("Текущий владелец не совпадает с ПТС.");
+  if (doc.vinOnBodyMatchWithPTSOrSTS === false) lines.push("VIN на кузове не совпадает с документами.");
+  if (doc.engineModelMatchWithPTSOrSTS === false) lines.push("Номер двигателя не совпадает с документами.");
   if (doc.note) lines.push(`Документы — заметка: ${doc.note}`);
 
   lines.push("");
