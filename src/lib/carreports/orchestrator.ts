@@ -294,6 +294,9 @@ function summarizeTestDrive(td: Record<string, unknown> & Partial<TestDriveStep>
   }
   parts.push("\nДополните или нажмите «Всё верно, далее».");
   return parts.join("\n");
+}
+
+
 
 function summarizeDocs(c: DocumentReconciliationStep): string {
   const parts: string[] = ["Зафиксировал сверку документов:"];
