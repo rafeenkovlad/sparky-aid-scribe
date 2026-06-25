@@ -32,6 +32,14 @@ import type {
   InspectionElementFinding,
   PendingTagName,
   StepId,
+import type {
+  CarStep,
+  CharacteristicsStep,
+  DocumentReconciliationStep,
+  InspectionElementFinding,
+  MessageAttachment,
+  PendingTagName,
+  StepId,
   TestDriveStep,
   Thread,
 } from "./types";
