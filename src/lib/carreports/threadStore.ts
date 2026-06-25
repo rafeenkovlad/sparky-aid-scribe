@@ -1,7 +1,7 @@
 // Threads + localStorage store with stable snapshots (for useSyncExternalStore).
 // Avoids the classic "returning a new array on every getSnapshot" infinite loop.
 
-import { emptyDraft, type ChatMessage, type ReportDraft, type Thread } from "./types";
+import { emptyDraft, emptyStepMessages, type ChatMessage, type ReportDraft, type StepId, type StepMessages, type Thread } from "./types";
 
 const LS_KEY = "carreports.threads.v1";
 
