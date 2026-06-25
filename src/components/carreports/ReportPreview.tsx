@@ -12,8 +12,12 @@ interface Props {
 
 function summaryFor(step: StepId, t: Thread): string {
   switch (step) {
-    case "car":
-      return shortCarSummary(t.draft);
+    case "car": {
+      const carPart = shortCarSummary(t.draft);
+      const charPart = shortCharSummary(t.draft);
+      const bits = [carPart, charPart].filter((s) => s && s !== "—");
+      return bits.length ? bits.join(" · ") : "—";
+    }
     case "characteristics":
       return shortCharSummary(t.draft);
     case "docs":
