@@ -42,8 +42,24 @@ function pickImageUrl(row: Record<string, unknown> | null | undefined): string |
     const v = row[k];
     if (typeof v === "string" && /^https?:\/\//.test(v)) return v;
   }
+  // photos: [{size:'m'|'s', urlX1, urlX2}]
+  const photos = row["photos"];
+  if (Array.isArray(photos) && photos.length) {
+    const pickFrom = (p: unknown): string | undefined => {
+      const o = p as { urlX2?: unknown; urlX1?: unknown } | null;
+      if (!o) return undefined;
+      if (typeof o.urlX2 === "string" && /^https?:\/\//.test(o.urlX2)) return o.urlX2;
+      if (typeof o.urlX1 === "string" && /^https?:\/\//.test(o.urlX1)) return o.urlX1;
+      return undefined;
+    };
+    const medium = photos.find(
+      (p) => (p as { size?: string } | null)?.size === "m",
+    );
+    return pickFrom(medium) ?? pickFrom(photos[0]);
+  }
   return undefined;
 }
+
 
 interface BrandRow {
   id: number;
@@ -57,40 +73,57 @@ interface ModelRow {
   urlImage?: string;
 }
 
+type ApiDate = { date?: string } | string | number | null | undefined;
+
+interface ApiPhoto {
+  id?: number;
+  size?: string;
+  urlX1?: string;
+  urlX2?: string;
+}
+
 interface RestylingFrameRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  frame?: string;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 interface RestylingRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  /** numeric restyling index as string ("0" = базовый, "1" = первый рестайлинг) */
+  restyling?: string | number;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 interface GenerationRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  /** numeric generation index (1, 2, 3 ...) */
+  generation?: number;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   restylings?: RestylingRow[];
   modelGenerationRestylings?: RestylingRow[];
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 
 const brandCache = new Map<string, BrandRow[]>();
@@ -143,10 +176,19 @@ async function fetchGenerations(modelCarId: number): Promise<GenerationRow[]> {
 }
 
 function asYear(v: unknown): number | null {
+  if (v == null) return null;
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
     const m = v.match(/\d{4}/);
     if (m) return Number(m[0]);
+    return null;
+  }
+  if (typeof v === "object") {
+    const d = (v as { date?: unknown }).date;
+    if (typeof d === "string") {
+      const m = d.match(/\d{4}/);
+      if (m) return Number(m[0]);
+    }
   }
   return null;
 }
@@ -207,12 +249,20 @@ function topMatches<T extends { id: number; name?: string }>(
 /** Flatten generation → restyling → frame into pickable candidates. */
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
-  for (const g of generations) {
+  // Сортируем поколения по возрастанию номера (1, 2, 3 ...) если задан.
+  const gens = [...generations].sort((a, b) => {
+    const an = typeof a.generation === "number" ? a.generation : 0;
+    const bn = typeof b.generation === "number" ? b.generation : 0;
+    return an - bn;
+  });
+  for (const g of gens) {
     const genStart = asYear(g.yearStart) ?? asYear(g.startYear);
     const genEnd = asYear(g.yearEnd) ?? asYear(g.endYear);
+    const genNum = typeof g.generation === "number" ? g.generation : undefined;
     const genName =
       (g.name && g.name.trim()) ||
-      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : "");
+      (genNum != null ? `Поколение ${genNum}` :
+        (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : ""));
     const genImg = pickImageUrl(g as unknown as Record<string, unknown>);
     const restylings = g.modelGenerationRestylings ?? g.restylings ?? [];
     if (restylings.length === 0) {
@@ -222,7 +272,9 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
         out.push({
           frameId: f.id,
           generationName: genName,
-          restylingName: f.name,
+          restylingName: f.name ?? f.frame,
+          generationNumber: genNum,
+          restylingNumber: 0,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? genStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? genEnd,
           urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? genImg,
@@ -230,17 +282,29 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
       }
       continue;
     }
-    for (const r of restylings) {
+    // Сортируем рестайлинги по возрастанию номера (0 = базовый, 1 = первый рестайлинг ...).
+    const sortedR = [...restylings].sort((a, b) => {
+      const an = Number(a.restyling ?? 999);
+      const bn = Number(b.restyling ?? 999);
+      return an - bn;
+    });
+    for (const r of sortedR) {
       const rStart = asYear(r.yearStart) ?? asYear(r.startYear) ?? genStart;
       const rEnd = asYear(r.yearEnd) ?? asYear(r.endYear) ?? genEnd;
       const rImg = pickImageUrl(r as unknown as Record<string, unknown>) ?? genImg;
+      const rNum = r.restyling != null && r.restyling !== "" ? Number(r.restyling) : undefined;
+      const rName =
+        r.name ??
+        (rNum === 0 ? "Базовый" : rNum != null ? `Рестайлинг ${rNum}` : "Базовый");
       const frames =
         r.modelGenerationRestylingFrames ?? r.restylingFrames ?? r.frames ?? [];
       if (frames.length === 0) {
         out.push({
           frameId: r.id,
           generationName: genName,
-          restylingName: r.name ?? "Базовый",
+          restylingName: rName,
+          generationNumber: genNum,
+          restylingNumber: rNum,
           yearStart: rStart,
           yearEnd: rEnd,
           urlImage: rImg,
@@ -251,7 +315,9 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
         out.push({
           frameId: f.id,
           generationName: genName,
-          restylingName: f.name ?? r.name,
+          restylingName: f.name ?? f.frame ?? rName,
+          generationNumber: genNum,
+          restylingNumber: rNum,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? rStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? rEnd,
           urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? rImg,
@@ -611,28 +677,54 @@ export async function resolveCar(
     const genOrd = parseOrdinal(hintAndText, /поколени[еяюй]/);
     const restOrd = parseOrdinal(hintAndText, /рестайлинг[а-я]*/);
 
-    // Группируем frames по generationName (порядок из API сохраняется).
-    const genGroups: { name: string; items: GenerationFrameCandidate[] }[] = [];
+    // Группируем frames по фактическому номеру поколения из API (`generation`).
+    // Если номера нет — используем имя как ключ; порядок сохраняется (sortedFrames
+    // уже отсортированы по возрастанию номера).
+    const genGroups: {
+      key: string;
+      number?: number;
+      name: string;
+      items: GenerationFrameCandidate[];
+    }[] = [];
     for (const f of frames) {
-      const key = f.generationName ?? "";
-      const g = genGroups.find((x) => x.name === key);
+      const key =
+        f.generationNumber != null ? `#${f.generationNumber}` : (f.generationName ?? "");
+      const g = genGroups.find((x) => x.key === key);
       if (g) g.items.push(f);
-      else genGroups.push({ name: key, items: [f] });
+      else
+        genGroups.push({
+          key,
+          number: f.generationNumber,
+          name: f.generationName ?? key,
+          items: [f],
+        });
     }
 
     let notFound = false;
     if (genOrd != null) {
-      const group = genGroups[genOrd - 1];
+      // Сначала пробуем найти по реальному номеру поколения из API.
+      let group = genGroups.find((g) => g.number === genOrd);
+      // Фолбэк: N-е по порядку (если API не вернул номер).
+      if (!group) group = genGroups[genOrd - 1];
       if (!group) {
         notFound = true;
       } else {
-        const idx = restOrd != null ? restOrd - 1 : 0;
-        if (restOrd != null && !group.items[idx]) {
-          notFound = true;
+        let picked: GenerationFrameCandidate | undefined;
+        if (restOrd != null) {
+          picked = group.items.find((f) => f.restylingNumber === restOrd);
+          if (!picked) picked = group.items[restOrd];
+          if (!picked) {
+            notFound = true;
+          }
         } else {
-          frame = group.items[idx] ?? group.items[0];
+          // По умолчанию — базовый (restyling = 0), иначе первый.
+          picked =
+            group.items.find((f) => f.restylingNumber === 0) ?? group.items[0];
+        }
+        if (picked) {
+          frame = picked;
           frameConf = 0.95;
-          frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (первый рестайлинг)"}`;
+          frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (базовый)"}`;
         }
       }
     }
@@ -686,26 +778,30 @@ export async function resolveCar(
     // и когда не нашли (показать варианты), и когда нашли (позволить поправить).
     const buildGenChips = (): CatalogSuggestion[] => {
       const out: CatalogSuggestion[] = [];
-      let gi = 0;
       for (const group of genGroups) {
-        gi++;
-        let ri = 0;
+        const gNum = group.number;
         const multi = group.items.length > 1;
         for (const f of group.items) {
-          ri++;
           const years =
             f.yearStart || f.yearEnd
               ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
               : "";
-          // Имя поколения берём как пришло из Storage.GetModelGeneration.
-          const genTitle = (group.name && group.name.trim()) || `Поколение ${gi}`;
-          const restTitle = multi ? ` · ${f.restylingName ?? `рест. ${ri}`}` : "";
-          const value = multi
-            ? `Поколение ${gi}, рестайлинг ${ri}`
-            : `Поколение ${gi}`;
+          const rNum = f.restylingNumber;
+          const genLabel = gNum != null ? `Поколение ${gNum}` : (group.name || "Поколение");
+          const restLabel = multi
+            ? rNum === 0
+              ? " · базовый"
+              : rNum != null
+                ? ` · рестайлинг ${rNum}`
+                : ` · ${f.restylingName ?? ""}`
+            : "";
+          const value =
+            multi && rNum != null
+              ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+              : `Поколение ${gNum ?? "?"}`;
           out.push({
             group: "generation",
-            label: `${gi}. ${genTitle}${restTitle}`,
+            label: `${genLabel}${restLabel}`,
             value,
             image: f.urlImage,
             description: years,

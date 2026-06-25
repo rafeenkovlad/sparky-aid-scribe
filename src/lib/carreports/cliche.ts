@@ -110,6 +110,10 @@ export interface GenerationFrameCandidate {
   frameId: number;
   generationName?: string;
   restylingName?: string;
+  /** numeric generation index from API (`generation` field) */
+  generationNumber?: number;
+  /** numeric restyling index from API (`restyling` field), 0 = базовый */
+  restylingNumber?: number;
   yearStart?: number | null;
   yearEnd?: number | null;
   urlImage?: string;
