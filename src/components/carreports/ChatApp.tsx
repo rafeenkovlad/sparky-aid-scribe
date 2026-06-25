@@ -37,7 +37,7 @@ import {
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
+import { extractForStep, applyVinDecode, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
@@ -337,6 +337,16 @@ export function ChatApp({ threadId }: Props) {
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
       t.messages.push(makeIntroMessage(nextStep));
+      const recap = summarizeStepDraft(nextStep, t.draft);
+      if (recap) {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: recap,
+          step: nextStep,
+          createdAt: Date.now(),
+        });
+      }
     });
     // Trigger VIN decode when entering characteristics
     if (nextStep === "characteristics") {
@@ -436,6 +446,16 @@ export function ChatApp({ threadId }: Props) {
       t.stepIndex = idx;
       // re-add intro for that step
       t.messages.push(makeIntroMessage(step));
+      const recap = summarizeStepDraft(step, t.draft);
+      if (recap) {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: recap,
+          step,
+          createdAt: Date.now(),
+        });
+      }
     });
     setDraftOpen(false);
   }
