@@ -1,5 +1,6 @@
 import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { filledCount, isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
+import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
 import { Check, ChevronRight, FileText } from "lucide-react";
 
@@ -16,6 +17,14 @@ function summaryFor(step: StepId, t: Thread): string {
       return shortCharSummary(t.draft);
     case "docs":
       return shortDocsSummary(t.draft);
+    case "inspection": {
+      const ins = t.draft.inspectionStep;
+      const zones = INSPECTION_ZONES.filter(
+        (z) => ins.sectionNotes[z.id] || ins.photos.some((p) => p.section === z.id),
+      );
+      if (zones.length === 0) return "—";
+      return `${zones.length}/${INSPECTION_ZONES.length} зон · ${ins.photos.length} фото`;
+    }
     default:
       return "Доступно позже";
   }
