@@ -119,7 +119,7 @@ export function createThread(initial?: Partial<Thread>): Thread {
     updatedAt: Date.now(),
     stepIndex: 0,
     draft: initial?.draft ?? emptyDraft(),
-    messages: initial?.messages ?? [],
+    messages: initial?.messages ?? emptyStepMessages(),
     aiChatIds: initial?.aiChatIds ?? {},
   });
   const next = [t, ...loadThreads()];
