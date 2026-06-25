@@ -336,7 +336,7 @@ export async function resolveCar(
     const needBrandWeb = !brand || brandConf < LOW_CONF || brandPick?.needsWeb === true || brands.length === 0;
     if (needBrandWeb) {
       const ctx = await webSearchContext(
-        `${brandHintOrName} автомобиль официальное название бренд производитель`,
+        `site:drom.ru ${brandHintOrName} автомобиль марка производитель`,
         5,
       );
       if (ctx) {
@@ -436,7 +436,7 @@ export async function resolveCar(
     }
     if (!model || modelConf < LOW_CONF || modelPick?.needsWeb === true) {
       const ctx = await webSearchContext(
-        `${brand.name} ${modelHintOrName} модель автомобиля характеристики поколения`,
+        `site:drom.ru ${brand.name} ${modelHintOrName} модель характеристики поколения`,
         5,
       );
       if (ctx) {
@@ -525,7 +525,7 @@ export async function resolveCar(
       frameReason = framePick.reason;
     }
     if (!frame || frameConf < LOW_CONF || framePick?.needsWeb === true) {
-      const q = `${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы выпуска рестайлинг`.trim();
+      const q = `site:drom.ru ${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы рестайлинг`.trim();
       const ctx = await webSearchContext(q, 5);
       if (ctx) {
         frameWebUsed = true;
