@@ -8,8 +8,10 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   switch (id) {
     case "car": {
       const c = d.carStep ?? {};
+      const ch = d.characteristicsStep ?? {};
       const hasVin = !!c.vin && c.vin.length >= 11;
-      return (hasVin || !!c.unreadableVin) && !!c.mileage && !!c.cityInspection && !!c.dateInspection;
+      return hasVin && !!c.mileage && !!c.cityInspection && !!c.dateInspection
+        && !!ch.brandName && !!ch.modelCarName;
     }
     case "characteristics": {
       const c = d.characteristicsStep ?? {};
@@ -42,11 +44,11 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
     case "car": {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
-      if (!c.vin && !c.unreadableVin) return "Продиктуйте VIN автомобиля (17 символов) или скажите, что VIN нечитаемый.";
+      if (!c.vin) return "Продиктуйте VIN автомобиля (17 символов). Если VIN нечитаемый — назовите госномер, подтянем VIN автоматически.";
+      if (!ch.brandName || !ch.modelCarName) return "Назовите марку и модель автомобиля.";
       if (!c.mileage) return "Какой пробег по одометру? (км)";
       if (!c.cityInspection) return "В каком городе проводится осмотр?";
       if (!c.dateInspection) return "Выберите дату осмотра (по умолчанию — сегодня).";
-      if (!ch.brandName || !ch.modelCarName) return "Назовите марку и модель автомобиля.";
       if (!ch.year) return "Какой год выпуска?";
       if (!ch.engineType) return "Тип двигателя: Бензин / Дизель / Гибрид / Электро / Газ/Бензин?";
       if (!ch.transmission) return "Тип КПП: АКПП / МКПП / Робот / Вариатор?";
