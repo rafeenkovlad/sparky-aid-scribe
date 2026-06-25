@@ -57,6 +57,8 @@ function makeIntroMessage(step: StepId): ChatMessage {
 }
 
 export function ChatApp({ threadId }: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const threads = useThreads();
   const token = useToken();
   const navigate = useNavigate();
@@ -277,9 +279,9 @@ export function ChatApp({ threadId }: Props) {
     navigate({ to: "/$threadId", params: { threadId: t.id } });
   }
 
-  if (!thread) {
+  if (!mounted || !thread) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white items-center justify-center">
         <div className="text-sm text-white/60">Открываю отчёт…</div>
       </div>
     );
