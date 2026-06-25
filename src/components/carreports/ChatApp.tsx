@@ -766,11 +766,16 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             placeholder={
-              currentStep === "inspection"
-                ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
-                : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+              askMode
+                ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
+                : currentStep === "inspection"
+                  ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                  : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
             }
-            className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
+            className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
+              askMode ? "ring-1 ring-sky-400/60 rounded-md" : ""
+            }`}
+
           />
           <button
             onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
