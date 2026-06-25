@@ -79,29 +79,82 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
 }
 
 import type { ReportDraft } from "./types";
+import { resolveModelCarId } from "./carCatalog";
+
+// Map our 8 local zones → server inspection section + collection.
+// Notes go into the chosen collection as a single element with noDamage=true.
+const ZONE_TO_SECTION: Record<string, { section: string; collection: string }> = {
+  body: { section: "bodySection", collection: "bodyElementGeneralConditionCollection" },
+  underbody: { section: "bodySection", collection: "bodyElementGeneralConditionCollection" },
+  geometry: {
+    section: "bodyReinforcementElementsSection",
+    collection: "bodyReinforcementElementGeneralConditionCollection",
+  },
+  interior: { section: "interiorSection", collection: "interiorElementGeneralConditionCollection" },
+  engine: { section: "underHoodSpaceSection", collection: "underHoodElementEngineCollection" },
+  transmission: {
+    section: "underHoodSpaceSection",
+    collection: "underHoodElementGeneralConditionCollection",
+  },
+  suspension: {
+    section: "wheelsAndBrakesSection",
+    collection: "wheelsAndBrakesElementGeneralConditionCollection",
+  },
+  brakes: {
+    section: "wheelsAndBrakesSection",
+    collection: "wheelsAndBrakesElementGeneralConditionCollection",
+  },
+};
+
+const REQUIRED_SECTIONS = [
+  "bodySection",
+  "bodyReinforcementElementsSection",
+  "glassSection",
+  "interiorSection",
+  "underHoodSpaceSection",
+  "wheelsAndBrakesSection",
+  "lightningSection",
+  "computerDiagnosticsSection",
+] as const;
+
+function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
+  const out: Record<string, Record<string, unknown[]>> = {};
+  for (const s of REQUIRED_SECTIONS) out[s] = {};
+
+  const notes = draft.inspectionStep.sectionNotes ?? {};
+  for (const [zoneId, note] of Object.entries(notes)) {
+    const text = note?.trim();
+    if (!text) continue;
+    const map = ZONE_TO_SECTION[zoneId];
+    if (!map) continue;
+    const sec = out[map.section];
+    const arr = (sec[map.collection] as unknown[] | undefined) ?? [];
+    arr.push({ noDamage: true, note: text, audioNotes: [] });
+    sec[map.collection] = arr;
+  }
+  return out;
+}
 
 /**
  * Build the request payload for Storage.PrepareSpecialistReport from our local
  * draft, mapping to the Doc schema field names.
  */
-function buildPrepareReportPayload(draft: ReportDraft): Record<string, unknown> {
+function buildPrepareReportPayload(
+  draft: ReportDraft,
+  resolvedModelCarId: number | null,
+): Record<string, unknown> {
   const car = draft.carStep;
   const ch = draft.characteristicsStep;
   const doc = draft.documentReconciliationStep;
-  const ins = draft.inspectionStep;
   const td = draft.testDriveStep ?? {};
   const res = draft.resultStep ?? {};
 
-  // Append free-form zone notes to summaryInspectionNote so the data is not lost
-  // until we wire structured inspection sections per Doc schema.
-  const zoneNotes = Object.entries(ins.sectionNotes)
-    .filter(([, v]) => v && v.trim())
-    .map(([k, v]) => `[${k}] ${v.trim()}`)
-    .join("\n");
   const docNote = doc.note?.trim();
-  const summary = [res.summaryInspectionNote, docNote && `Документы: ${docNote}`, zoneNotes]
+  const summary = [res.summaryInspectionNote, docNote && `Документы: ${docNote}`]
     .filter(Boolean)
     .join("\n\n");
+
+  const modelCarId = ch.modelCarId ?? resolvedModelCarId ?? undefined;
 
   return {
     reportName: draft.reportName || `Отчёт ${new Date().toISOString().slice(0, 10)}`,
@@ -119,8 +172,7 @@ function buildPrepareReportPayload(draft: ReportDraft): Record<string, unknown> 
       ...(car.dateInspection ? { dateInspection: car.dateInspection } : {}),
     },
     characteristicsStep: {
-      // NOTE: Doc требует modelCarId или modelGenerationRestylingFrameId.
-      // brandName/modelCarName храним локально, на сервер не отправляем.
+      ...(typeof modelCarId === "number" ? { modelCarId } : {}),
       ...(ch.year ? { year: String(ch.year) } : {}),
       ...(typeof ch.engineVolume === "number" ? { engineVolume: ch.engineVolume } : {}),
       ...(ch.engineType ? { engineType: ch.engineType } : {}),
@@ -142,8 +194,7 @@ function buildPrepareReportPayload(draft: ReportDraft): Record<string, unknown> 
         : {}),
     },
     legalReviewStep: {},
-    // TODO: распределить ins.sectionNotes по структуре bodySection/glassSection/…
-    inspectionStep: {},
+    inspectionStep: buildInspectionStep(draft),
     testDriveStep: {
       ...(typeof td.testDriveIsIncluded === "boolean"
         ? { testDriveIsIncluded: td.testDriveIsIncluded }
@@ -210,18 +261,32 @@ export async function submitReport(draft: ReportDraft): Promise<{
   note?: string;
 }> {
   try {
-    const payload = buildPrepareReportPayload(draft);
+    // Resolve modelCarId on the fly if missing — Doc requires it (or
+    // modelGenerationRestylingFrameId) on characteristicsStep.
+    let resolvedId: number | null = null;
+    if (!draft.characteristicsStep.modelCarId) {
+      resolvedId = await resolveModelCarId(
+        draft.characteristicsStep.brandName,
+        draft.characteristicsStep.modelCarName,
+      );
+    }
+
+    const payload = buildPrepareReportPayload(draft, resolvedId);
     const r = await rpc<{ result?: PrepareReportResult } | PrepareReportResult>(
       "Storage.PrepareSpecialistReport",
       { report: payload },
     );
     const inner = (r as { result?: PrepareReportResult }).result ?? (r as PrepareReportResult);
     if (inner && inner.reportNumber) {
+      const idHint =
+        resolvedId && !draft.characteristicsStep.modelCarId
+          ? ` Распознан modelCarId=${resolvedId}.`
+          : "";
       return {
         remote: true,
         reportId: inner.reportNumber,
         method: "Storage.PrepareSpecialistReport",
-        note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.`,
+        note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.${idHint}`,
       };
     }
     return { remote: false, note: "Ответ сервера без reportNumber." };
