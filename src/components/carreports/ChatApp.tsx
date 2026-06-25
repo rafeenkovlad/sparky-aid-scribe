@@ -741,7 +741,10 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              setEditPanelOpen(true);
+              updateThread(thread.id, (t) => {
+                pushMsg(t, currentStep, makeIntroMessage(currentStep));
+              });
+              textareaRef.current?.focus();
             }}
             aria-label="Нужно изменить"
             title="Нужно изменить"
