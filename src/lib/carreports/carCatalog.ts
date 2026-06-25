@@ -174,7 +174,7 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
     const genEnd = asYear(g.yearEnd) ?? asYear(g.endYear);
     const genName =
       (g.name && g.name.trim()) ||
-      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : `Поколение #${g.id}`);
+      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : "");
     const genImg = pickImageUrl(g as unknown as Record<string, unknown>);
     const restylings = g.modelGenerationRestylings ?? g.restylings ?? [];
     if (restylings.length === 0) {
@@ -568,10 +568,11 @@ export async function resolveCar(
       frame.yearStart || frame.yearEnd
         ? ` (${frame.yearStart ?? "?"}–${frame.yearEnd ?? "н.в."})`
         : "";
+    const fullLabel = `${label}${years}`.trim();
     return {
       ...partial,
       modelGenerationRestylingFrameId: frame.frameId,
-      generationLabel: `${label}${years}`,
+      ...(fullLabel ? { generationLabel: fullLabel } : {}),
       generationImage: frame.urlImage,
     };
   } catch {
