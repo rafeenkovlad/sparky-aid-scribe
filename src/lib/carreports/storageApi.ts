@@ -181,6 +181,7 @@ function buildPrepareReportPayload(
     },
     characteristicsStep: {
       ...(typeof modelCarId === "number" ? { modelCarId } : {}),
+      ...(typeof frameId === "number" ? { modelGenerationRestylingFrameId: frameId } : {}),
       ...(ch.year ? { year: String(ch.year) } : {}),
       ...(typeof ch.engineVolume === "number" ? { engineVolume: ch.engineVolume } : {}),
       ...(ch.engineType ? { engineType: ch.engineType } : {}),
