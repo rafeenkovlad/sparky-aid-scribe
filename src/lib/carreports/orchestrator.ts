@@ -437,6 +437,129 @@ function summarizeDocs(c: DocumentReconciliationStep): string {
   return parts.join("\n");
 }
 
+/**
+ * Build a short recap of what's already filled for a given step. Returns an
+ * empty string when there's nothing yet — caller should then skip the recap
+ * message and show only the step intro.
+ */
+export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string {
+  switch (step) {
+    case "car": {
+      const c = draft.carStep;
+      const has =
+        c.vin ||
+        c.unreadableVin ||
+        c.gosNumber ||
+        typeof c.mileage === "number" ||
+        c.cityInspection ||
+        c.dateInspection ||
+        c.uriListing ||
+        c.visuallyMileageNotMatchCondition;
+      if (!has) return "";
+      const parts: string[] = ["Уже зафиксировано по автомобилю:"];
+      if (c.vin) parts.push(`• VIN ${c.vin}`);
+      if (c.unreadableVin) parts.push("• VIN нечитаемый");
+      if (c.gosNumber) parts.push(`• Госномер ${c.gosNumber}`);
+      if (typeof c.mileage === "number")
+        parts.push(`• Пробег ${c.mileage.toLocaleString("ru-RU")} км`);
+      if (c.cityInspection) parts.push(`• Город осмотра: ${c.cityInspection}`);
+      if (c.dateInspection) parts.push(`• Дата осмотра: ${c.dateInspection}`);
+      if (c.uriListing) parts.push(`• Объявление: ${c.uriListing}`);
+      if (c.visuallyMileageNotMatchCondition) parts.push("• Пробег не соответствует состоянию");
+      parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
+      return parts.join("\n");
+    }
+    case "characteristics": {
+      const c = draft.characteristicsStep;
+      const has =
+        c.brandName ||
+        c.modelCarName ||
+        c.year ||
+        c.engineVolume ||
+        c.engineType ||
+        c.transmission ||
+        c.driveType ||
+        c.color ||
+        c.equipment;
+      if (!has) return "";
+      const parts: string[] = ["Уже зафиксированы характеристики:"];
+      if (c.brandName || c.modelCarName)
+        parts.push(`• Модель: ${[c.brandName, c.modelCarName].filter(Boolean).join(" ")}`);
+      if (c.year) parts.push(`• Год: ${c.year}`);
+      if (c.engineVolume) parts.push(`• Объём: ${c.engineVolume} л`);
+      if (c.engineType) parts.push(`• Тип двигателя: ${c.engineType}`);
+      if (c.transmission) parts.push(`• КПП: ${c.transmission}`);
+      if (c.driveType) parts.push(`• Привод: ${c.driveType}`);
+      if (c.color) parts.push(`• Цвет: ${c.color}`);
+      if (c.equipment) parts.push(`• Комплектация: ${c.equipment}`);
+      parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
+      return parts.join("\n");
+    }
+    case "docs":
+      return draft.documentReconciliationStep &&
+        (draft.documentReconciliationStep.ownersCount !== undefined ||
+          draft.documentReconciliationStep.ownerFullNameMatchWithPTSOrSTS !== undefined ||
+          draft.documentReconciliationStep.vinOnBodyMatchWithPTSOrSTS !== undefined ||
+          draft.documentReconciliationStep.engineModelMatchWithPTSOrSTS !== undefined ||
+          draft.documentReconciliationStep.note)
+        ? summarizeDocs(draft.documentReconciliationStep)
+        : "";
+    case "inspection": {
+      const ins = draft.inspectionStep;
+      const zone = ins.currentZone ?? "body";
+      const zoneLabel = zoneById(zone)?.label ?? zone;
+      const findings = Object.values(ins.findings ?? {});
+      const zoneFindings = findings.filter((f) => f.section === (ZONE_TO_SECTION[zone] ?? "body"));
+      if (!zoneFindings.length && !ins.sectionNotes[zone]) return "";
+      const section = getSection(ZONE_TO_SECTION[zone] ?? "body");
+      const lines: string[] = [`Уже зафиксировано по зоне «${zoneLabel}»:`];
+      for (const f of zoneFindings) {
+        const el = section.elements.find((x) => x.id === f.elementId);
+        if (!el) continue;
+        const mark = f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
+        const tagCount =
+          (f.seriousDamageTagIds?.length ?? 0) +
+          (f.noSeriousDamageTagIds?.length ?? 0) +
+          (f.pendingTagNames?.length ?? 0);
+        const tagPart = tagCount ? ` — тегов: ${tagCount}` : "";
+        const notePart = f.note ? ` · ${f.note}` : "";
+        lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
+      }
+      if (!zoneFindings.length && ins.sectionNotes[zone]) {
+        lines.push(ins.sectionNotes[zone]);
+      }
+      lines.push("\nПродолжайте, выберите другую зону или нажмите «Всё верно, далее».");
+      return lines.join("\n");
+    }
+    case "testDrive": {
+      const td = draft.testDriveStep ?? {};
+      const has =
+        td.testDriveIsIncluded !== undefined ||
+        td.notDone ||
+        td.notes ||
+        td.testDriveNote ||
+        td.testDriveEngineIsWorkingProperly !== undefined ||
+        td.testDriveTransmissionIsWorkingProperly !== undefined ||
+        td.testDriveSteeringWheelIsWorkingProperly !== undefined ||
+        td.testDriveSuspensionInDriveIsWorkingProperly !== undefined ||
+        td.testDriveBrakesInDriveIsWorkingProperly !== undefined;
+      if (!has) return "";
+      return summarizeTestDrive(td);
+    }
+    case "result": {
+      const r = draft.resultStep ?? {};
+      if (!r.summaryInspectionNote && !r.resultSpecialistNote) return "";
+      const parts: string[] = ["Уже зафиксировано по итогу:"];
+      if (r.summaryInspectionNote) parts.push(`📝 Резюме:\n${r.summaryInspectionNote}`);
+      if (r.resultSpecialistNote) parts.push(`✅ Вердикт:\n${r.resultSpecialistNote}`);
+      parts.push("\nДополните или нажмите «Всё верно, далее».");
+      return parts.join("\n");
+    }
+    default:
+      return "";
+  }
+}
+
 /** Decode VIN via Storage API and merge known fields into characteristicsStep. */
 export async function applyVinDecode(thread: Thread): Promise<Partial<Thread["draft"]> | null> {
   const vin = thread.draft.carStep.vin;
