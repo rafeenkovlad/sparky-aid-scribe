@@ -37,8 +37,8 @@ import {
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, askQuestion } from "@/lib/carreports/orchestrator";
-import { filledCount } from "@/lib/carreports/progress";
+import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
+import { filledCount, isStepFilled } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -703,17 +703,31 @@ export function ChatApp({ threadId }: Props) {
         >
           <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
         </button>
-        <button
-          onClick={() => {
-            setAskMode(false);
-            textareaRef.current?.focus();
-          }}
-          aria-label="Нужно изменить"
-          title="Нужно изменить"
-          className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center justify-center"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
+        {isStepFilled(currentStep, thread.draft) && (
+          <button
+            onClick={() => {
+              setAskMode(false);
+              const recap = summarizeStepDraft(currentStep, thread.draft);
+              if (recap) {
+                updateThread(thread.id, (t) => {
+                  t.messages.push({
+                    id: msgId(),
+                    role: "assistant",
+                    text: recap,
+                    step: currentStep,
+                    createdAt: Date.now(),
+                  });
+                });
+              }
+              textareaRef.current?.focus();
+            }}
+            aria-label="Нужно изменить"
+            title="Нужно изменить"
+            className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center justify-center"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={() => {
             setAskMode((v) => !v);
