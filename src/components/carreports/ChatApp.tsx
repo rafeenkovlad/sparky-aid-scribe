@@ -323,7 +323,7 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         t.draft.resultStep.summaryInspectionNote = r.summary;
         if (r.verdict) t.draft.resultStep.resultSpecialistNote = r.verdict;
-        t.messages.push({
+        pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
           text:
