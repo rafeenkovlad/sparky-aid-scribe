@@ -421,16 +421,18 @@ export async function extractForStep(
           if (resolved.generationLabel) charPatch.generationLabel = resolved.generationLabel;
         }
         if (resolved.brandName && resolved.brandImage)
-          attachments.push({ url: resolved.brandImage, label: resolved.brandName });
+          attachments.push({ url: resolved.brandImage, label: resolved.brandName, kind: "brand" });
         if (resolved.modelImage)
           attachments.push({
             url: resolved.modelImage,
             label: [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" "),
+            kind: "model",
           });
         if (resolved.generationImage)
           attachments.push({
             url: resolved.generationImage,
             label: resolved.generationLabel ?? "Поколение",
+            kind: "generation",
           });
 
         const last = resolved.trace[resolved.trace.length - 1];
@@ -504,16 +506,18 @@ export async function extractForStep(
             if (resolved.generationLabel) merged.generationLabel = resolved.generationLabel;
           }
           if (resolved.brandName && resolved.brandImage)
-            attachments.push({ url: resolved.brandImage, label: resolved.brandName });
+            attachments.push({ url: resolved.brandImage, label: resolved.brandName, kind: "brand" });
           if (resolved.modelImage)
             attachments.push({
               url: resolved.modelImage,
               label: [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" "),
+              kind: "model",
             });
           if (resolved.generationImage)
             attachments.push({
               url: resolved.generationImage,
               label: resolved.generationLabel ?? "Поколение",
+              kind: "generation",
             });
           const last = resolved.trace[resolved.trace.length - 1];
           const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
