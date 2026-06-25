@@ -443,6 +443,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const fresh = getThread(thread.id);
       if (!fresh) return;
+      const prevVin = fresh.draft.carStep.vin;
       const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
@@ -465,6 +466,14 @@ export function ChatApp({ threadId }: Props) {
               : "Новый отчёт";
         }
       });
+      // After car extract: if VIN newly known, decode it and fill characteristics
+      if (currentStep === "car") {
+        const after = getThread(thread.id);
+        const newVin = after?.draft.carStep.vin;
+        if (newVin && newVin !== prevVin && newVin.length >= 11) {
+          void doVinDecode();
+        }
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Ошибка ИИ";
       updateThread(thread.id, (t) => {
