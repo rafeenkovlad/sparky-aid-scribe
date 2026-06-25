@@ -112,6 +112,7 @@ export interface GenerationFrameCandidate {
   restylingName?: string;
   yearStart?: number | null;
   yearEnd?: number | null;
+  urlImage?: string;
 }
 
 export const CLICHE_PICK_GENERATION = (
