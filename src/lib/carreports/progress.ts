@@ -34,6 +34,58 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   }
 }
 
+/** Return a human-readable prompt for the next missing required field, or null
+ *  if the step is already complete. Used to guide the user step-by-step. */
+export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
+  if (!d) return null;
+  switch (id) {
+    case "car": {
+      const c = d.carStep ?? {};
+      const ch = d.characteristicsStep ?? {};
+      if (!c.vin && !c.unreadableVin) return "Продиктуйте VIN автомобиля (17 символов) или скажите, что VIN нечитаемый.";
+      if (!c.mileage) return "Какой пробег по одометру? (км)";
+      if (!c.cityInspection) return "В каком городе проводится осмотр?";
+      if (!c.dateInspection) return "Выберите дату осмотра (по умолчанию — сегодня).";
+      if (!ch.brandName || !ch.modelCarName) return "Назовите марку и модель автомобиля.";
+      if (!ch.year) return "Какой год выпуска?";
+      if (!ch.engineType) return "Тип двигателя: Бензин / Дизель / Гибрид / Электро / Газ/Бензин?";
+      if (!ch.transmission) return "Тип КПП: АКПП / МКПП / Робот / Вариатор?";
+      if (!ch.driveType) return "Привод: Передний / Задний / Полный?";
+      if (!ch.color) return "Какого цвета автомобиль?";
+      return null;
+    }
+    case "docs": {
+      const c = d.documentReconciliationStep ?? {};
+      if (typeof c.ownersCount !== "number") return "Сколько владельцев по ПТС?";
+      if (c.ownerFullNameMatchWithPTSOrSTS === undefined)
+        return "Собственник в ПТС/СТС совпадает с продавцом?";
+      if (c.vinOnBodyMatchWithPTSOrSTS === undefined)
+        return "VIN на кузове совпадает с документами?";
+      if (c.engineModelMatchWithPTSOrSTS === undefined)
+        return "Номер двигателя совпадает с ПТС?";
+      return null;
+    }
+    case "inspection":
+      return d.inspectionStep?.touched
+        ? null
+        : "Выберите зону осмотра и опишите её состояние (или нажмите «Без замечаний»).";
+    case "testDrive": {
+      const c = d.testDriveStep ?? {};
+      if (!c.notDone && !c.notes && c.testDriveIsIncluded === undefined)
+        return "Проводился ли тест-драйв? Если да — опишите поведение авто в движении.";
+      return null;
+    }
+    case "result": {
+      const c = d.resultStep ?? {};
+      if (!c.summaryInspectionNote) return "Сформулируйте краткое резюме по состоянию авто.";
+      if (!c.resultSpecialistNote) return "Добавьте вердикт: рекомендуете ли к покупке?";
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
 export function filledCount(d: ReportDraft): number {
   return FLOW_STEPS.slice(0, FLOW_STEPS.length - 1).filter((s) => isStepFilled(s.id, d)).length;
 }
