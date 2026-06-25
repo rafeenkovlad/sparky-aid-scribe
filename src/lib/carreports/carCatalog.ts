@@ -677,28 +677,54 @@ export async function resolveCar(
     const genOrd = parseOrdinal(hintAndText, /поколени[еяюй]/);
     const restOrd = parseOrdinal(hintAndText, /рестайлинг[а-я]*/);
 
-    // Группируем frames по generationName (порядок из API сохраняется).
-    const genGroups: { name: string; items: GenerationFrameCandidate[] }[] = [];
+    // Группируем frames по фактическому номеру поколения из API (`generation`).
+    // Если номера нет — используем имя как ключ; порядок сохраняется (sortedFrames
+    // уже отсортированы по возрастанию номера).
+    const genGroups: {
+      key: string;
+      number?: number;
+      name: string;
+      items: GenerationFrameCandidate[];
+    }[] = [];
     for (const f of frames) {
-      const key = f.generationName ?? "";
-      const g = genGroups.find((x) => x.name === key);
+      const key =
+        f.generationNumber != null ? `#${f.generationNumber}` : (f.generationName ?? "");
+      const g = genGroups.find((x) => x.key === key);
       if (g) g.items.push(f);
-      else genGroups.push({ name: key, items: [f] });
+      else
+        genGroups.push({
+          key,
+          number: f.generationNumber,
+          name: f.generationName ?? key,
+          items: [f],
+        });
     }
 
     let notFound = false;
     if (genOrd != null) {
-      const group = genGroups[genOrd - 1];
+      // Сначала пробуем найти по реальному номеру поколения из API.
+      let group = genGroups.find((g) => g.number === genOrd);
+      // Фолбэк: N-е по порядку (если API не вернул номер).
+      if (!group) group = genGroups[genOrd - 1];
       if (!group) {
         notFound = true;
       } else {
-        const idx = restOrd != null ? restOrd - 1 : 0;
-        if (restOrd != null && !group.items[idx]) {
-          notFound = true;
+        let picked: GenerationFrameCandidate | undefined;
+        if (restOrd != null) {
+          picked = group.items.find((f) => f.restylingNumber === restOrd);
+          if (!picked) picked = group.items[restOrd];
+          if (!picked) {
+            notFound = true;
+          }
         } else {
-          frame = group.items[idx] ?? group.items[0];
+          // По умолчанию — базовый (restyling = 0), иначе первый.
+          picked =
+            group.items.find((f) => f.restylingNumber === 0) ?? group.items[0];
+        }
+        if (picked) {
+          frame = picked;
           frameConf = 0.95;
-          frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (первый рестайлинг)"}`;
+          frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (базовый)"}`;
         }
       }
     }
