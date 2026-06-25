@@ -436,7 +436,7 @@ export async function resolveCar(
     }
     if (!model || modelConf < LOW_CONF || modelPick?.needsWeb === true) {
       const ctx = await webSearchContext(
-        `${brand.name} ${modelHintOrName} модель автомобиля характеристики поколения`,
+        `site:drom.ru ${brand.name} ${modelHintOrName} модель характеристики поколения`,
         5,
       );
       if (ctx) {
