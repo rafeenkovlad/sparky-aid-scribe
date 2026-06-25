@@ -170,12 +170,14 @@ function bestMatch<T extends { name?: string }>(rows: T[], target: string): T | 
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
   for (const g of generations) {
-    const genName = g.name ?? `Поколение #${g.id}`;
     const genStart = asYear(g.yearStart) ?? asYear(g.startYear);
     const genEnd = asYear(g.yearEnd) ?? asYear(g.endYear);
+    const genName =
+      (g.name && g.name.trim()) ||
+      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : `Поколение #${g.id}`);
+    const genImg = pickImageUrl(g as unknown as Record<string, unknown>);
     const restylings = g.modelGenerationRestylings ?? g.restylings ?? [];
     if (restylings.length === 0) {
-      // generation may directly carry frames
       const frames =
         g.modelGenerationRestylingFrames ?? g.restylingFrames ?? g.frames ?? [];
       for (const f of frames) {
@@ -185,6 +187,7 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
           restylingName: f.name,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? genStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? genEnd,
+          urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? genImg,
         });
       }
       continue;
@@ -192,16 +195,17 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
     for (const r of restylings) {
       const rStart = asYear(r.yearStart) ?? asYear(r.startYear) ?? genStart;
       const rEnd = asYear(r.yearEnd) ?? asYear(r.endYear) ?? genEnd;
+      const rImg = pickImageUrl(r as unknown as Record<string, unknown>) ?? genImg;
       const frames =
         r.modelGenerationRestylingFrames ?? r.restylingFrames ?? r.frames ?? [];
       if (frames.length === 0) {
-        // some servers expose restyling as the leaf — synthesise a frame entry
         out.push({
           frameId: r.id,
           generationName: genName,
           restylingName: r.name ?? "Базовый",
           yearStart: rStart,
           yearEnd: rEnd,
+          urlImage: rImg,
         });
         continue;
       }
@@ -212,6 +216,7 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
           restylingName: f.name ?? r.name,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? rStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? rEnd,
+          urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? rImg,
         });
       }
     }
@@ -225,6 +230,10 @@ export interface ResolvedCar {
   brandName?: string;
   modelCarName?: string;
   generationLabel?: string;
+  /** image URLs from the catalogue, when available */
+  brandImage?: string;
+  modelImage?: string;
+  generationImage?: string;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
