@@ -5,10 +5,13 @@ import {
   Camera,
   CheckCheck,
   HelpCircle,
+  Loader2,
   Menu,
+  Mic,
   Pencil,
   Plus,
   Settings2,
+  Square,
   Trash2,
   PanelRightOpen,
 } from "lucide-react";
