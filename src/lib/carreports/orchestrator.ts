@@ -33,6 +33,26 @@ export async function extractForStep(
   text: string,
   thread: Thread,
 ): Promise<{ patch: Partial<Thread["draft"]>; reply: string }> {
+  // Inspection step: no AI call — append free text to the current zone note.
+  if (step === "inspection") {
+    const ins = thread.draft.inspectionStep;
+    const zone = ins.currentZone ?? "body";
+    const prev = ins.sectionNotes[zone] ?? "";
+    const merged = prev ? `${prev}\n${text}` : text;
+    const nextNotes = { ...ins.sectionNotes, [zone]: merged };
+    return {
+      patch: {
+        inspectionStep: {
+          ...ins,
+          sectionNotes: nextNotes,
+          touched: true,
+          currentZone: zone,
+        },
+      },
+      reply: `Записал по зоне «${zone}». Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».`,
+    };
+  }
+
   const cliche =
     step === "car"
       ? CLICHE_CAR
