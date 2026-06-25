@@ -173,11 +173,32 @@ import {
   type SectionSnake,
 } from "./inspectionSections";
 
+/** camelCase → snake_case (frontBumper → front_bumper, generalCondition → general_condition). */
+function camelToSnake(s: string): string {
+  return s.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+}
+
+/** Section.doc → sectionType used by element DTOs (e.g. bodySection → body). */
+const SECTION_DOC_TO_TYPE: Record<string, string> = {
+  bodySection: "body",
+  bodyReinforcementElementsSection: "body_reinforcement",
+  glassSection: "glass",
+  interiorSection: "interior",
+  underHoodSpaceSection: "under_hood",
+  wheelsAndBrakesSection: "wheels_and_brakes",
+  lightningSection: "lightning",
+  computerDiagnosticsSection: "computer_diagnostics",
+};
+
 /**
  * Build the inspectionStep payload from structured findings (preferred) plus
  * a legacy fallback: any zone note that did not yield findings is dropped as
  * a single element into the section's generalCondition collection so nothing
- * is lost.
+ * is lost. Each element conforms to BodyElement*DTO (sectionType, elementType,
+ * paintworkThicknessFrom/To, noDamage, seriousDamageTags, noSeriousDamageTags,
+ * note, audioNotes, file). HasDamageTagsValidation: note/tags/audioNotes/
+ * noDamage=false are allowed only when a file is attached, so on file-less
+ * elements we send safe defaults and skip note/tags.
  */
 function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
   const out: Record<string, Record<string, unknown[]>> = {};
@@ -185,6 +206,34 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
 
   const findings = draft.inspectionStep.findings ?? {};
   const zonesCovered = new Set<string>();
+
+  const makeElement = (
+    sectionType: string,
+    elementId: string,
+    opts: {
+      hasFile?: boolean;
+      noDamage?: boolean;
+      seriousDamageTags?: number[];
+      noSeriousDamageTags?: number[];
+      note?: string;
+      audioNotes?: string[];
+    },
+  ) => {
+    const hasFile = opts.hasFile === true;
+    const base = {
+      file: null,
+      paintworkThicknessFrom: 80,
+      paintworkThicknessTo: 200,
+      noDamage: hasFile ? (opts.noDamage ?? true) : true,
+      seriousDamageTags: hasFile ? (opts.seriousDamageTags ?? []) : [],
+      noSeriousDamageTags: hasFile ? (opts.noSeriousDamageTags ?? []) : [],
+      note: hasFile && opts.note ? opts.note : null,
+      audioNotes: hasFile ? (opts.audioNotes ?? []) : [],
+      sectionType,
+      elementType: camelToSnake(elementId),
+    };
+    return base;
+  };
 
   // 1) Structured findings → exact element collection.
   for (const f of Object.values(findings)) {
@@ -194,17 +243,17 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     if (!el) continue;
     const sec = out[section.doc];
     const arr = (sec[el.collection] as unknown[] | undefined) ?? [];
-    arr.push({
-      noDamage: f.noDamage ?? true,
-      ...(f.seriousDamageTagIds?.length
-        ? { seriousDamageTags: f.seriousDamageTagIds }
-        : {}),
-      ...(f.noSeriousDamageTagIds?.length
-        ? { noSeriousDamageTags: f.noSeriousDamageTagIds }
-        : {}),
-      ...(f.note ? { note: f.note } : {}),
-      audioNotes: f.audioNotes ?? [],
-    });
+    const sectionType = SECTION_DOC_TO_TYPE[section.doc] ?? section.snake;
+    arr.push(
+      makeElement(sectionType, el.id, {
+        hasFile: false, // photos not yet attached as FileDTO here
+        noDamage: f.noDamage,
+        seriousDamageTags: f.seriousDamageTagIds,
+        noSeriousDamageTags: f.noSeriousDamageTagIds,
+        note: f.note,
+        audioNotes: f.audioNotes,
+      }),
+    );
     sec[el.collection] = arr;
     zonesCovered.add(f.section);
   }
@@ -221,12 +270,15 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     if (!general) continue;
     const sec = out[section.doc];
     const arr = (sec[general.collection] as unknown[] | undefined) ?? [];
-    arr.push({ noDamage: true, note: text, audioNotes: [] });
+    const sectionType = SECTION_DOC_TO_TYPE[section.doc] ?? section.snake;
+    // Без файла нельзя слать note — добавим элемент-заглушку "осмотрен".
+    arr.push(makeElement(sectionType, general.id, { hasFile: false }));
     sec[general.collection] = arr;
   }
 
   return out;
 }
+
 
 /**
  * Build the request payload for Storage.PrepareSpecialistReport from our local
