@@ -26,11 +26,123 @@ export const CLICHE_CHARACTERISTICS = `${COMMON}
 
 Извлеки характеристики автомобиля. Поля:
 - brandName, modelCarName, year (целое 4 цифры).
+- generationHint: подсказка о поколении/модификации, как её назвал эксперт
+  (например "2 поколение", "II", "FL", "рестайлинг", "MQB", "B8.5"). Любая строка.
 - engineVolume (литры, число), enginePower (л.с., целое).
 - engineType: одно из ["Бензин","Дизель","Гибрид","Электро","Газ/Бензин"].
 - transmission: одно из ["АКПП","МКПП","Робот","Вариатор"].
 - driveType: одно из ["Передний","Задний","Полный"].
 - color, equipment (название комплектации).
+
+Текст эксперта:
+{text}`;
+
+/**
+ * Подбор справочника карreports: бренд → модель → поколение/рестайлинг.
+ * Сервер отдаёт реальные списки методами Storage.GetBrand / Storage.GetModelCar /
+ * Storage.GetModelGeneration, а ИИ выбирает ОДИН вариант из списка.
+ */
+export const CLICHE_PICK_BRAND = (
+  userText: string,
+  hint: string | undefined,
+  brands: Array<{ id: number; name: string; country?: string | null }>,
+) => `${COMMON}
+
+Тебе дан список брендов автомобилей из каталога carreports
+(метод Storage.GetBrand). Выбери ОДИН id, который лучше всего подходит
+к подсказке эксперта. Не придумывай свой id, только из списка.
+
+Подсказка эксперта по бренду: ${JSON.stringify(hint ?? "")}
+Исходный текст эксперта: ${JSON.stringify(userText)}
+
+Кандидаты (id — name [country]):
+${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${b.country}]` : ""}`).join("\n") || "  (пусто)"}
+
+Верни ТОЛЬКО JSON:
+{
+  "brandId": <число из списка или null>,
+  "confidence": <0..1>,
+  "needsWeb": <true если уверенность низкая и стоит уточнить веб-поиском>,
+  "reason": "короткое пояснение"
+}
+
+Текст эксперта:
+{text}`;
+
+export const CLICHE_PICK_MODEL = (
+  userText: string,
+  brandName: string,
+  modelHint: string | undefined,
+  models: Array<{ id: number; name: string }>,
+) => `${COMMON}
+
+Тебе дан список моделей бренда «${brandName}» из каталога carreports
+(метод Storage.GetModelCar по brandId). Выбери ОДИН id, который лучше
+всего соответствует подсказке эксперта. Только из списка.
+
+Подсказка эксперта по модели: ${JSON.stringify(modelHint ?? "")}
+Исходный текст эксперта: ${JSON.stringify(userText)}
+
+Кандидаты (id — name):
+${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "  (пусто)"}
+
+Верни ТОЛЬКО JSON:
+{
+  "modelCarId": <число из списка или null>,
+  "confidence": <0..1>,
+  "needsWeb": <true если стоит уточнить веб-поиском>,
+  "reason": "короткое пояснение"
+}
+
+Текст эксперта:
+{text}`;
+
+export interface GenerationFrameCandidate {
+  frameId: number;
+  generationName?: string;
+  restylingName?: string;
+  yearStart?: number | null;
+  yearEnd?: number | null;
+}
+
+export const CLICHE_PICK_GENERATION = (
+  userText: string,
+  brandName: string,
+  modelName: string,
+  year: number | undefined,
+  generationHint: string | undefined,
+  frames: GenerationFrameCandidate[],
+) => `${COMMON}
+
+Тебе дан плоский список рестайлинг-фреймов модели «${brandName} ${modelName}»
+из каталога carreports (метод Storage.GetModelGeneration по modelCarId,
+раскрытый по рестайлингам и фреймам). Выбери ОДИН frameId, который лучше
+всего подходит по году и подсказке эксперта. Только из списка.
+
+Год выпуска авто: ${year ?? "не указан"}
+Подсказка по поколению/рестайлингу: ${JSON.stringify(generationHint ?? "")}
+Исходный текст эксперта: ${JSON.stringify(userText)}
+
+Кандидаты (frameId — поколение / рестайлинг / годы):
+${
+  frames
+    .slice(0, 60)
+    .map(
+      (f) =>
+        `  • ${f.frameId} — ${f.generationName ?? "?"}${
+          f.restylingName ? ` / ${f.restylingName}` : ""
+        } [${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}]`,
+    )
+    .join("\n") || "  (пусто)"
+}
+
+Верни ТОЛЬКО JSON:
+{
+  "frameId": <число из списка или null>,
+  "confidence": <0..1>,
+  "needsWeb": <true если стоит уточнить веб-поиском>,
+  "reason": "короткое пояснение"
+}
 
 Текст эксперта:
 {text}`;

@@ -272,7 +272,7 @@ export async function submitReport(draft: ReportDraft): Promise<{
   try {
     // Resolve modelCarId + modelGenerationRestylingFrameId on the fly if
     // missing — Doc requires one of them on characteristicsStep.
-    let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null };
+    let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null, trace: [] };
     if (!draft.characteristicsStep.modelCarId) {
       resolved = await resolveCar(
         draft.characteristicsStep.brandName,

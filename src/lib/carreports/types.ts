@@ -30,6 +30,10 @@ export interface CharacteristicsStep {
   brandName?: string;
   modelCarName?: string;
   modelCarId?: number | null;
+  /** server-side restyling frame id, used by Doc as alt to modelCarId */
+  modelGenerationRestylingFrameId?: number | null;
+  /** human label like "Tiguan II / FL (2020–2024)" — for UI/recap only */
+  generationLabel?: string;
   year?: number;
   engineVolume?: number;
   enginePower?: number;
