@@ -49,6 +49,19 @@ export async function extractForStep(
   step: StepId,
   text: string,
   thread: Thread,
+): Promise<{ patch: Partial<Thread["draft"]>; reply: string; attachments?: MessageAttachment[] }> {
+  void 0;
+  return extractForStepImpl(step, text, thread);
+}
+
+async function extractForStepImpl(
+  step: StepId,
+  text: string,
+  thread: Thread,
+): Promise<{ patch: Partial<Thread["draft"]>; reply: string; attachments?: MessageAttachment[] }>
+  step: StepId,
+  text: string,
+  thread: Thread,
 ): Promise<{ patch: Partial<Thread["draft"]>; reply: string }> {
   // Inspection step: AI splits the dictated note into per-element findings,
   // resolves tag names against the server section catalogue, stores both the
