@@ -544,7 +544,7 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         td.testDriveSuspensionInDriveIsWorkingProperly !== undefined ||
         td.testDriveBrakesInDriveIsWorkingProperly !== undefined;
       if (!has) return "";
-      return summarizeTestDrive(td);
+      return summarizeTestDrive(td as Record<string, unknown> & Partial<TestDriveStep>);
     }
     case "result": {
       const r = draft.resultStep ?? {};
