@@ -574,6 +574,30 @@ export function ChatApp({ threadId }: Props) {
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          {currentStep === "inspection" && (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onPickPhoto(f);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
+                aria-label="Прикрепить фото"
+                title="Прикрепить фото"
+              >
+                <Camera className="h-5 w-5" />
+              </button>
+            </>
+          )}
           <Textarea
             ref={textareaRef}
             value={composer}
@@ -584,7 +608,11 @@ export function ChatApp({ threadId }: Props) {
                 void submit();
               }
             }}
-            placeholder="Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+            placeholder={
+              currentStep === "inspection"
+                ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+            }
             className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
           />
           <button
@@ -597,6 +625,7 @@ export function ChatApp({ threadId }: Props) {
           </button>
         </div>
       </div>
+
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
     </div>
