@@ -591,16 +591,18 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {thread.messages.map((m) => (
-          <MessageBubble
-            key={m.id}
-            msg={m}
-            interactive={m.id === lastOptionsMsgId}
-            onChipTap={(chip) => insertChip(m.id, chip)}
-            inspectionDateValue={thread.draft.carStep.dateInspection}
-            onInspectionDateChange={setInspectionDate}
-          />
-        ))}
+        {thread.messages
+          .filter((m) => !m.step || m.step === currentStep)
+          .map((m) => (
+            <MessageBubble
+              key={m.id}
+              msg={m}
+              interactive={m.id === lastOptionsMsgId}
+              onChipTap={(chip) => insertChip(m.id, chip)}
+              inspectionDateValue={thread.draft.carStep.dateInspection}
+              onInspectionDateChange={setInspectionDate}
+            />
+          ))}
         {busy && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
