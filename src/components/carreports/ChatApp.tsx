@@ -21,6 +21,7 @@ import logo from "@/assets/cr-logo.png";
 import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
 import { InspectionDateField } from "./InspectionDateField";
+import { LexChips } from "./LexChips";
 
 import { useThreads, useToken } from "@/hooks/useThreads";
 import {
