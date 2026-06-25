@@ -236,6 +236,38 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
+  const doSubmit = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    try {
+      const r = await submitReport(thread.draft);
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: r.remote
+            ? `✅ Отчёт отправлен (id: ${r.reportId ?? "—"}, метод: ${r.method ?? "?"}).`
+            : `⚠️ ${r.note ?? "Отправка не удалась."}`,
+          createdAt: Date.now(),
+        });
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Ошибка отправки";
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: `⚠️ ${m}`,
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+
+
 
   const advanceStep = useCallback(() => {
     if (!thread) return;
