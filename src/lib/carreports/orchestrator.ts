@@ -54,6 +54,47 @@ export async function extractForStep(
     };
   }
 
+  // Test-drive: append to notes, detect "не проводился".
+  if (step === "testDrive") {
+    const prev = thread.draft.testDriveStep ?? {};
+    const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
+    const notes = prev.notes ? `${prev.notes}\n${text}` : text;
+    const merged = { ...prev, notDone, notes };
+    return {
+      patch: { testDriveStep: merged },
+      reply: notDone
+        ? "Отметил: тест-драйв не проводился. Можно идти к итогу."
+        : "Записал заметки по тест-драйву. Дополните, либо «Всё верно, далее».",
+    };
+  }
+
+  // Result: text alternates between summary and recommendation.
+  if (step === "result") {
+    const prev = thread.draft.resultStep ?? {};
+    // Heuristic: if contains "рекоменд" — это рекомендация. Иначе — резюме.
+    const isRec = /рекоменд/i.test(text);
+    const merged = isRec
+      ? {
+          ...prev,
+          resultSpecialistNote: prev.resultSpecialistNote
+            ? `${prev.resultSpecialistNote}\n${text}`
+            : text,
+        }
+      : {
+          ...prev,
+          summaryInspectionNote: prev.summaryInspectionNote
+            ? `${prev.summaryInspectionNote}\n${text}`
+            : text,
+        };
+    return {
+      patch: { resultStep: merged },
+      reply: isRec
+        ? "Зафиксировал рекомендацию. Готовы — переходим к отправке."
+        : "Зафиксировал резюме по состоянию. Дополните рекомендацией или нажмите «Всё верно, далее».",
+    };
+  }
+
+
   const cliche =
     step === "car"
       ? CLICHE_CAR
