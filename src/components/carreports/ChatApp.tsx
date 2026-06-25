@@ -378,7 +378,7 @@ export function ChatApp({ threadId }: Props) {
     if (patch) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        t.messages.push({
+        pushMsg(t, "characteristics", {
           id: msgId(),
           role: "assistant",
           text: "Подтянул характеристики по VIN. Поправьте, если есть расхождения.",
