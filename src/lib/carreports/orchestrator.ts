@@ -36,6 +36,7 @@ import type {
   TestDriveStep,
   Thread,
 } from "./types";
+import { optionalHintSentence } from "./progress";
 
 function todayIso(): string {
   const d = new Date();
@@ -674,7 +675,7 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         if (ch.color) parts.push(`• Цвет: ${ch.color}`);
         if (ch.equipment) parts.push(`• Комплектация: ${ch.equipment}`);
       }
-      parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
+      parts.push("\n" + optionalHintSentence("car", draft));
       return parts.join("\n");
     }
     case "characteristics": {
@@ -701,7 +702,7 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
       if (c.driveType) parts.push(`• Привод: ${c.driveType}`);
       if (c.color) parts.push(`• Цвет: ${c.color}`);
       if (c.equipment) parts.push(`• Комплектация: ${c.equipment}`);
-      parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
+      parts.push("\n" + optionalHintSentence("characteristics", draft));
       return parts.join("\n");
     }
     case "docs":

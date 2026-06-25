@@ -86,6 +86,57 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
   }
 }
 
+/** Return list of optional fields that are NOT filled yet for this step.
+ *  Used to suggest the user what else can be added. */
+export function missingOptionalFields(id: StepId, d: ReportDraft): string[] {
+  if (!d) return [];
+  const out: string[] = [];
+  switch (id) {
+    case "car": {
+      const c = d.carStep ?? {};
+      const ch = d.characteristicsStep ?? {};
+      if (!c.gosNumber) out.push("госномер");
+      if (!c.uriListing) out.push("ссылку на объявление");
+      if (!c.visuallyMileageNotMatchCondition) out.push("отметку, если пробег не соответствует состоянию");
+      if (!ch.generationLabel) out.push("поколение");
+      if (!ch.engineVolume) out.push("объём двигателя");
+      if (!ch.equipment) out.push("комплектацию");
+      break;
+    }
+    case "characteristics": {
+      const c = d.characteristicsStep ?? {};
+      if (!c.generationLabel) out.push("поколение");
+      if (!c.engineVolume) out.push("объём двигателя");
+      if (!c.equipment) out.push("комплектацию");
+      break;
+    }
+    case "docs": {
+      const c = d.documentReconciliationStep ?? {};
+      if (!c.note) out.push("комментарий по документам");
+      break;
+    }
+    case "testDrive": {
+      const c = d.testDriveStep ?? {};
+      if (!c.notes && !c.notDone) out.push("заметки по тест-драйву");
+      break;
+    }
+    case "result": {
+      const c = d.resultStep ?? {};
+      if (!c.summaryInspectionNote) out.push("краткое резюме осмотра");
+      if (!c.resultSpecialistNote) out.push("вердикт специалиста");
+      break;
+    }
+  }
+  return out;
+}
+
+/** Human-readable sentence suggesting what optional fields can still be added. */
+export function optionalHintSentence(id: StepId, d: ReportDraft): string {
+  const fields = missingOptionalFields(id, d);
+  if (!fields.length) return "Можно нажать «Всё верно, далее».";
+  return `Можно ещё добавить: ${fields.join(", ")}. Либо нажмите «Всё верно, далее».`;
+}
+
 export function filledCount(d: ReportDraft): number {
   return FLOW_STEPS.slice(0, FLOW_STEPS.length - 1).filter((s) => isStepFilled(s.id, d)).length;
 }
