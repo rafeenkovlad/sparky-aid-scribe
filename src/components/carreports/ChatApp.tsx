@@ -53,6 +53,22 @@ function msgId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+function pushMsg(t: Thread, step: StepId, m: ChatMessage): void {
+  t.messages[step].push({ ...m, step: m.step ?? step });
+}
+
+function totalMessages(m: Thread["messages"]): number {
+  return (
+    m.car.length +
+    m.characteristics.length +
+    m.docs.length +
+    m.inspection.length +
+    m.testDrive.length +
+    m.result.length +
+    m.submit.length
+  );
+}
+
 function makeIntroMessage(step: StepId): ChatMessage {
   const intro = STEP_INTROS[step];
   return {
