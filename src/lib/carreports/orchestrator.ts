@@ -437,6 +437,7 @@ export async function extractForStep(
       // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId
       // через каталог сервера с помощью ИИ-резолвера. Никогда не бросает.
       let catalogNote = "";
+      const attachments: MessageAttachment[] = [];
       if (merged.brandName && merged.modelCarName) {
         const { resolveCar } = await import("./carCatalog");
         const prev = thread.draft.characteristicsStep;
@@ -457,15 +458,26 @@ export async function extractForStep(
             }
             if (resolved.generationLabel) merged.generationLabel = resolved.generationLabel;
           }
+          if (resolved.brandName && resolved.brandImage)
+            attachments.push({ url: resolved.brandImage, label: resolved.brandName });
+          if (resolved.modelImage)
+            attachments.push({
+              url: resolved.modelImage,
+              label: [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" "),
+            });
+          if (resolved.generationImage)
+            attachments.push({
+              url: resolved.generationImage,
+              label: resolved.generationLabel ?? "Поколение",
+            });
           const last = resolved.trace[resolved.trace.length - 1];
           const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
           const webHint = resolved.trace.some((t) => t.needsWeb);
-          const idBits: string[] = [];
-          if (merged.modelCarId) idBits.push(`modelCarId=${merged.modelCarId}`);
-          if (merged.modelGenerationRestylingFrameId)
-            idBits.push(`frameId=${merged.modelGenerationRestylingFrameId}`);
-          if (idBits.length) {
-            catalogNote = `\n🔎 Каталог: ${merged.generationLabel ?? `${merged.brandName} ${merged.modelCarName}`} · ${idBits.join(", ")}`;
+          if (resolved.modelCarId) {
+            const label =
+              [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ") +
+              (resolved.generationLabel ? ` · ${resolved.generationLabel}` : "");
+            catalogNote = `\n🔎 По каталогу: ${label}`;
             if (lowConf || webHint) {
               catalogNote += "\n⚠️ Уверенность подбора низкая — проверьте поколение/модификацию.";
             }
@@ -478,6 +490,7 @@ export async function extractForStep(
       return {
         patch: { characteristicsStep: merged },
         reply: summarizeChar(merged) + catalogNote,
+        ...(attachments.length ? { attachments } : {}),
       };
     }
     case "docs": {
