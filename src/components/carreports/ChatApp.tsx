@@ -960,32 +960,62 @@ function MessageBubble({
         <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
           {msg.text}
         </div>
-        {msg.attachments && msg.attachments.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
-            {msg.attachments.map((a) => (
-              <a
-                key={a.url}
-                href={a.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-lg overflow-hidden border border-white/10 bg-white/[0.03]"
-                title={a.label}
-              >
-                <img
-                  src={a.url}
-                  alt={a.label ?? ""}
-                  loading="lazy"
-                  className="block w-full h-20 object-contain bg-white/5"
-                />
-                {a.label && (
-                  <div className="text-[10px] text-white/60 px-1.5 py-1 truncate text-center">
-                    {a.label}
-                  </div>
-                )}
-              </a>
-            ))}
-          </div>
-        )}
+        {msg.attachments && msg.attachments.length > 0 && (() => {
+          const big = msg.attachments.find((a) => a.kind === "generation")
+            ?? msg.attachments.find((a) => a.kind === "model");
+          const small = msg.attachments.filter((a) => a !== big);
+          return (
+            <div className="flex flex-col gap-2">
+              {big && (
+                <a
+                  href={big.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-xl overflow-hidden border border-white/10 bg-white/[0.03]"
+                  title={big.label}
+                >
+                  <img
+                    src={big.url}
+                    alt={big.label ?? ""}
+                    loading="lazy"
+                    className="block w-full h-44 object-contain bg-white/5"
+                  />
+                  {big.label && (
+                    <div className="text-[11px] text-white/70 px-2 py-1 truncate text-center">
+                      {big.label}
+                    </div>
+                  )}
+                </a>
+              )}
+              {small.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {small.map((a) => (
+                    <a
+                      key={a.url}
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-lg overflow-hidden border border-white/10 bg-white/[0.03]"
+                      title={a.label}
+                    >
+                      <img
+                        src={a.url}
+                        alt={a.label ?? ""}
+                        loading="lazy"
+                        className="block w-full h-16 object-contain bg-white/5"
+                      />
+                      {a.label && (
+                        <div className="text-[10px] text-white/60 px-1.5 py-1 truncate text-center">
+                          {a.label}
+                        </div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {msg.chips && msg.chips.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {msg.chips.map((c) => {
