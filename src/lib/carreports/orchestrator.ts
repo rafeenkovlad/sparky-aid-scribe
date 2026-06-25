@@ -331,8 +331,77 @@ export async function extractForStep(
       const existing = thread.draft.carStep.dateInspection;
       if (!carStep.dateInspection && !existing) carStep.dateInspection = todayIso();
 
+      // Эксперт может прямо на шаге «Автомобиль» назвать марку/модель/поколение
+      // («волксваген тигуан 2 версия»). Если так — сразу пишем в characteristicsStep
+      // и подбираем по каталогу, чтобы не дублировать ввод на следующем шаге.
+      const charPatch: CharacteristicsStep = { ...thread.draft.characteristicsStep };
+      let charTouched = false;
+      if (typeof data.brandName === "string" && data.brandName.trim()) {
+        charPatch.brandName = data.brandName.trim();
+        charTouched = true;
+      }
+      if (typeof data.modelCarName === "string" && data.modelCarName.trim()) {
+        charPatch.modelCarName = data.modelCarName.trim();
+        charTouched = true;
+      }
+      if (typeof data.year === "number") {
+        charPatch.year = data.year;
+        charTouched = true;
+      } else if (typeof data.year === "string" && /^\d{4}$/.test(data.year)) {
+        charPatch.year = Number(data.year);
+        charTouched = true;
+      }
+      const generationHint =
+        typeof data.generationHint === "string" ? data.generationHint : undefined;
+
+      let catalogNote = "";
+      if (charTouched && charPatch.brandName && charPatch.modelCarName) {
+        const { resolveCar } = await import("./carCatalog");
+        const resolved = await resolveCar(
+          charPatch.brandName,
+          charPatch.modelCarName,
+          charPatch.year,
+          { thread, userText: text, generationHint },
+        );
+        if (resolved.modelCarId) {
+          charPatch.modelCarId = resolved.modelCarId;
+          if (resolved.modelGenerationRestylingFrameId) {
+            charPatch.modelGenerationRestylingFrameId =
+              resolved.modelGenerationRestylingFrameId;
+          }
+          if (resolved.generationLabel) charPatch.generationLabel = resolved.generationLabel;
+        }
+        const last = resolved.trace[resolved.trace.length - 1];
+        const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
+        const webHint = resolved.trace.some((t) => t.needsWeb);
+        const idBits: string[] = [];
+        if (charPatch.modelCarId) idBits.push(`modelCarId=${charPatch.modelCarId}`);
+        if (charPatch.modelGenerationRestylingFrameId)
+          idBits.push(`frameId=${charPatch.modelGenerationRestylingFrameId}`);
+        if (idBits.length) {
+          catalogNote = `\n🔎 Каталог: ${charPatch.generationLabel ?? `${charPatch.brandName} ${charPatch.modelCarName}`} · ${idBits.join(", ")}`;
+          if (lowConf || webHint)
+            catalogNote += "\n⚠️ Уверенность подбора низкая — уточните поколение.";
+        } else if (last) {
+          catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
+        }
+      }
+
       const reply = summarizeCar({ ...thread.draft.carStep, ...carStep });
-      return { patch: { carStep: { ...thread.draft.carStep, ...carStep } }, reply };
+      const charBits: string[] = [];
+      if (charPatch.brandName || charPatch.modelCarName)
+        charBits.push(`• ${[charPatch.brandName, charPatch.modelCarName].filter(Boolean).join(" ")}`);
+      if (charPatch.year) charBits.push(`• Год: ${charPatch.year}`);
+      if (charPatch.generationLabel) charBits.push(`• Поколение: ${charPatch.generationLabel}`);
+      const charReply = charBits.length ? `\n\nХарактеристики:\n${charBits.join("\n")}${catalogNote}` : "";
+
+      return {
+        patch: {
+          carStep: { ...thread.draft.carStep, ...carStep },
+          ...(charTouched ? { characteristicsStep: charPatch } : {}),
+        },
+        reply: reply + charReply,
+      };
     }
     case "characteristics": {
       const c: CharacteristicsStep = {};
