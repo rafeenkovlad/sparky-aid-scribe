@@ -23,6 +23,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import logo from "@/assets/cr-logo.png";
 import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
+import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
 import { LexChips } from "./LexChips";
 
