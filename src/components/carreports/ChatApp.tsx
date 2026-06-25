@@ -483,6 +483,66 @@ export function ChatApp({ threadId }: Props) {
         <div ref={messagesEndRef} />
       </main>
 
+      {/* Inspection panel: zone picker + per-zone chips + photo button */}
+      {currentStep === "inspection" && (
+        <div className="px-3 pt-2 shrink-0 border-t border-white/5">
+          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+            {INSPECTION_ZONES.map((z) => {
+              const sel = z.id === currentZoneId;
+              const hasNote = !!thread.draft.inspectionStep.sectionNotes[z.id];
+              const photoCount = thread.draft.inspectionStep.photos.filter(
+                (p) => p.section === z.id,
+              ).length;
+              return (
+                <button
+                  key={z.id}
+                  onClick={() => selectZone(z.id)}
+                  className={
+                    "shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium border whitespace-nowrap transition-colors " +
+                    (sel
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : hasNote || photoCount > 0
+                        ? "bg-white/10 border-white/15 text-white"
+                        : "bg-transparent border-white/10 text-white/70 hover:border-white/25")
+                  }
+                >
+                  <span className="mr-1">{z.emoji}</span>
+                  {z.label}
+                  {(hasNote || photoCount > 0) && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] opacity-80">
+                      {hasNote && <span>✓</span>}
+                      {photoCount > 0 && <span>📷{photoCount}</span>}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[11px] text-white/50 px-0.5 pb-1.5">{currentZone.intro}</div>
+          <div className="flex flex-wrap gap-1.5 pb-1">
+            {currentZone.chips.map((c) => {
+              const isSel = composer.includes(c.value);
+              return (
+                <button
+                  key={c.label}
+                  onClick={() => insertInspectionChip(c)}
+                  className={
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                    (isSel
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white")
+                  }
+                >
+                  {isSel ? "✓ " : ""}
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
       {/* Quick actions */}
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
         <button
