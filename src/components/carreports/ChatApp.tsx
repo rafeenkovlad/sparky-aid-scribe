@@ -108,6 +108,7 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
+  const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -188,19 +189,6 @@ export function ChatApp({ threadId }: Props) {
       }
       msg.selectedChipValues = nextSelected;
     });
-
-    // Add chip text to composer if newly selected; remove if deselected.
-    setComposer((cur) => {
-      const trimmed = cur.trim();
-      const already = trimmed.includes(chip.value);
-      if (already) {
-        return trimmed
-          .split(/\n+/)
-          .filter((line) => line.trim() !== chip.value)
-          .join("\n");
-      }
-      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
-    });
     textareaRef.current?.focus();
   }, [thread]);
 
@@ -225,21 +213,18 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         t.draft.inspectionStep.currentZone = zoneId;
       });
+      setSelectedInspectionChips(new Set());
       textareaRef.current?.focus();
     },
     [thread],
   );
 
   const insertInspectionChip = useCallback((chip: ChatChip) => {
-    setComposer((cur) => {
-      const trimmed = cur.trim();
-      if (trimmed.includes(chip.value)) {
-        return trimmed
-          .split(/\n+/)
-          .filter((line) => line.trim() !== chip.value)
-          .join("\n");
-      }
-      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
+    setSelectedInspectionChips((prev) => {
+      const next = new Set(prev);
+      if (next.has(chip.value)) next.delete(chip.value);
+      else next.add(chip.value);
+      return next;
     });
     textareaRef.current?.focus();
   }, []);
@@ -394,28 +379,49 @@ export function ChatApp({ threadId }: Props) {
 
   const submit = useCallback(async () => {
     if (!thread || busy) return;
-    const text = composer.trim();
-    if (!text) return;
+    const typed = composer.trim();
 
-    // Confirm-advance shortcut.
-    if (!askMode && isConfirmAdvance(text)) {
+    // Gather selected chip values from the last interactive options message
+    // (per-step chips) or the inspection chip selection state.
+    let selectedFromChips: string[] = [];
+    if (currentStep === "inspection") {
+      selectedFromChips = [...selectedInspectionChips];
+    } else if (lastOptionsMsgId) {
+      const msg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
+      selectedFromChips = msg?.selectedChipValues ?? [];
+    }
+
+    const combined = [typed, ...selectedFromChips].filter(Boolean).join("\n");
+    if (!combined) return;
+
+    // Confirm-advance shortcut (only when no chips, typed-only).
+    if (!askMode && !selectedFromChips.length && isConfirmAdvance(typed)) {
       setComposer("");
       advanceStep();
       return;
     }
 
     setBusy(true);
+    const displayText = askMode ? `❓ ${combined}` : combined;
     // 1) push user message
     updateThread(thread.id, (t) => {
       pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
-        text: askMode ? `❓ ${text}` : text,
+        text: displayText,
         step: currentStep,
         createdAt: Date.now(),
       });
+      // Clear chip selections on the last options message
+      if (lastOptionsMsgId) {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const m = t.messages[key].find((x) => x.id === lastOptionsMsgId);
+          if (m) { m.selectedChipValues = []; break; }
+        }
+      }
     });
     setComposer("");
+    if (currentStep === "inspection") setSelectedInspectionChips(new Set());
 
     // Q&A mode: free-form question, no draft mutation.
     if (askMode) {
@@ -423,7 +429,7 @@ export function ChatApp({ threadId }: Props) {
         const fresh = getThread(thread.id);
         if (!fresh) return;
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
-        const answer = await askQuestion(currentStep, text, fresh, stepLabel);
+        const answer = await askQuestion(currentStep, combined, fresh, stepLabel);
         updateThread(thread.id, (t) => {
           pushMsg(t, currentStep, {
             id: msgId(),
@@ -444,7 +450,7 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const prevVin = fresh.draft.carStep.vin;
-      const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
+      const { patch, reply, attachments } = await extractForStep(currentStep, combined, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
@@ -487,7 +493,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips]);
 
 
   function jumpTo(step: StepId) {
@@ -683,7 +689,7 @@ export function ChatApp({ threadId }: Props) {
           <div className="text-[11px] text-white/50 px-0.5 pb-1.5">{currentZone.intro}</div>
           <div className="flex flex-wrap gap-1.5 pb-1">
             {currentZone.chips.map((c) => {
-              const isSel = composer.includes(c.value);
+              const isSel = selectedInspectionChips.has(c.value);
               return (
                 <button
                   key={c.label}
@@ -703,7 +709,7 @@ export function ChatApp({ threadId }: Props) {
             <LexChips
               step="inspection"
               zone={currentZoneId}
-              selectedValues={new Set(composer.split(/\n+/).map((s) => s.trim()))}
+              selectedValues={selectedInspectionChips}
               onTap={insertInspectionChip}
             />
           </div>
@@ -864,7 +870,15 @@ export function ChatApp({ threadId }: Props) {
           </button>
           <button
             onClick={() => void submit()}
-            disabled={busy || !composer.trim()}
+            disabled={
+              busy ||
+              (!composer.trim() &&
+                (currentStep === "inspection"
+                  ? selectedInspectionChips.size === 0
+                  : !(lastOptionsMsgId &&
+                      (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                        ?.selectedChipValues?.length ?? 0) > 0)))
+            }
             className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
             aria-label="Отправить и перейти дальше"
           >
