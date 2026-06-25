@@ -812,7 +812,7 @@ export function ChatApp({ threadId }: Props) {
                 ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
                 : currentStep === "inspection"
                   ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
-                  : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+                  : STEP_PLACEHOLDERS[currentStep]
             }
             className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
               askMode ? "ring-1 ring-sky-400/60 rounded-md" : ""
