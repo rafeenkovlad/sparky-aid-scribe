@@ -270,27 +270,32 @@ export async function submitReport(draft: ReportDraft): Promise<{
   note?: string;
 }> {
   try {
-    // Resolve modelCarId on the fly if missing — Doc requires it (or
-    // modelGenerationRestylingFrameId) on characteristicsStep.
-    let resolvedId: number | null = null;
+    // Resolve modelCarId + modelGenerationRestylingFrameId on the fly if
+    // missing — Doc requires one of them on characteristicsStep.
+    let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null };
     if (!draft.characteristicsStep.modelCarId) {
-      resolvedId = await resolveModelCarId(
+      resolved = await resolveCar(
         draft.characteristicsStep.brandName,
         draft.characteristicsStep.modelCarName,
+        draft.characteristicsStep.year,
       );
     }
 
-    const payload = buildPrepareReportPayload(draft, resolvedId);
+    const payload = buildPrepareReportPayload(draft, resolved);
     const r = await rpc<{ result?: PrepareReportResult } | PrepareReportResult>(
       "Storage.PrepareSpecialistReport",
       { report: payload },
     );
     const inner = (r as { result?: PrepareReportResult }).result ?? (r as PrepareReportResult);
     if (inner && inner.reportNumber) {
-      const idHint =
-        resolvedId && !draft.characteristicsStep.modelCarId
-          ? ` Распознан modelCarId=${resolvedId}.`
-          : "";
+      const hints: string[] = [];
+      if (resolved.modelCarId && !draft.characteristicsStep.modelCarId) {
+        hints.push(`modelCarId=${resolved.modelCarId}`);
+      }
+      if (resolved.modelGenerationRestylingFrameId) {
+        hints.push(`frameId=${resolved.modelGenerationRestylingFrameId}`);
+      }
+      const idHint = hints.length ? ` Распознан ${hints.join(", ")}.` : "";
       return {
         remote: true,
         reportId: inner.reportNumber,
