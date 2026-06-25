@@ -54,18 +54,22 @@ export async function chatCompletions(opts: {
   }
   const json = (await res.json()) as {
     error?: { code: number; message: string };
-    errors?: { message: string };
+    errors?: { message?: string } | Array<{ message?: string }>;
     result?: ChatCompletionsResult | unknown[];
     response?: string;
   };
   if (json.error) throw new ApiError(`AI: ${json.error.message}`, undefined, json.error.code);
-  if (json.errors)
+  // `errors` may arrive as an empty array even on success — only treat it as an
+  // error when it actually carries a message.
+  const errObj = Array.isArray(json.errors) ? json.errors[0] : json.errors;
+  if (errObj && errObj.message) {
     throw new ApiError(
-      json.errors.message === "Unauthorized"
+      errObj.message === "Unauthorized"
         ? "AI: токен не имеет доступа к AI API (нужна роль specialist/user). Проверьте токен."
-        : `AI: ${json.errors.message}`,
+        : `AI: ${errObj.message}`,
       401,
     );
+  }
   const r = json.result;
   if (!r || Array.isArray(r)) throw new ApiError("AI: пустой ответ", 500);
   return r as ChatCompletionsResult;
