@@ -518,37 +518,40 @@ export async function resolveCar(
         },
       );
 
-    let framePick = await pickFrame();
-    if (framePick?.frameId) {
-      frame = frames.find((f) => f.frameId === framePick!.frameId);
-      frameConf = framePick.confidence;
-      frameReason = framePick.reason;
-    }
-    if (!frame || frameConf < LOW_CONF || framePick?.needsWeb === true) {
-      const q = `site:drom.ru ${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы рестайлинг`.trim();
-      const ctx = await webSearchContext(q, 5);
-      if (ctx) {
-        frameWebUsed = true;
-        const retry = await pickFrame(ctx);
-        if (retry?.frameId) {
-          const candidate = frames.find((f) => f.frameId === retry.frameId);
-          if (candidate && retry.confidence >= frameConf) {
-            frame = candidate;
-            frameConf = retry.confidence;
-            frameReason = retry.reason;
-            framePick = retry;
-          }
-        }
-      }
-    }
-    if (!frame && year) {
-      frame =
-        frames.find(
+    // Сначала пробуем детерминированный отбор по году и подсказке.
+    // Список frames из Storage.GetModelGeneration — авторитетный источник.
+    const hintNorm = generationHint ? norm(generationHint) : "";
+    const byYear = year
+      ? frames.filter(
           (f) =>
             (f.yearStart == null || year >= f.yearStart) &&
             (f.yearEnd == null || year <= f.yearEnd),
-        ) ?? frames[0];
-      frameConf = frame ? 0.3 : 0;
+        )
+      : frames.slice();
+    const pool = byYear.length ? byYear : frames;
+    let deterministic: GenerationFrameCandidate | undefined;
+    if (hintNorm) {
+      deterministic = pool.find((f) => {
+        const n = norm(`${f.generationName ?? ""} ${f.restylingName ?? ""}`);
+        return n.includes(hintNorm) || hintNorm.includes(n);
+      });
+    }
+    if (!deterministic && pool.length === 1) deterministic = pool[0];
+    if (deterministic) {
+      frame = deterministic;
+      frameConf = 0.9;
+      frameReason = "Подбор из Storage.GetModelGeneration по году/подсказке";
+    } else {
+      const framePick = await pickFrame();
+      if (framePick?.frameId) {
+        frame = frames.find((f) => f.frameId === framePick.frameId);
+        frameConf = framePick.confidence;
+        frameReason = framePick.reason;
+      }
+      if (!frame && pool.length) {
+        frame = pool[0];
+        frameConf = 0.3;
+      }
     }
     trace.push({
       step: "generation",
