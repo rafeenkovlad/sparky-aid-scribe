@@ -741,19 +741,7 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              const recap = summarizeStepDraft(currentStep, thread.draft);
-              if (recap) {
-                updateThread(thread.id, (t) => {
-                  pushMsg(t, currentStep, {
-                    id: msgId(),
-                    role: "assistant",
-                    text: recap,
-                    step: currentStep,
-                    createdAt: Date.now(),
-                  });
-                });
-              }
-              textareaRef.current?.focus();
+              setEditPanelOpen(true);
             }}
             aria-label="Нужно изменить"
             title="Нужно изменить"
