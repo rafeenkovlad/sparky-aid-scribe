@@ -532,6 +532,7 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
       const parts: string[] = ["Уже зафиксированы характеристики:"];
       if (c.brandName || c.modelCarName)
         parts.push(`• Модель: ${[c.brandName, c.modelCarName].filter(Boolean).join(" ")}`);
+      if (c.generationLabel) parts.push(`• Поколение: ${c.generationLabel}`);
       if (c.year) parts.push(`• Год: ${c.year}`);
       if (c.engineVolume) parts.push(`• Объём: ${c.engineVolume} л`);
       if (c.engineType) parts.push(`• Тип двигателя: ${c.engineType}`);
