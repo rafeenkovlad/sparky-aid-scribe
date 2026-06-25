@@ -378,28 +378,49 @@ export function ChatApp({ threadId }: Props) {
 
   const submit = useCallback(async () => {
     if (!thread || busy) return;
-    const text = composer.trim();
-    if (!text) return;
+    const typed = composer.trim();
 
-    // Confirm-advance shortcut.
-    if (!askMode && isConfirmAdvance(text)) {
+    // Gather selected chip values from the last interactive options message
+    // (per-step chips) or the inspection chip selection state.
+    let selectedFromChips: string[] = [];
+    if (currentStep === "inspection") {
+      selectedFromChips = [...selectedInspectionChips];
+    } else if (lastOptionsMsgId) {
+      const msg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
+      selectedFromChips = msg?.selectedChipValues ?? [];
+    }
+
+    const combined = [typed, ...selectedFromChips].filter(Boolean).join("\n");
+    if (!combined) return;
+
+    // Confirm-advance shortcut (only when no chips, typed-only).
+    if (!askMode && !selectedFromChips.length && isConfirmAdvance(typed)) {
       setComposer("");
       advanceStep();
       return;
     }
 
     setBusy(true);
+    const displayText = askMode ? `❓ ${combined}` : combined;
     // 1) push user message
     updateThread(thread.id, (t) => {
       pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
-        text: askMode ? `❓ ${text}` : text,
+        text: displayText,
         step: currentStep,
         createdAt: Date.now(),
       });
+      // Clear chip selections on the last options message
+      if (lastOptionsMsgId) {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const m = t.messages[key].find((x) => x.id === lastOptionsMsgId);
+          if (m) { m.selectedChipValues = []; break; }
+        }
+      }
     });
     setComposer("");
+    if (currentStep === "inspection") setSelectedInspectionChips(new Set());
 
     // Q&A mode: free-form question, no draft mutation.
     if (askMode) {
@@ -407,7 +428,7 @@ export function ChatApp({ threadId }: Props) {
         const fresh = getThread(thread.id);
         if (!fresh) return;
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
-        const answer = await askQuestion(currentStep, text, fresh, stepLabel);
+        const answer = await askQuestion(currentStep, combined, fresh, stepLabel);
         updateThread(thread.id, (t) => {
           pushMsg(t, currentStep, {
             id: msgId(),
@@ -428,7 +449,7 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const prevVin = fresh.draft.carStep.vin;
-      const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
+      const { patch, reply, attachments } = await extractForStep(currentStep, combined, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
@@ -471,7 +492,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips]);
 
 
   function jumpTo(step: StepId) {
