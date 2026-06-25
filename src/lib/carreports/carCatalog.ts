@@ -525,7 +525,7 @@ export async function resolveCar(
       frameReason = framePick.reason;
     }
     if (!frame || frameConf < LOW_CONF || framePick?.needsWeb === true) {
-      const q = `${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы выпуска рестайлинг`.trim();
+      const q = `site:drom.ru ${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы рестайлинг`.trim();
       const ctx = await webSearchContext(q, 5);
       if (ctx) {
         frameWebUsed = true;
