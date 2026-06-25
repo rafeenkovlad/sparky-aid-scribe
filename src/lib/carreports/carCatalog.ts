@@ -682,10 +682,10 @@ export async function resolveCar(
     });
 
 
-    if (!frame) {
-      // Поколение не подобрано — предложим клик-чипы со всеми вариантами
-      // (поколение + рестайлинг + годы + картинка).
-      const genSuggestions: CatalogSuggestion[] = [];
+    // Сформируем список чипов со всеми поколениями/рестайлингами — пригодится
+    // и когда не нашли (показать варианты), и когда нашли (позволить поправить).
+    const buildGenChips = (): CatalogSuggestion[] => {
+      const out: CatalogSuggestion[] = [];
       let gi = 0;
       for (const group of genGroups) {
         gi++;
@@ -701,21 +701,24 @@ export async function resolveCar(
             group.items.length > 1
               ? `Поколение ${gi}, рестайлинг ${ri}`
               : `Поколение ${gi}`;
-          genSuggestions.push({
+          out.push({
             group: "generation",
             label: `Поколение ${gi}${group.items.length > 1 ? ` · рест. ${ri}` : ""}${restName}`,
             value,
             image: f.urlImage,
             description: years,
           });
-          if (genSuggestions.length >= 12) break;
+          if (out.length >= 12) return out;
         }
-        if (genSuggestions.length >= 12) break;
       }
+      return out;
+    };
+
+    if (!frame) {
       return {
         ...partial,
         generationNotFound: notFound,
-        suggestions: [...(partial.suggestions ?? []), ...genSuggestions],
+        suggestions: [...(partial.suggestions ?? []), ...buildGenChips()],
       };
     }
     const label = [frame.generationName, frame.restylingName]
@@ -731,6 +734,8 @@ export async function resolveCar(
       modelGenerationRestylingFrameId: frame.frameId,
       ...(fullLabel ? { generationLabel: fullLabel } : {}),
       generationImage: frame.urlImage,
+      // Покажем все варианты — пользователь может одним кликом поправить выбор.
+      suggestions: [...(partial.suggestions ?? []), ...buildGenChips()],
     };
   } catch {
     return empty;
