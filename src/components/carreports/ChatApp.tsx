@@ -38,6 +38,7 @@ import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
+import { generateSummary } from "@/lib/carreports/aiSummary";
 
 interface Props {
   threadId: string;
