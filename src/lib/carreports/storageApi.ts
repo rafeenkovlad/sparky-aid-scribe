@@ -250,18 +250,28 @@ function buildPrepareReportPayload(
   const modelCarId = ch.modelCarId ?? resolved.modelCarId ?? undefined;
   const frameId = resolved.modelGenerationRestylingFrameId ?? undefined;
 
+  const tdIncluded =
+    typeof td.testDriveIsIncluded === "boolean"
+      ? td.testDriveIsIncluded
+      : td.notDone
+        ? false
+        : true;
+  const intTags = (arr: unknown): number[] =>
+    Array.isArray(arr)
+      ? arr.map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0)
+      : [];
+
   return {
     reportName: draft.reportName || `Отчёт ${new Date().toISOString().slice(0, 10)}`,
     ...(draft.reportDate ? { reportDate: draft.reportDate } : {}),
+    // CarStepDTO: unreadableVin / visuallyMileageNotMatchCondition — NotNull bool.
     carStep: {
       ...(car.vin ? { vin: car.vin } : {}),
-      ...(car.unreadableVin ? { unreadableVin: true } : {}),
+      unreadableVin: car.unreadableVin === true,
       ...(car.gosNumber ? { gosNumber: car.gosNumber } : {}),
       ...(car.uriListing ? { uriListing: car.uriListing } : {}),
       ...(typeof car.mileage === "number" ? { mileage: car.mileage } : {}),
-      ...(car.visuallyMileageNotMatchCondition
-        ? { visuallyMileageNotMatchCondition: true }
-        : {}),
+      visuallyMileageNotMatchCondition: car.visuallyMileageNotMatchCondition === true,
       ...(car.cityInspection ? { cityInspection: car.cityInspection } : {}),
       ...(car.dateInspection ? { dateInspection: car.dateInspection } : {}),
     },
@@ -276,64 +286,65 @@ function buildPrepareReportPayload(
       ...(ch.color ? { color: ch.color } : {}),
       ...(ch.equipment ? { equipment: ch.equipment } : {}),
     },
+    // DocumentReconciliationStepDTO: 3 NotNull bool, defaults = true.
     documentReconciliationStep: {
       ...(typeof doc.ownersCount === "number" ? { ownersCount: doc.ownersCount } : {}),
-      ...(typeof doc.ownerFullNameMatchWithPTSOrSTS === "boolean"
-        ? { ownerFullNameMatchWithPTSOrSTS: doc.ownerFullNameMatchWithPTSOrSTS }
-        : {}),
-      ...(typeof doc.vinOnBodyMatchWithPTSOrSTS === "boolean"
-        ? { vinOnBodyMatchWithPTSOrSTS: doc.vinOnBodyMatchWithPTSOrSTS }
-        : {}),
-      ...(typeof doc.engineModelMatchWithPTSOrSTS === "boolean"
-        ? { engineModelMatchWithPTSOrSTS: doc.engineModelMatchWithPTSOrSTS }
-        : {}),
+      ownerFullNameMatchWithPTSOrSTS:
+        typeof doc.ownerFullNameMatchWithPTSOrSTS === "boolean"
+          ? doc.ownerFullNameMatchWithPTSOrSTS
+          : true,
+      vinOnBodyMatchWithPTSOrSTS:
+        typeof doc.vinOnBodyMatchWithPTSOrSTS === "boolean"
+          ? doc.vinOnBodyMatchWithPTSOrSTS
+          : true,
+      engineModelMatchWithPTSOrSTS:
+        typeof doc.engineModelMatchWithPTSOrSTS === "boolean"
+          ? doc.engineModelMatchWithPTSOrSTS
+          : true,
     },
-    legalReviewStep: {},
+    // LegalReviewStepDTO: обе обязательные массивы.
+    legalReviewStep: {
+      otherLegalReviews: [],
+      batchIds: [],
+    },
     inspectionStep: buildInspectionStep(draft),
+    // TestDriveStepDTO: все *IsWorkingProperly — NotNull bool, теги — int[].
     testDriveStep: {
-      ...(typeof td.testDriveIsIncluded === "boolean"
-        ? { testDriveIsIncluded: td.testDriveIsIncluded }
-        : td.notDone
-          ? { testDriveIsIncluded: false }
-          : {}),
-      ...(typeof td.testDriveEngineIsWorkingProperly === "boolean"
-        ? { testDriveEngineIsWorkingProperly: td.testDriveEngineIsWorkingProperly }
-        : {}),
-      ...(typeof td.testDriveTransmissionIsWorkingProperly === "boolean"
-        ? { testDriveTransmissionIsWorkingProperly: td.testDriveTransmissionIsWorkingProperly }
-        : {}),
-      ...(typeof td.testDriveSteeringWheelIsWorkingProperly === "boolean"
-        ? { testDriveSteeringWheelIsWorkingProperly: td.testDriveSteeringWheelIsWorkingProperly }
-        : {}),
-      ...(typeof td.testDriveSuspensionInDriveIsWorkingProperly === "boolean"
-        ? {
-            testDriveSuspensionInDriveIsWorkingProperly:
-              td.testDriveSuspensionInDriveIsWorkingProperly,
-          }
-        : {}),
-      ...(typeof td.testDriveBrakesInDriveIsWorkingProperly === "boolean"
-        ? { testDriveBrakesInDriveIsWorkingProperly: td.testDriveBrakesInDriveIsWorkingProperly }
-        : {}),
-      ...(td.testDriveEngineTags?.length ? { testDriveEngineTags: td.testDriveEngineTags } : {}),
-      ...(td.testDriveTransmissionTags?.length
-        ? { testDriveTransmissionTags: td.testDriveTransmissionTags }
-        : {}),
-      ...(td.testDriveSteeringWheelTags?.length
-        ? { testDriveSteeringWheelTags: td.testDriveSteeringWheelTags }
-        : {}),
-      ...(td.testDriveSuspensionInDriveTags?.length
-        ? { testDriveSuspensionInDriveTags: td.testDriveSuspensionInDriveTags }
-        : {}),
-      ...(td.testDriveBrakesInDriveTags?.length
-        ? { testDriveBrakesInDriveTags: td.testDriveBrakesInDriveTags }
-        : {}),
-      ...(td.testDriveNote || td.notes
-        ? { testDriveNote: td.testDriveNote ?? td.notes }
-        : {}),
+      testDriveIsIncluded: tdIncluded,
+      testDriveEngineTags: intTags(td.testDriveEngineTags),
+      testDriveEngineIsWorkingProperly:
+        typeof td.testDriveEngineIsWorkingProperly === "boolean"
+          ? td.testDriveEngineIsWorkingProperly
+          : true,
+      testDriveTransmissionTags: intTags(td.testDriveTransmissionTags),
+      testDriveTransmissionIsWorkingProperly:
+        typeof td.testDriveTransmissionIsWorkingProperly === "boolean"
+          ? td.testDriveTransmissionIsWorkingProperly
+          : true,
+      testDriveSteeringWheelTags: intTags(td.testDriveSteeringWheelTags),
+      testDriveSteeringWheelIsWorkingProperly:
+        typeof td.testDriveSteeringWheelIsWorkingProperly === "boolean"
+          ? td.testDriveSteeringWheelIsWorkingProperly
+          : true,
+      testDriveSuspensionInDriveTags: intTags(td.testDriveSuspensionInDriveTags),
+      testDriveSuspensionInDriveIsWorkingProperly:
+        typeof td.testDriveSuspensionInDriveIsWorkingProperly === "boolean"
+          ? td.testDriveSuspensionInDriveIsWorkingProperly
+          : true,
+      testDriveBrakesInDriveTags: intTags(td.testDriveBrakesInDriveTags),
+      testDriveBrakesInDriveIsWorkingProperly:
+        typeof td.testDriveBrakesInDriveIsWorkingProperly === "boolean"
+          ? td.testDriveBrakesInDriveIsWorkingProperly
+          : true,
+      testDriveNote: td.testDriveNote ?? td.notes ?? null,
     },
+    // ResultStepDTO: оба поля NotBlank.
     resultStep: {
-      ...(summary ? { summaryInspectionNote: summary } : {}),
-      ...(res.resultSpecialistNote ? { resultSpecialistNote: res.resultSpecialistNote } : {}),
+      summaryInspectionNote: summary || "Отчёт по результатам осмотра.",
+      resultSpecialistNote:
+        res.resultSpecialistNote && res.resultSpecialistNote.trim()
+          ? res.resultSpecialistNote
+          : "Заключение специалиста.",
     },
   };
 }
