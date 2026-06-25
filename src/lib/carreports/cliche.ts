@@ -39,9 +39,9 @@ export const CLICHE_DOCS = `${COMMON}
 
 Извлеки данные сверки документов. Поля:
 - ownersCount: целое (число владельцев по ПТС).
-- ownerMatches: true/false (собственник в ПТС/СТС совпадает с продавцом).
-- vinOnBodyMatches: true/false (VIN на кузове совпадает с документами).
-- engineNumberMatches: true/false (номер двигателя совпадает с ПТС).
+- ownerFullNameMatchWithPTSOrSTS: true/false (собственник в ПТС/СТС совпадает с продавцом).
+- vinOnBodyMatchWithPTSOrSTS: true/false (VIN на кузове совпадает с документами).
+- engineModelMatchWithPTSOrSTS: true/false (номер двигателя совпадает с ПТС).
 - note: краткая заметка про расхождения, если есть.
 
 Текст эксперта:

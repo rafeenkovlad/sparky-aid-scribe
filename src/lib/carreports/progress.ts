@@ -66,9 +66,9 @@ export function shortDocsSummary(d: ReportDraft): string {
   const c = d.documentReconciliationStep ?? {};
   const bits: string[] = [];
   if (typeof c.ownersCount === "number") bits.push(`Владельцев: ${c.ownersCount}`);
-  if (c.ownerMatches === false) bits.push("Собственник не совпадает");
-  if (c.vinOnBodyMatches === false) bits.push("VIN не совпадает");
-  if (c.engineNumberMatches === false) bits.push("№ двигателя не совпадает");
+  if (c.ownerFullNameMatchWithPTSOrSTS === false) bits.push("Собственник не совпадает");
+  if (c.vinOnBodyMatchWithPTSOrSTS === false) bits.push("VIN не совпадает");
+  if (c.engineModelMatchWithPTSOrSTS === false) bits.push("№ двигателя не совпадает");
   if (c.note) bits.push(c.note);
   return bits.join(" · ") || "—";
 }
