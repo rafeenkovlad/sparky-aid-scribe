@@ -23,6 +23,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import logo from "@/assets/cr-logo.png";
 import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
+import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
 import { LexChips } from "./LexChips";
 
@@ -78,6 +79,7 @@ export function ChatApp({ threadId }: Props) {
   const [tokenOpen, setTokenOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+  const [fullReportOpen, setFullReportOpen] = useState(false);
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -548,7 +550,14 @@ export function ChatApp({ threadId }: Props) {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[400px]">
-            <ReportPreview thread={thread} onJump={jumpTo} />
+            <ReportPreview
+              thread={thread}
+              onJump={jumpTo}
+              onOpenFullReport={() => {
+                setDraftOpen(false);
+                setFullReportOpen(true);
+              }}
+            />
           </SheetContent>
         </Sheet>
       </header>
@@ -771,6 +780,9 @@ export function ChatApp({ threadId }: Props) {
 
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      {fullReportOpen && (
+        <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
+      )}
     </div>
   );
 }
