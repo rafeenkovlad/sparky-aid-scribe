@@ -318,7 +318,7 @@ export async function extractForStep(
     case "car": {
       const carStep: CarStep = {};
       if (typeof data.vin === "string") carStep.vin = data.vin.toUpperCase().replace(/\s+/g, "");
-      if (typeof data.gosNumber === "string") carStep.gosNumber = data.gosNumber;
+      if (typeof data.gosNumber === "string") carStep.gosNumber = data.gosNumber.toUpperCase().replace(/\s+/g, " ").trim();
       if (typeof data.uriListing === "string") carStep.uriListing = data.uriListing;
       if (typeof data.mileage === "number") carStep.mileage = data.mileage;
       else if (typeof data.mileage === "string" && /^\d+$/.test(data.mileage))
