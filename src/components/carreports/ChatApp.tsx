@@ -421,7 +421,7 @@ export function ChatApp({ threadId }: Props) {
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
         const answer = await askQuestion(currentStep, text, fresh, stepLabel);
         updateThread(thread.id, (t) => {
-          t.messages.push({
+          pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
             text: answer,
