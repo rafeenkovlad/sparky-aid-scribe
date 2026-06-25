@@ -550,7 +550,14 @@ export function ChatApp({ threadId }: Props) {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[400px]">
-            <ReportPreview thread={thread} onJump={jumpTo} />
+            <ReportPreview
+              thread={thread}
+              onJump={jumpTo}
+              onOpenFullReport={() => {
+                setDraftOpen(false);
+                setFullReportOpen(true);
+              }}
+            />
           </SheetContent>
         </Sheet>
       </header>
