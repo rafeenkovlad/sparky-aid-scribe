@@ -77,3 +77,36 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
   const r = await rpc<{ result?: DecodedVin } | DecodedVin>("DecodeVin", { vin });
   return (r as { result?: DecodedVin }).result ?? (r as DecodedVin);
 }
+
+/**
+ * Best-effort submit. Tries a few likely method names; returns a remote id or
+ * the local draft id on graceful fallback so the UI can show "saved locally".
+ */
+export async function submitReport(draft: unknown): Promise<{
+  remote: boolean;
+  reportId?: string | number;
+  method?: string;
+  note?: string;
+}> {
+  const candidates = ["Storage.SaveReport", "Storage.CreateReport", "Reports.Create"];
+  let lastErr: unknown = null;
+  for (const method of candidates) {
+    try {
+      const r = await rpc<Record<string, unknown>>(method, { report: draft });
+      const id =
+        (r as { id?: string | number }).id ??
+        (r as { reportId?: string | number }).reportId;
+      return { remote: true, reportId: id, method };
+    } catch (e) {
+      lastErr = e;
+      if (e instanceof ApiError && e.status === 401) {
+        return { remote: false, note: e.message };
+      }
+    }
+  }
+  const note =
+    lastErr instanceof Error
+      ? `Отправка пока недоступна: ${lastErr.message}. Черновик сохранён локально.`
+      : "Отправка пока недоступна. Черновик сохранён локально.";
+  return { remote: false, note };
+}
