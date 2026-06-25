@@ -41,7 +41,7 @@ function summaryFor(step: StepId, t: Thread): string {
   }
 }
 
-export function ReportPreview({ thread, onJump }: Props) {
+export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const filled = filledCount(thread.draft);
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
@@ -50,6 +50,17 @@ export function ReportPreview({ thread, onJump }: Props) {
         <div className="text-sm font-medium">Черновик отчёта</div>
         <div className="ml-auto text-xs text-white/60">{filled}/{FLOW_STEPS.length - 1} заполнено</div>
       </div>
+      {onOpenFullReport && (
+        <div className="px-3 pt-3">
+          <button
+            onClick={onOpenFullReport}
+            className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors"
+          >
+            <Eye className="h-4 w-4" />
+            Открыть полный отчёт
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {FLOW_STEPS.map((step, idx) => {
           const done = isStepFilled(step.id, thread.draft);
