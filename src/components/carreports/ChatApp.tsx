@@ -372,7 +372,7 @@ export function ChatApp({ threadId }: Props) {
     if (!text) return;
 
     // Confirm-advance shortcut.
-    if (isConfirmAdvance(text)) {
+    if (!askMode && isConfirmAdvance(text)) {
       setComposer("");
       advanceStep();
       return;
@@ -384,12 +384,35 @@ export function ChatApp({ threadId }: Props) {
       t.messages.push({
         id: msgId(),
         role: "user",
-        text,
+        text: askMode ? `❓ ${text}` : text,
         step: currentStep,
         createdAt: Date.now(),
       });
     });
     setComposer("");
+
+    // Q&A mode: free-form question, no draft mutation.
+    if (askMode) {
+      try {
+        const fresh = getThread(thread.id);
+        if (!fresh) return;
+        const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
+        const answer = await askQuestion(currentStep, text, fresh, stepLabel);
+        updateThread(thread.id, (t) => {
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: answer,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        });
+      } finally {
+        setAskMode(false);
+        setBusy(false);
+      }
+      return;
+    }
 
     try {
       const fresh = getThread(thread.id);
@@ -428,7 +451,8 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode]);
+
 
   function jumpTo(step: StepId) {
     if (!thread) return;
