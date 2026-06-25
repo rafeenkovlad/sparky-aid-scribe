@@ -740,8 +740,19 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
+              const recap = summarizeStepDraft(currentStep, thread.draft);
+              const intro = STEP_INTROS[currentStep];
               updateThread(thread.id, (t) => {
-                pushMsg(t, currentStep, makeIntroMessage(currentStep));
+                pushMsg(t, currentStep, {
+                  id: msgId(),
+                  role: "assistant",
+                  text: recap || "Текущие значения шага:",
+                  step: currentStep,
+                  chips: intro.chips,
+                  optionsStep: currentStep,
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
               });
               textareaRef.current?.focus();
             }}
