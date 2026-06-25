@@ -708,22 +708,26 @@ export function ChatApp({ threadId }: Props) {
             setAskMode(false);
             textareaRef.current?.focus();
           }}
-          className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+          aria-label="Нужно изменить"
+          title="Нужно изменить"
+          className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center justify-center"
         >
-          <Pencil className="h-3.5 w-3.5" /> Нужно изменить
+          <Pencil className="h-4 w-4" />
         </button>
         <button
           onClick={() => {
             setAskMode((v) => !v);
             textareaRef.current?.focus();
           }}
-          className={`rounded-full text-xs font-medium px-3 py-1.5 flex items-center gap-1 ${
+          aria-label={askMode ? "Отменить вопрос" : "Есть вопрос"}
+          title={askMode ? "Отменить вопрос" : "Есть вопрос"}
+          className={`h-8 w-8 rounded-full flex items-center justify-center ${
             askMode
               ? "bg-sky-500 hover:bg-sky-600 text-white"
               : "bg-white/5 hover:bg-white/10 text-white/80"
           }`}
         >
-          <HelpCircle className="h-3.5 w-3.5" /> {askMode ? "Отменить вопрос" : "Есть вопрос"}
+          <HelpCircle className="h-4 w-4" />
         </button>
       </div>
 
