@@ -57,6 +57,8 @@ function makeIntroMessage(step: StepId): ChatMessage {
 }
 
 export function ChatApp({ threadId }: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const threads = useThreads();
   const token = useToken();
   const navigate = useNavigate();
