@@ -224,6 +224,12 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
   return out;
 }
 
+export interface CatalogSuggestion {
+  label: string;
+  value: string;
+  group: "brand" | "model" | "generation";
+}
+
 export interface ResolvedCar {
   modelCarId: number | null;
   modelGenerationRestylingFrameId: number | null;
@@ -234,6 +240,8 @@ export interface ResolvedCar {
   brandImage?: string;
   modelImage?: string;
   generationImage?: string;
+  /** clickable suggestions when name lookup is uncertain or has alternatives */
+  suggestions?: CatalogSuggestion[];
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
