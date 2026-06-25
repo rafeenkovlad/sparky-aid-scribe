@@ -780,6 +780,9 @@ export function ChatApp({ threadId }: Props) {
 
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      {fullReportOpen && (
+        <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
+      )}
     </div>
   );
 }
