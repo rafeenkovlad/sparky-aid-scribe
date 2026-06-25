@@ -638,7 +638,8 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
   switch (step) {
     case "car": {
       const c = draft.carStep;
-      const has =
+      const ch = draft.characteristicsStep;
+      const hasCar =
         c.vin ||
         c.unreadableVin ||
         c.gosNumber ||
@@ -647,7 +648,10 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         c.dateInspection ||
         c.uriListing ||
         c.visuallyMileageNotMatchCondition;
-      if (!has) return "";
+      const hasChar =
+        ch.brandName || ch.modelCarName || ch.year || ch.engineVolume ||
+        ch.engineType || ch.transmission || ch.driveType || ch.color || ch.equipment;
+      if (!hasCar && !hasChar) return "";
       const parts: string[] = ["Уже зафиксировано по автомобилю:"];
       if (c.vin) parts.push(`• VIN ${c.vin}`);
       if (c.unreadableVin) parts.push("• VIN нечитаемый");
@@ -658,6 +662,18 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
       if (c.dateInspection) parts.push(`• Дата осмотра: ${c.dateInspection}`);
       if (c.uriListing) parts.push(`• Объявление: ${c.uriListing}`);
       if (c.visuallyMileageNotMatchCondition) parts.push("• Пробег не соответствует состоянию");
+      if (hasChar) {
+        if (ch.brandName || ch.modelCarName)
+          parts.push(`• Модель: ${[ch.brandName, ch.modelCarName].filter(Boolean).join(" ")}`);
+        if (ch.generationLabel) parts.push(`• Поколение: ${ch.generationLabel}`);
+        if (ch.year) parts.push(`• Год: ${ch.year}`);
+        if (ch.engineVolume) parts.push(`• Объём: ${ch.engineVolume} л`);
+        if (ch.engineType) parts.push(`• Тип двигателя: ${ch.engineType}`);
+        if (ch.transmission) parts.push(`• КПП: ${ch.transmission}`);
+        if (ch.driveType) parts.push(`• Привод: ${ch.driveType}`);
+        if (ch.color) parts.push(`• Цвет: ${ch.color}`);
+        if (ch.equipment) parts.push(`• Комплектация: ${ch.equipment}`);
+      }
       parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
       return parts.join("\n");
     }
