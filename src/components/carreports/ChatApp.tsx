@@ -79,6 +79,7 @@ export function ChatApp({ threadId }: Props) {
   const [tokenOpen, setTokenOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
+  const [fullReportOpen, setFullReportOpen] = useState(false);
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
