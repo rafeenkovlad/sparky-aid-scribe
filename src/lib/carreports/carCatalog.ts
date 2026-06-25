@@ -690,20 +690,22 @@ export async function resolveCar(
       for (const group of genGroups) {
         gi++;
         let ri = 0;
+        const multi = group.items.length > 1;
         for (const f of group.items) {
           ri++;
           const years =
             f.yearStart || f.yearEnd
               ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
               : "";
-          const restName = f.restylingName ? ` · ${f.restylingName}` : "";
-          const value =
-            group.items.length > 1
-              ? `Поколение ${gi}, рестайлинг ${ri}`
-              : `Поколение ${gi}`;
+          // Имя поколения берём как пришло из Storage.GetModelGeneration.
+          const genTitle = (group.name && group.name.trim()) || `Поколение ${gi}`;
+          const restTitle = multi ? ` · ${f.restylingName ?? `рест. ${ri}`}` : "";
+          const value = multi
+            ? `Поколение ${gi}, рестайлинг ${ri}`
+            : `Поколение ${gi}`;
           out.push({
             group: "generation",
-            label: `Поколение ${gi}${group.items.length > 1 ? ` · рест. ${ri}` : ""}${restName}`,
+            label: `${gi}. ${genTitle}${restTitle}`,
             value,
             image: f.urlImage,
             description: years,
