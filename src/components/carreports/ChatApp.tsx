@@ -453,11 +453,15 @@ export function ChatApp({ threadId }: Props) {
       const { patch, reply, attachments } = await extractForStep(currentStep, combined, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        if (reply) {
+        const nextAsk = nextMissingPrompt(currentStep, t.draft);
+        const replyText = [reply, nextAsk ? `➡️ ${nextAsk}` : "✅ Шаг заполнен. Нажмите «Всё верно, далее»."]
+          .filter(Boolean)
+          .join("\n\n");
+        if (replyText) {
           pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
-            text: reply,
+            text: replyText,
             step: currentStep,
             ...(attachments && attachments.length ? { attachments } : {}),
             createdAt: Date.now(),
