@@ -57,40 +57,57 @@ interface ModelRow {
   urlImage?: string;
 }
 
+type ApiDate = { date?: string } | string | number | null | undefined;
+
+interface ApiPhoto {
+  id?: number;
+  size?: string;
+  urlX1?: string;
+  urlX2?: string;
+}
+
 interface RestylingFrameRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  frame?: string;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 interface RestylingRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  /** numeric restyling index as string ("0" = базовый, "1" = первый рестайлинг) */
+  restyling?: string | number;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 interface GenerationRow {
   id: number;
   name?: string;
-  yearStart?: number | string | null;
-  yearEnd?: number | string | null;
-  startYear?: number | string | null;
-  endYear?: number | string | null;
+  /** numeric generation index (1, 2, 3 ...) */
+  generation?: number;
+  yearStart?: ApiDate;
+  yearEnd?: ApiDate;
+  startYear?: ApiDate;
+  endYear?: ApiDate;
   restylings?: RestylingRow[];
   modelGenerationRestylings?: RestylingRow[];
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
   urlImage?: string;
+  photos?: ApiPhoto[];
 }
 
 const brandCache = new Map<string, BrandRow[]>();
