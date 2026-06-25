@@ -166,6 +166,44 @@ function bestMatch<T extends { name?: string }>(rows: T[], target: string): T | 
   return contains ?? rows[0];
 }
 
+/** Damerau-Levenshtein-ish simple distance. */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+/** Top N rows by name similarity to target (excluding excludeId). */
+function topMatches<T extends { id: number; name?: string }>(
+  rows: T[],
+  target: string,
+  n: number,
+  excludeId?: number,
+): T[] {
+  if (!rows.length) return [];
+  const t = norm(target);
+  const scored = rows
+    .filter((r) => r.id !== excludeId && r.name)
+    .map((r) => {
+      const nm = norm(r.name ?? "");
+      let score = editDistance(t, nm);
+      if (nm.startsWith(t) || t.startsWith(nm)) score -= 2;
+      if (nm.includes(t) || t.includes(nm)) score -= 1;
+      return { r, score };
+    })
+    .sort((a, b) => a.score - b.score);
+  return scored.slice(0, n).map((s) => s.r);
+}
+
 /** Flatten generation → restyling → frame into pickable candidates. */
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
