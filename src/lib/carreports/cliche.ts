@@ -46,6 +46,7 @@ export const CLICHE_PICK_BRAND = (
   userText: string,
   hint: string | undefined,
   brands: Array<{ id: number; name: string; country?: string | null }>,
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан список брендов автомобилей из каталога carreports
@@ -54,7 +55,7 @@ export const CLICHE_PICK_BRAND = (
 
 Подсказка эксперта по бренду: ${JSON.stringify(hint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
-
+${webContext ? `\nКонтекст из веб-поиска (используй для нормализации сокращений вроде «VW» → «Volkswagen»):\n${webContext}\n` : ""}
 Кандидаты (id — name [country]):
 ${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${b.country}]` : ""}`).join("\n") || "  (пусто)"}
 
@@ -68,6 +69,7 @@ ${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${
 
 Текст эксперта:
 {text}`;
+
 
 export const CLICHE_PICK_MODEL = (
   userText: string,
