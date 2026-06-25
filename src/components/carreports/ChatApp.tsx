@@ -281,7 +281,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const r = await submitReport(thread.draft);
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, "submit", {
           id: msgId(),
           role: "assistant",
           text: r.remote
