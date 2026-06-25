@@ -3,7 +3,7 @@
 
 import { getToken } from "./tokenStore";
 
-const STORAGE_URL = "https://app.carreports.ru/";
+const STORAGE_URL = "/api/cr-proxy?target=storage";
 
 export class ApiError extends Error {
   constructor(
@@ -26,14 +26,12 @@ export async function rpc<T = unknown>(
   if (!token) throw new ApiError("Не указан токен. Откройте меню и вставьте Bearer-токен.", 401);
 
   const id = idCounter++;
-  const res = await fetch(STORAGE_URL, {
+  const res = await fetch(`${STORAGE_URL}&token=${encodeURIComponent(token)}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
   });
+
   if (!res.ok) {
     let body = "";
     try {

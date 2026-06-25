@@ -4,7 +4,7 @@
 import { getToken } from "./tokenStore";
 import { ApiError } from "./storageApi";
 
-const AI_URL = "https://ai.carreports.ru/";
+const AI_URL = "/api/cr-proxy?target=ai";
 
 export interface ChatCompletionsResult {
   content: string | null;
@@ -28,7 +28,8 @@ export async function chatCompletions(opts: {
   const token = getToken();
   if (!token) throw new ApiError("Не указан токен.", 401);
 
-  const url = `${AI_URL}?token=${encodeURIComponent(token)}`;
+  const url = `${AI_URL}&token=${encodeURIComponent(token)}`;
+
   const body = {
     jsonrpc: "2.0",
     id: opts.id,
