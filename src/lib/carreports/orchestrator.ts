@@ -345,8 +345,54 @@ export async function extractForStep(
       c.driveType = pickEnum(data.driveType, DRIVE_TYPES) ?? thread.draft.characteristicsStep.driveType;
       if (typeof data.color === "string") c.color = data.color;
       if (typeof data.equipment === "string") c.equipment = data.equipment;
-      const merged = { ...thread.draft.characteristicsStep, ...c };
-      return { patch: { characteristicsStep: merged }, reply: summarizeChar(merged) };
+      const generationHint = typeof data.generationHint === "string" ? data.generationHint : undefined;
+      const merged: CharacteristicsStep = { ...thread.draft.characteristicsStep, ...c };
+
+      // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId
+      // через каталог сервера с помощью ИИ-резолвера. Никогда не бросает.
+      let catalogNote = "";
+      if (merged.brandName && merged.modelCarName) {
+        const { resolveCar } = await import("./carCatalog");
+        const prev = thread.draft.characteristicsStep;
+        const brandModelChanged =
+          prev.brandName !== merged.brandName || prev.modelCarName !== merged.modelCarName;
+        const needsResolve =
+          brandModelChanged || !merged.modelCarId || (merged.year && !merged.modelGenerationRestylingFrameId);
+        if (needsResolve) {
+          const resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
+            thread,
+            userText: text,
+            generationHint,
+          });
+          if (resolved.modelCarId) {
+            merged.modelCarId = resolved.modelCarId;
+            if (resolved.modelGenerationRestylingFrameId) {
+              merged.modelGenerationRestylingFrameId = resolved.modelGenerationRestylingFrameId;
+            }
+            if (resolved.generationLabel) merged.generationLabel = resolved.generationLabel;
+          }
+          const last = resolved.trace[resolved.trace.length - 1];
+          const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
+          const webHint = resolved.trace.some((t) => t.needsWeb);
+          const idBits: string[] = [];
+          if (merged.modelCarId) idBits.push(`modelCarId=${merged.modelCarId}`);
+          if (merged.modelGenerationRestylingFrameId)
+            idBits.push(`frameId=${merged.modelGenerationRestylingFrameId}`);
+          if (idBits.length) {
+            catalogNote = `\n🔎 Каталог: ${merged.generationLabel ?? `${merged.brandName} ${merged.modelCarName}`} · ${idBits.join(", ")}`;
+            if (lowConf || webHint) {
+              catalogNote += "\n⚠️ Уверенность подбора низкая — проверьте поколение/модификацию.";
+            }
+          } else if (last) {
+            catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
+          }
+        }
+      }
+
+      return {
+        patch: { characteristicsStep: merged },
+        reply: summarizeChar(merged) + catalogNote,
+      };
     }
     case "docs": {
       const c: DocumentReconciliationStep = {};
