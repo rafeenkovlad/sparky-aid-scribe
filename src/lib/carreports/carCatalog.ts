@@ -678,7 +678,32 @@ export async function resolveCar(
     });
 
 
-    if (!frame) return partial;
+    if (!frame) {
+      // Поколение не подобрано — предложим клик-чипы со всеми вариантами.
+      const genSuggestions: CatalogSuggestion[] = [];
+      const seen = new Set<string>();
+      let n = 1;
+      for (const f of frames) {
+        const key = f.generationName ?? `gen-${n}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const years =
+          f.yearStart || f.yearEnd
+            ? ` (${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."})`
+            : "";
+        genSuggestions.push({
+          group: "generation",
+          label: `Поколение ${n}${years}`,
+          value: `Поколение ${n}`,
+        });
+        n++;
+        if (genSuggestions.length >= 6) break;
+      }
+      return {
+        ...partial,
+        suggestions: [...(partial.suggestions ?? []), ...genSuggestions],
+      };
+    }
     const label = [frame.generationName, frame.restylingName]
       .filter(Boolean)
       .join(" / ");
