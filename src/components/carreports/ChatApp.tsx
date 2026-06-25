@@ -688,7 +688,7 @@ export function ChatApp({ threadId }: Props) {
           <div className="text-[11px] text-white/50 px-0.5 pb-1.5">{currentZone.intro}</div>
           <div className="flex flex-wrap gap-1.5 pb-1">
             {currentZone.chips.map((c) => {
-              const isSel = composer.includes(c.value);
+              const isSel = selectedInspectionChips.has(c.value);
               return (
                 <button
                   key={c.label}
