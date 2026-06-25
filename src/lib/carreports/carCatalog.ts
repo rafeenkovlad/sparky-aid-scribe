@@ -166,6 +166,44 @@ function bestMatch<T extends { name?: string }>(rows: T[], target: string): T | 
   return contains ?? rows[0];
 }
 
+/** Damerau-Levenshtein-ish simple distance. */
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+/** Top N rows by name similarity to target (excluding excludeId). */
+function topMatches<T extends { id: number; name?: string }>(
+  rows: T[],
+  target: string,
+  n: number,
+  excludeId?: number,
+): T[] {
+  if (!rows.length) return [];
+  const t = norm(target);
+  const scored = rows
+    .filter((r) => r.id !== excludeId && r.name)
+    .map((r) => {
+      const nm = norm(r.name ?? "");
+      let score = editDistance(t, nm);
+      if (nm.startsWith(t) || t.startsWith(nm)) score -= 2;
+      if (nm.includes(t) || t.includes(nm)) score -= 1;
+      return { r, score };
+    })
+    .sort((a, b) => a.score - b.score);
+  return scored.slice(0, n).map((s) => s.r);
+}
+
 /** Flatten generation → restyling → frame into pickable candidates. */
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
@@ -224,6 +262,12 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
   return out;
 }
 
+export interface CatalogSuggestion {
+  label: string;
+  value: string;
+  group: "brand" | "model" | "generation";
+}
+
 export interface ResolvedCar {
   modelCarId: number | null;
   modelGenerationRestylingFrameId: number | null;
@@ -234,6 +278,8 @@ export interface ResolvedCar {
   brandImage?: string;
   modelImage?: string;
   generationImage?: string;
+  /** clickable suggestions when name lookup is uncertain or has alternatives */
+  suggestions?: CatalogSuggestion[];
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
@@ -469,6 +515,28 @@ export async function resolveCar(
 
     const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
     const modelImage = pickImageUrl(model as unknown as Record<string, unknown>);
+
+    // Соберём подсказки-чипы при низкой уверенности подбора (опечатки и т.п.).
+    const suggestions: CatalogSuggestion[] = [];
+    if (brandConf < 0.8) {
+      for (const b of topMatches(brands, brandHintOrName, 3, brand.id)) {
+        suggestions.push({
+          group: "brand",
+          label: `Марка: ${b.name}`,
+          value: `Марка: ${b.name}`,
+        });
+      }
+    }
+    if (modelConf < 0.8) {
+      for (const m of topMatches(models, modelHintOrName, 3, model.id)) {
+        suggestions.push({
+          group: "model",
+          label: `Модель: ${m.name}`,
+          value: `Модель: ${brand.name} ${m.name}`,
+        });
+      }
+    }
+
     const partial: ResolvedCar = {
       modelCarId: model.id,
       modelGenerationRestylingFrameId: null,
@@ -476,6 +544,7 @@ export async function resolveCar(
       modelCarName: model.name,
       brandImage,
       modelImage,
+      ...(suggestions.length ? { suggestions } : {}),
       trace,
     };
 
@@ -609,7 +678,32 @@ export async function resolveCar(
     });
 
 
-    if (!frame) return partial;
+    if (!frame) {
+      // Поколение не подобрано — предложим клик-чипы со всеми вариантами.
+      const genSuggestions: CatalogSuggestion[] = [];
+      const seen = new Set<string>();
+      let n = 1;
+      for (const f of frames) {
+        const key = f.generationName ?? `gen-${n}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const years =
+          f.yearStart || f.yearEnd
+            ? ` (${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."})`
+            : "";
+        genSuggestions.push({
+          group: "generation",
+          label: `Поколение ${n}${years}`,
+          value: `Поколение ${n}`,
+        });
+        n++;
+        if (genSuggestions.length >= 6) break;
+      }
+      return {
+        ...partial,
+        suggestions: [...(partial.suggestions ?? []), ...genSuggestions],
+      };
+    }
     const label = [frame.generationName, frame.restylingName]
       .filter(Boolean)
       .join(" / ");
