@@ -76,14 +76,21 @@ export function ChatApp({ threadId }: Props) {
     if (!token) setTokenOpen(true);
   }, [token]);
 
-  // Seed first intro message on a fresh thread.
+  // Seed first intro message on a fresh thread (StrictMode-safe: re-check
+  // current store state, only push when truly empty).
   useEffect(() => {
-    if (thread && thread.messages.length === 0) {
+    if (!thread) return;
+    const fresh = getThread(thread.id);
+    if (fresh && fresh.messages.length === 0) {
       updateThread(thread.id, (t) => {
-        t.messages.push(makeIntroMessage(FLOW_STEPS[t.stepIndex].id));
+        if (t.messages.length === 0) {
+          t.messages.push(makeIntroMessage(FLOW_STEPS[t.stepIndex].id));
+        }
       });
     }
-  }, [thread]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
+
 
   // Keep textarea focused.
   useEffect(() => {
