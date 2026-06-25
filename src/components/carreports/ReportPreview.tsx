@@ -95,6 +95,5 @@ export function ReportPreview({ thread, onJump }: Props) {
           )}
         </div>
       </div>
-    </div>
   );
 }
