@@ -708,7 +708,7 @@ export function ChatApp({ threadId }: Props) {
             <LexChips
               step="inspection"
               zone={currentZoneId}
-              selectedValues={new Set(composer.split(/\n+/).map((s) => s.trim()))}
+              selectedValues={selectedInspectionChips}
               onTap={insertInspectionChip}
             />
           </div>
