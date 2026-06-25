@@ -403,7 +403,7 @@ export function ChatApp({ threadId }: Props) {
     setBusy(true);
     // 1) push user message
     updateThread(thread.id, (t) => {
-      t.messages.push({
+      pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
         text: askMode ? `❓ ${text}` : text,
