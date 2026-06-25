@@ -36,6 +36,7 @@ import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
+import { submitReport } from "@/lib/carreports/storageApi";
 
 interface Props {
   threadId: string;
