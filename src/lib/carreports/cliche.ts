@@ -116,6 +116,7 @@ export const CLICHE_PICK_GENERATION = (
   year: number | undefined,
   generationHint: string | undefined,
   frames: GenerationFrameCandidate[],
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан плоский список рестайлинг-фреймов модели «${brandName} ${modelName}»
@@ -126,6 +127,8 @@ export const CLICHE_PICK_GENERATION = (
 Год выпуска авто: ${year ?? "не указан"}
 Подсказка по поколению/рестайлингу: ${JSON.stringify(generationHint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
+${webContext ? `\nКонтекст из веб-поиска (годы выпуска поколений, кодовые имена и т.п.):\n${webContext}\n` : ""}
+
 
 Кандидаты (frameId — поколение / рестайлинг / годы):
 ${
