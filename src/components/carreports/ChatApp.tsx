@@ -5,10 +5,13 @@ import {
   Camera,
   CheckCheck,
   HelpCircle,
+  Loader2,
   Menu,
+  Mic,
   Pencil,
   Plus,
   Settings2,
+  Square,
   Trash2,
   PanelRightOpen,
 } from "lucide-react";
@@ -39,6 +42,7 @@ import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
 interface Props {
   threadId: string;
@@ -78,6 +82,13 @@ export function ChatApp({ threadId }: Props) {
   const [busy, setBusy] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const voice = useVoiceRecorder({
+    onText: (t) => {
+      setComposer((cur) => (cur.trim() ? `${cur.trim()} ${t}` : t));
+      textareaRef.current?.focus();
+    },
+  });
 
   // Open token dialog automatically the very first time.
   useEffect(() => {
@@ -719,6 +730,34 @@ export function ChatApp({ threadId }: Props) {
             }
             className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
           />
+          <button
+            onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
+            disabled={voice.state === "transcribing"}
+            className={
+              "h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors " +
+              (voice.state === "recording"
+                ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                : voice.state === "transcribing"
+                  ? "bg-white/10"
+                  : "bg-white/10 hover:bg-white/15")
+            }
+            aria-label={
+              voice.state === "recording"
+                ? "Остановить запись"
+                : voice.state === "transcribing"
+                  ? "Расшифровка…"
+                  : "Голосовой ввод"
+            }
+            title={voice.error ?? "Голосовой ввод"}
+          >
+            {voice.state === "recording" ? (
+              <Square className="h-4 w-4 fill-white" />
+            ) : voice.state === "transcribing" ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
+          </button>
           <button
             onClick={() => void submit()}
             disabled={busy || !composer.trim()}
