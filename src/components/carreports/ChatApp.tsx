@@ -434,21 +434,10 @@ export function ChatApp({ threadId }: Props) {
     if (idx < 0) return;
     updateThread(thread.id, (t) => {
       t.stepIndex = idx;
-      // re-add intro for that step
-      t.messages.push(makeIntroMessage(step));
-      const recap = summarizeStepDraft(step, t.draft);
-      if (recap) {
-        t.messages.push({
-          id: msgId(),
-          role: "assistant",
-          text: recap,
-          step,
-          createdAt: Date.now(),
-        });
-      }
     });
     setDraftOpen(false);
   }
+
 
   function newThread() {
     const t = createThread();
