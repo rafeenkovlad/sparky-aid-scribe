@@ -869,7 +869,15 @@ export function ChatApp({ threadId }: Props) {
           </button>
           <button
             onClick={() => void submit()}
-            disabled={busy || !composer.trim()}
+            disabled={
+              busy ||
+              (!composer.trim() &&
+                (currentStep === "inspection"
+                  ? selectedInspectionChips.size === 0
+                  : !(lastOptionsMsgId &&
+                      (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                        ?.selectedChipValues?.length ?? 0) > 0)))
+            }
             className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
             aria-label="Отправить и перейти дальше"
           >
