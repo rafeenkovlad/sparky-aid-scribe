@@ -176,10 +176,19 @@ async function fetchGenerations(modelCarId: number): Promise<GenerationRow[]> {
 }
 
 function asYear(v: unknown): number | null {
+  if (v == null) return null;
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
     const m = v.match(/\d{4}/);
     if (m) return Number(m[0]);
+    return null;
+  }
+  if (typeof v === "object") {
+    const d = (v as { date?: unknown }).date;
+    if (typeof d === "string") {
+      const m = d.match(/\d{4}/);
+      if (m) return Number(m[0]);
+    }
   }
   return null;
 }
