@@ -21,14 +21,40 @@ import { webSearchContext } from "./webSearch";
 const LOW_CONF = 0.5;
 
 
+/** Common image-url aliases that carreports endpoints have been seen to use. */
+function pickImageUrl(row: Record<string, unknown> | null | undefined): string | undefined {
+  if (!row) return undefined;
+  const keys = [
+    "urlImage",
+    "urlLogo",
+    "urlPhoto",
+    "urlPicture",
+    "urlPreview",
+    "urlAvatar",
+    "image",
+    "logo",
+    "photo",
+    "picture",
+    "preview",
+    "url",
+  ];
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "string" && /^https?:\/\//.test(v)) return v;
+  }
+  return undefined;
+}
+
 interface BrandRow {
   id: number;
   name: string;
   country?: string | null;
+  urlImage?: string;
 }
 interface ModelRow {
   id: number;
   name: string;
+  urlImage?: string;
 }
 
 interface RestylingFrameRow {
@@ -38,6 +64,7 @@ interface RestylingFrameRow {
   yearEnd?: number | string | null;
   startYear?: number | string | null;
   endYear?: number | string | null;
+  urlImage?: string;
 }
 interface RestylingRow {
   id: number;
@@ -49,6 +76,7 @@ interface RestylingRow {
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
+  urlImage?: string;
 }
 interface GenerationRow {
   id: number;
@@ -62,6 +90,7 @@ interface GenerationRow {
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
+  urlImage?: string;
 }
 
 const brandCache = new Map<string, BrandRow[]>();
@@ -141,12 +170,14 @@ function bestMatch<T extends { name?: string }>(rows: T[], target: string): T | 
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
   for (const g of generations) {
-    const genName = g.name ?? `Поколение #${g.id}`;
     const genStart = asYear(g.yearStart) ?? asYear(g.startYear);
     const genEnd = asYear(g.yearEnd) ?? asYear(g.endYear);
+    const genName =
+      (g.name && g.name.trim()) ||
+      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : `Поколение #${g.id}`);
+    const genImg = pickImageUrl(g as unknown as Record<string, unknown>);
     const restylings = g.modelGenerationRestylings ?? g.restylings ?? [];
     if (restylings.length === 0) {
-      // generation may directly carry frames
       const frames =
         g.modelGenerationRestylingFrames ?? g.restylingFrames ?? g.frames ?? [];
       for (const f of frames) {
@@ -156,6 +187,7 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
           restylingName: f.name,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? genStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? genEnd,
+          urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? genImg,
         });
       }
       continue;
@@ -163,16 +195,17 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
     for (const r of restylings) {
       const rStart = asYear(r.yearStart) ?? asYear(r.startYear) ?? genStart;
       const rEnd = asYear(r.yearEnd) ?? asYear(r.endYear) ?? genEnd;
+      const rImg = pickImageUrl(r as unknown as Record<string, unknown>) ?? genImg;
       const frames =
         r.modelGenerationRestylingFrames ?? r.restylingFrames ?? r.frames ?? [];
       if (frames.length === 0) {
-        // some servers expose restyling as the leaf — synthesise a frame entry
         out.push({
           frameId: r.id,
           generationName: genName,
           restylingName: r.name ?? "Базовый",
           yearStart: rStart,
           yearEnd: rEnd,
+          urlImage: rImg,
         });
         continue;
       }
@@ -183,6 +216,7 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
           restylingName: f.name ?? r.name,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? rStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? rEnd,
+          urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? rImg,
         });
       }
     }
@@ -196,6 +230,10 @@ export interface ResolvedCar {
   brandName?: string;
   modelCarName?: string;
   generationLabel?: string;
+  /** image URLs from the catalogue, when available */
+  brandImage?: string;
+  modelImage?: string;
+  generationImage?: string;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
@@ -429,11 +467,15 @@ export async function resolveCar(
     });
     if (!model) return { ...empty, trace, brandName: brand.name };
 
+    const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
+    const modelImage = pickImageUrl(model as unknown as Record<string, unknown>);
     const partial: ResolvedCar = {
       modelCarId: model.id,
       modelGenerationRestylingFrameId: null,
       brandName: brand.name,
       modelCarName: model.name,
+      brandImage,
+      modelImage,
       trace,
     };
 
@@ -530,6 +572,7 @@ export async function resolveCar(
       ...partial,
       modelGenerationRestylingFrameId: frame.frameId,
       generationLabel: `${label}${years}`,
+      generationImage: frame.urlImage,
     };
   } catch {
     return empty;

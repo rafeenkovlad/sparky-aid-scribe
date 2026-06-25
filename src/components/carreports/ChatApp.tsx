@@ -417,7 +417,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const fresh = getThread(thread.id);
       if (!fresh) return;
-      const { patch, reply } = await extractForStep(currentStep, text, fresh);
+      const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
@@ -426,6 +426,7 @@ export function ChatApp({ threadId }: Props) {
             role: "assistant",
             text: reply,
             step: currentStep,
+            ...(attachments && attachments.length ? { attachments } : {}),
             createdAt: Date.now(),
           });
         }
@@ -884,6 +885,32 @@ function MessageBubble({
         <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
           {msg.text}
         </div>
+        {msg.attachments && msg.attachments.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {msg.attachments.map((a) => (
+              <a
+                key={a.url}
+                href={a.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-lg overflow-hidden border border-white/10 bg-white/[0.03]"
+                title={a.label}
+              >
+                <img
+                  src={a.url}
+                  alt={a.label ?? ""}
+                  loading="lazy"
+                  className="block w-full h-20 object-contain bg-white/5"
+                />
+                {a.label && (
+                  <div className="text-[10px] text-white/60 px-1.5 py-1 truncate text-center">
+                    {a.label}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        )}
         {msg.chips && msg.chips.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {msg.chips.map((c) => {

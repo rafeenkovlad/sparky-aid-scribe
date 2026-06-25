@@ -142,6 +142,11 @@ export interface ChatChip {
   single?: boolean;
 }
 
+export interface MessageAttachment {
+  url: string;
+  label?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -154,6 +159,8 @@ export interface ChatMessage {
   optionsStep?: StepId;
   /** chip values already selected within this message */
   selectedChipValues?: string[];
+  /** image attachments (brand/model/generation pictures, etc.) */
+  attachments?: MessageAttachment[];
   createdAt: number;
 }
 
