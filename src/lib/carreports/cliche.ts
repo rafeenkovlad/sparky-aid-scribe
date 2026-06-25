@@ -299,3 +299,31 @@ export function pickEnum<T extends readonly string[]>(
 }
 
 export { ENGINE_TYPES, TRANSMISSIONS, DRIVE_TYPES };
+
+/**
+ * Из веб-контекста (выдачи поиска) определи каноническое имя автобренда.
+ * Используется когда каталог не нашёл совпадений по подсказке эксперта
+ * (например, эксперт написал «VW» → каноническое имя «Volkswagen»).
+ */
+export const CLICHE_CANONICAL_BRAND = (
+  hint: string,
+  webContext: string,
+) => `${COMMON}
+
+Из текста ниже определи каноническое (полное) название автомобильного бренда.
+Это нужно чтобы потом найти бренд в справочнике carreports по точному имени.
+
+Подсказка эксперта: ${JSON.stringify(hint)}
+
+Веб-контекст:
+${webContext}
+
+Верни ТОЛЬКО JSON:
+{
+  "brandName": "<каноническое имя бренда, например Volkswagen, BMW, Lada>",
+  "confidence": <0..1>
+}
+
+Текст эксперта:
+{text}`;
+
