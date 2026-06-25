@@ -165,6 +165,77 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
+  // Inspection: current zone (defaults to first when entering the step)
+  const currentZoneId = thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+  const currentZone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const selectZone = useCallback(
+    (zoneId: string) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        t.draft.inspectionStep.currentZone = zoneId;
+      });
+      textareaRef.current?.focus();
+    },
+    [thread],
+  );
+
+  const insertInspectionChip = useCallback((chip: ChatChip) => {
+    setComposer((cur) => {
+      const trimmed = cur.trim();
+      if (trimmed.includes(chip.value)) {
+        return trimmed
+          .split(/\n+/)
+          .filter((line) => line.trim() !== chip.value)
+          .join("\n");
+      }
+      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
+    });
+    textareaRef.current?.focus();
+  }, []);
+
+  const onPickPhoto = useCallback(
+    async (file: File) => {
+      if (!thread) return;
+      const zoneId = thread.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+      try {
+        const prepared = await preparePhoto(file);
+        const up = await uploadPhoto(prepared);
+        updateThread(thread.id, (t) => {
+          t.draft.inspectionStep.photos.push({
+            section: zoneId,
+            filename: up.filename,
+            dataUrl: prepared.dataUrl,
+            remote: up.remote,
+            addedAt: Date.now(),
+          });
+          t.draft.inspectionStep.touched = true;
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: up.remote
+              ? `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» (загружено: ${up.filename}).`
+              : `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» локально. ${up.note ?? ""}`,
+            createdAt: Date.now(),
+          });
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Ошибка обработки фото";
+        updateThread(thread.id, (t) => {
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${msg}`,
+            createdAt: Date.now(),
+          });
+        });
+      }
+    },
+    [thread],
+  );
+
+
   const advanceStep = useCallback(() => {
     if (!thread) return;
     const nextIdx = Math.min(thread.stepIndex + 1, FLOW_STEPS.length - 1);
