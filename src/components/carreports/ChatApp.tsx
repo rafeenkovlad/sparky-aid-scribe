@@ -293,7 +293,7 @@ export function ChatApp({ threadId }: Props) {
     } catch (e) {
       const m = e instanceof Error ? e.message : "Ошибка отправки";
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, "submit", {
           id: msgId(),
           role: "assistant",
           text: `⚠️ ${m}`,
