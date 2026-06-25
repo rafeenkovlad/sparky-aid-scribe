@@ -21,6 +21,7 @@ import logo from "@/assets/cr-logo.png";
 import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
 import { InspectionDateField } from "./InspectionDateField";
+import { LexChips } from "./LexChips";
 
 import { useThreads, useToken } from "@/hooks/useThreads";
 import {
@@ -571,6 +572,12 @@ export function ChatApp({ threadId }: Props) {
                 </button>
               );
             })}
+            <LexChips
+              step="inspection"
+              zone={currentZoneId}
+              selectedValues={new Set(composer.split(/\n+/).map((s) => s.trim()))}
+              onTap={insertInspectionChip}
+            />
           </div>
         </div>
       )}
@@ -738,6 +745,15 @@ function MessageBubble({
                 </button>
               );
             })}
+          </div>
+        )}
+        {interactive && msg.step && msg.step !== "inspection" && (
+          <div className="flex flex-wrap gap-1.5">
+            <LexChips
+              step={msg.step}
+              selectedValues={selected}
+              onTap={onChipTap}
+            />
           </div>
         )}
         {showDate && (
