@@ -18,6 +18,11 @@ export const CLICHE_CAR = `${COMMON}
 - dateInspection: YYYY-MM-DD, если эксперт назвал дату.
 - unreadableVin: true если эксперт сказал, что VIN не читается.
 - visuallyMileageNotMatchCondition: true если пробег не соответствует состоянию.
+- brandName: марка автомобиля, нормализованная (например "VW"/"вольксваген" → "Volkswagen").
+- modelCarName: модель (например "Tiguan", "Camry").
+- year: год выпуска (целое 4 цифры), если назван.
+- generationHint: поколение/модификация как назвал эксперт
+  (например "2 поколение", "II", "FL", "рестайлинг", "MQB", "B8.5"). Любая строка.
 
 Текст эксперта:
 {text}`;
