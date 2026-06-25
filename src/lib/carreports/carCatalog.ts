@@ -467,11 +467,15 @@ export async function resolveCar(
     });
     if (!model) return { ...empty, trace, brandName: brand.name };
 
+    const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
+    const modelImage = pickImageUrl(model as unknown as Record<string, unknown>);
     const partial: ResolvedCar = {
       modelCarId: model.id,
       modelGenerationRestylingFrameId: null,
       brandName: brand.name,
       modelCarName: model.name,
+      brandImage,
+      modelImage,
       trace,
     };
 
