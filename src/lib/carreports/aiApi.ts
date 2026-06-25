@@ -44,20 +44,32 @@ export async function chatCompletions(opts: {
   // Note: AI API expects text/plain content-type per its OpenRPC doc.
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new ApiError(`AI: HTTP ${res.status} ${t.slice(0, 200)}`, res.status);
   }
   const json = (await res.json()) as {
     error?: { code: number; message: string };
-    result?: ChatCompletionsResult;
+    errors?: { message: string };
+    result?: ChatCompletionsResult | unknown[];
+    response?: string;
   };
   if (json.error) throw new ApiError(`AI: ${json.error.message}`, undefined, json.error.code);
-  if (!json.result) throw new ApiError("AI: пустой ответ", 500);
-  return json.result;
+  if (json.errors)
+    throw new ApiError(
+      json.errors.message === "Unauthorized"
+        ? "AI: токен не имеет доступа к AI API (нужна роль specialist/user). Проверьте токен."
+        : `AI: ${json.errors.message}`,
+      401,
+    );
+  const r = json.result;
+  if (!r || Array.isArray(r)) throw new ApiError("AI: пустой ответ", 500);
+  return r as ChatCompletionsResult;
+
 }
 
 /** Generate (or reuse) a stable AI chat id for a given purpose within a thread. */
