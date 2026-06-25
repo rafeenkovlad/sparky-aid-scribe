@@ -12,6 +12,7 @@ import {
   pickEnum,
 } from "./cliche";
 import { decodeVin } from "./storageApi";
+import { zoneById } from "./inspectionZones";
 import type {
   CarStep,
   CharacteristicsStep,
