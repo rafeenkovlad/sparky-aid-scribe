@@ -145,6 +145,7 @@ export interface ChatChip {
 export interface MessageAttachment {
   url: string;
   label?: string;
+  kind?: "brand" | "model" | "generation";
 }
 
 export interface ChatMessage {
