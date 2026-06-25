@@ -108,7 +108,6 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
-  const [editPanelOpen, setEditPanelOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -741,7 +740,10 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              setEditPanelOpen(true);
+              updateThread(thread.id, (t) => {
+                pushMsg(t, currentStep, makeIntroMessage(currentStep));
+              });
+              textareaRef.current?.focus();
             }}
             aria-label="Нужно изменить"
             title="Нужно изменить"
@@ -862,66 +864,6 @@ export function ChatApp({ threadId }: Props) {
         <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
       )}
 
-      <Sheet open={editPanelOpen} onOpenChange={setEditPanelOpen}>
-        <SheetContent side="bottom" className="bg-zinc-950 border-white/10 text-white p-0 max-h-[80dvh]">
-          <SheetHeader className="px-4 py-3 border-b border-white/10">
-            <SheetTitle className="text-white text-base">
-              Параметры шага · {stepDef.label}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="px-4 py-3 space-y-3 overflow-y-auto" style={{ maxHeight: "55dvh" }}>
-            <pre className="whitespace-pre-wrap text-sm text-white/85 font-sans">
-              {summarizeStepDraft(currentStep, thread.draft) || "Шаг пуст."}
-            </pre>
-            <p className="text-xs text-white/50">
-              Опишите в чате, что нужно изменить — ИИ перезапишет соответствующие поля.
-            </p>
-          </div>
-          <div className="px-4 py-3 border-t border-white/10 flex items-center gap-2">
-            <Button
-              variant="ghost"
-              className="text-white/80 hover:bg-white/10"
-              onClick={() => {
-                if (!confirm("Очистить все значения этого шага?")) return;
-                updateThread(thread.id, (t) => {
-                  switch (currentStep) {
-                    case "car":
-                      t.draft.carStep = {};
-                      break;
-                    case "characteristics":
-                      t.draft.characteristicsStep = {};
-                      break;
-                    case "docs":
-                      t.draft.documentReconciliationStep = {};
-                      break;
-                    case "inspection":
-                      t.draft.inspectionStep = { sectionNotes: {}, photos: [], touched: false };
-                      break;
-                    case "testDrive":
-                      t.draft.testDriveStep = {};
-                      break;
-                    case "result":
-                      t.draft.resultStep = {};
-                      break;
-                  }
-                });
-                setEditPanelOpen(false);
-              }}
-            >
-              Очистить шаг
-            </Button>
-            <Button
-              className="ml-auto bg-orange-500 hover:bg-orange-600 text-white"
-              onClick={() => {
-                setEditPanelOpen(false);
-                setTimeout(() => textareaRef.current?.focus(), 0);
-              }}
-            >
-              Изменить через чат
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
