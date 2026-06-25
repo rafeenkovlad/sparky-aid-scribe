@@ -42,9 +42,13 @@ export interface CharacteristicsStep {
 
 export interface DocumentReconciliationStep {
   ownersCount?: number;
-  ownerMatches?: boolean | null;
-  vinOnBodyMatches?: boolean | null;
-  engineNumberMatches?: boolean | null;
+  /** соответствует Doc: владелец в ПТС/СТС совпадает с продавцом */
+  ownerFullNameMatchWithPTSOrSTS?: boolean | null;
+  /** соответствует Doc: VIN на кузове совпадает с ПТС/СТС */
+  vinOnBodyMatchWithPTSOrSTS?: boolean | null;
+  /** соответствует Doc: модель/номер двигателя совпадает с ПТС/СТС */
+  engineModelMatchWithPTSOrSTS?: boolean | null;
+  /** локальная заметка (в Doc схеме нет — на отправку не пойдёт) */
   note?: string;
 }
 
