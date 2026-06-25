@@ -1,7 +1,7 @@
 // Threads + localStorage store with stable snapshots (for useSyncExternalStore).
 // Avoids the classic "returning a new array on every getSnapshot" infinite loop.
 
-import { emptyDraft, type ChatMessage, type ReportDraft, type Thread } from "./types";
+import { emptyDraft, emptyStepMessages, type ChatMessage, type ReportDraft, type StepId, type StepMessages, type Thread } from "./types";
 
 const LS_KEY = "carreports.threads.v1";
 
@@ -15,6 +15,27 @@ function isBrowser(): boolean {
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+/** Migrate legacy flat ChatMessage[] to per-step Record. */
+function normalizeMessages(input: unknown): StepMessages {
+  const out = emptyStepMessages();
+  if (Array.isArray(input)) {
+    for (const m of input as ChatMessage[]) {
+      const step = (m?.step ?? "car") as StepId;
+      if (out[step]) out[step].push(m);
+      else out.car.push(m);
+    }
+    return out;
+  }
+  if (input && typeof input === "object") {
+    const obj = input as Partial<Record<StepId, ChatMessage[]>>;
+    for (const k of Object.keys(out) as StepId[]) {
+      const arr = obj[k];
+      if (Array.isArray(arr)) out[k] = arr as ChatMessage[];
+    }
+  }
+  return out;
 }
 
 /** Defensive normalisation so old drafts loaded from localStorage do not crash. */
@@ -40,7 +61,7 @@ function normalizeThread(t: Partial<Thread> & { id: string }): Thread {
     updatedAt: typeof t.updatedAt === "number" ? t.updatedAt : Date.now(),
     stepIndex: typeof t.stepIndex === "number" ? t.stepIndex : 0,
     draft: safeDraft,
-    messages: Array.isArray(t.messages) ? (t.messages as ChatMessage[]) : [],
+    messages: normalizeMessages(t.messages),
     aiChatIds: { ...(t.aiChatIds ?? {}) },
   };
 }
@@ -98,7 +119,7 @@ export function createThread(initial?: Partial<Thread>): Thread {
     updatedAt: Date.now(),
     stepIndex: 0,
     draft: initial?.draft ?? emptyDraft(),
-    messages: initial?.messages ?? [],
+    messages: initial?.messages ?? emptyStepMessages(),
     aiChatIds: initial?.aiChatIds ?? {},
   });
   const next = [t, ...loadThreads()];
@@ -128,7 +149,15 @@ export function updateThread(id: string, mut: (t: Thread) => Thread | void): Thr
         testDriveStep: { ...t.draft.testDriveStep },
         resultStep: { ...t.draft.resultStep },
       },
-      messages: [...t.messages],
+      messages: {
+        car: [...t.messages.car],
+        characteristics: [...t.messages.characteristics],
+        docs: [...t.messages.docs],
+        inspection: [...t.messages.inspection],
+        testDrive: [...t.messages.testDrive],
+        result: [...t.messages.result],
+        submit: [...t.messages.submit],
+      },
       aiChatIds: { ...t.aiChatIds },
     };
     const result = mut(clone) ?? clone;

@@ -53,6 +53,22 @@ function msgId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+function pushMsg(t: Thread, step: StepId, m: ChatMessage): void {
+  t.messages[step].push({ ...m, step: m.step ?? step });
+}
+
+function totalMessages(m: Thread["messages"]): number {
+  return (
+    m.car.length +
+    m.characteristics.length +
+    m.docs.length +
+    m.inspection.length +
+    m.testDrive.length +
+    m.result.length +
+    m.submit.length
+  );
+}
+
 function makeIntroMessage(step: StepId): ChatMessage {
   const intro = STEP_INTROS[step];
   return {
@@ -104,10 +120,11 @@ export function ChatApp({ threadId }: Props) {
   useEffect(() => {
     if (!thread) return;
     const fresh = getThread(thread.id);
-    if (fresh && fresh.messages.length === 0) {
+    if (fresh && totalMessages(fresh.messages) === 0) {
       updateThread(thread.id, (t) => {
-        if (t.messages.length === 0) {
-          t.messages.push(makeIntroMessage(FLOW_STEPS[t.stepIndex].id));
+        if (totalMessages(t.messages) === 0) {
+          const step = FLOW_STEPS[t.stepIndex].id;
+          pushMsg(t, step, makeIntroMessage(step));
         }
       });
     }
@@ -120,26 +137,31 @@ export function ChatApp({ threadId }: Props) {
     textareaRef.current?.focus();
   }, [threadId, busy]);
 
-  // Auto-scroll.
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [thread?.messages.length]);
-
   const currentStep = thread ? FLOW_STEPS[thread.stepIndex].id : "car";
 
+  const currentStepMessages = thread ? thread.messages[currentStep] : [];
+
+  // Auto-scroll on new messages in the current step.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [currentStepMessages.length, currentStep]);
+
   const lastOptionsMsgId = useMemo(() => {
-    if (!thread) return null;
-    for (let i = thread.messages.length - 1; i >= 0; i--) {
-      const m = thread.messages[i];
+    for (let i = currentStepMessages.length - 1; i >= 0; i--) {
+      const m = currentStepMessages[i];
       if (m.optionsStep === currentStep) return m.id;
     }
     return null;
-  }, [thread, currentStep]);
+  }, [currentStepMessages, currentStep]);
 
   const insertChip = useCallback((messageId: string, chip: ChatChip) => {
     if (!thread) return;
     updateThread(thread.id, (t) => {
-      const msg = t.messages.find((m) => m.id === messageId);
+      let msg: ChatMessage | undefined;
+      for (const key of Object.keys(t.messages) as StepId[]) {
+        msg = t.messages[key].find((x) => x.id === messageId);
+        if (msg) break;
+      }
       if (!msg) return;
       const prev = msg.selectedChipValues ?? [];
       // single-group: replace any previously-selected chip from same group
@@ -229,7 +251,7 @@ export function ChatApp({ threadId }: Props) {
             addedAt: Date.now(),
           });
           t.draft.inspectionStep.touched = true;
-          t.messages.push({
+          pushMsg(t, "inspection", {
             id: msgId(),
             role: "assistant",
             text: up.remote
@@ -241,7 +263,7 @@ export function ChatApp({ threadId }: Props) {
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Ошибка обработки фото";
         updateThread(thread.id, (t) => {
-          t.messages.push({
+          pushMsg(t, "inspection", {
             id: msgId(),
             role: "assistant",
             text: `⚠️ ${msg}`,
@@ -259,7 +281,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const r = await submitReport(thread.draft);
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, "submit", {
           id: msgId(),
           role: "assistant",
           text: r.remote
@@ -271,7 +293,7 @@ export function ChatApp({ threadId }: Props) {
     } catch (e) {
       const m = e instanceof Error ? e.message : "Ошибка отправки";
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, "submit", {
           id: msgId(),
           role: "assistant",
           text: `⚠️ ${m}`,
@@ -287,7 +309,7 @@ export function ChatApp({ threadId }: Props) {
     if (!thread || busy) return;
     setBusy(true);
     updateThread(thread.id, (t) => {
-      t.messages.push({
+      pushMsg(t, "result", {
         id: msgId(),
         role: "assistant",
         text: "🪄 Готовлю AI-резюме отчёта…",
@@ -301,7 +323,7 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         t.draft.resultStep.summaryInspectionNote = r.summary;
         if (r.verdict) t.draft.resultStep.resultSpecialistNote = r.verdict;
-        t.messages.push({
+        pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
           text:
@@ -316,7 +338,7 @@ export function ChatApp({ threadId }: Props) {
     } catch (e) {
       const m = e instanceof Error ? e.message : "Ошибка AI";
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
           text: `⚠️ ${m}`,
@@ -356,7 +378,7 @@ export function ChatApp({ threadId }: Props) {
     if (patch) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        t.messages.push({
+        pushMsg(t, "characteristics", {
           id: msgId(),
           role: "assistant",
           text: "Подтянул характеристики по VIN. Поправьте, если есть расхождения.",
@@ -381,7 +403,7 @@ export function ChatApp({ threadId }: Props) {
     setBusy(true);
     // 1) push user message
     updateThread(thread.id, (t) => {
-      t.messages.push({
+      pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
         text: askMode ? `❓ ${text}` : text,
@@ -399,7 +421,7 @@ export function ChatApp({ threadId }: Props) {
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
         const answer = await askQuestion(currentStep, text, fresh, stepLabel);
         updateThread(thread.id, (t) => {
-          t.messages.push({
+          pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
             text: answer,
@@ -421,7 +443,7 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
-          t.messages.push({
+          pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
             text: reply,
@@ -442,7 +464,7 @@ export function ChatApp({ threadId }: Props) {
     } catch (e) {
       const message = e instanceof Error ? e.message : "Ошибка ИИ";
       updateThread(thread.id, (t) => {
-        t.messages.push({
+        pushMsg(t, currentStep, {
           id: msgId(),
           role: "assistant",
           text: `⚠️ ${message}`,
@@ -591,18 +613,16 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {thread.messages
-          .filter((m) => !m.step || m.step === currentStep)
-          .map((m) => (
-            <MessageBubble
-              key={m.id}
-              msg={m}
-              interactive={m.id === lastOptionsMsgId}
-              onChipTap={(chip) => insertChip(m.id, chip)}
-              inspectionDateValue={thread.draft.carStep.dateInspection}
-              onInspectionDateChange={setInspectionDate}
-            />
-          ))}
+        {currentStepMessages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            msg={m}
+            interactive={m.id === lastOptionsMsgId}
+            onChipTap={(chip) => insertChip(m.id, chip)}
+            inspectionDateValue={thread.draft.carStep.dateInspection}
+            onInspectionDateChange={setInspectionDate}
+          />
+        ))}
         {busy && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
@@ -714,7 +734,7 @@ export function ChatApp({ threadId }: Props) {
               const recap = summarizeStepDraft(currentStep, thread.draft);
               if (recap) {
                 updateThread(thread.id, (t) => {
-                  t.messages.push({
+                  pushMsg(t, currentStep, {
                     id: msgId(),
                     role: "assistant",
                     text: recap,
