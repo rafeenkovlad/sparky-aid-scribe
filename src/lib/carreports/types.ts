@@ -62,6 +62,25 @@ export interface InspectionPhoto {
   addedAt?: number;
 }
 
+export interface PendingTagName {
+  name: string;
+  severity?: "serious" | "non_serious";
+}
+
+export interface InspectionElementFinding {
+  /** server section id (snake_case) — duplicated for easy lookup */
+  section: string;
+  elementId: string;
+  /** true if element осмотрен без замечаний */
+  noDamage?: boolean;
+  seriousDamageTagIds?: number[];
+  noSeriousDamageTagIds?: number[];
+  /** tags AI extracted but did not resolve to server tag IDs */
+  pendingTagNames?: PendingTagName[];
+  note?: string;
+  audioNotes?: string[];
+}
+
 export interface InspectionStep {
   // Phase 2: 8 zones. Notes are keyed by zone id.
   sectionNotes: Record<string, string>;
@@ -69,6 +88,8 @@ export interface InspectionStep {
   touched?: boolean;
   /** zone id last interacted with */
   currentZone?: string;
+  /** structured findings, keyed by `${section}.${elementId}` */
+  findings?: Record<string, InspectionElementFinding>;
 }
 
 export interface TestDriveStep {
