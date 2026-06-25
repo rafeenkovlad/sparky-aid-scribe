@@ -518,39 +518,85 @@ export async function resolveCar(
         },
       );
 
-    // Сначала пробуем детерминированный отбор по году и подсказке.
-    // Список frames из Storage.GetModelGeneration — авторитетный источник.
-    const hintNorm = generationHint ? norm(generationHint) : "";
-    const byYear = year
-      ? frames.filter(
-          (f) =>
-            (f.yearStart == null || year >= f.yearStart) &&
-            (f.yearEnd == null || year <= f.yearEnd),
-        )
-      : frames.slice();
-    const pool = byYear.length ? byYear : frames;
-    let deterministic: GenerationFrameCandidate | undefined;
-    if (hintNorm) {
-      deterministic = pool.find((f) => {
-        const n = norm(`${f.generationName ?? ""} ${f.restylingName ?? ""}`);
-        return n.includes(hintNorm) || hintNorm.includes(n);
-      });
+    // Детерминированный отбор по году + ordinal в подсказке/тексте.
+    // «поколение 2», «2 поколение», «II», «рестайлинг 1» → берём N-е по списку
+    // из Storage.GetModelGeneration. Если такого нет — не подбираем (не нашли).
+    const parseOrdinal = (s: string, keyword: RegExp): number | null => {
+      const lc = s.toLowerCase().replace(/ё/g, "е");
+      // «поколение 2», «2-е поколение», «2 поколение»
+      const re1 = new RegExp(`${keyword.source}\\s*(\\d+)`, "i");
+      const re2 = new RegExp(`(\\d+)[-\\s]*(?:е|й|ое|ая)?\\s*${keyword.source}`, "i");
+      const roman = new RegExp(`${keyword.source}\\s*(i{1,3}|iv|v|vi{0,3})\\b`, "i");
+      const m = re1.exec(lc) ?? re2.exec(lc) ?? roman.exec(lc);
+      if (!m) return null;
+      const v = m[1];
+      if (/^\d+$/.test(v)) return Number(v);
+      const map: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8 };
+      return map[v.toLowerCase()] ?? null;
+    };
+    const hintAndText = `${generationHint ?? ""} ${userText}`;
+    const genOrd = parseOrdinal(hintAndText, /поколени[еяюй]/);
+    const restOrd = parseOrdinal(hintAndText, /рестайлинг[а-я]*/);
+
+    // Группируем frames по generationName (порядок из API сохраняется).
+    const genGroups: { name: string; items: GenerationFrameCandidate[] }[] = [];
+    for (const f of frames) {
+      const key = f.generationName ?? "";
+      const g = genGroups.find((x) => x.name === key);
+      if (g) g.items.push(f);
+      else genGroups.push({ name: key, items: [f] });
     }
-    if (!deterministic && pool.length === 1) deterministic = pool[0];
-    if (deterministic) {
-      frame = deterministic;
-      frameConf = 0.9;
-      frameReason = "Подбор из Storage.GetModelGeneration по году/подсказке";
-    } else {
-      const framePick = await pickFrame();
-      if (framePick?.frameId) {
-        frame = frames.find((f) => f.frameId === framePick.frameId);
-        frameConf = framePick.confidence;
-        frameReason = framePick.reason;
+
+    let notFound = false;
+    if (genOrd != null) {
+      const group = genGroups[genOrd - 1];
+      if (!group) {
+        notFound = true;
+      } else {
+        const idx = restOrd != null ? restOrd - 1 : 0;
+        if (restOrd != null && !group.items[idx]) {
+          notFound = true;
+        } else {
+          frame = group.items[idx] ?? group.items[0];
+          frameConf = 0.95;
+          frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (первый рестайлинг)"}`;
+        }
       }
-      if (!frame && pool.length) {
+    }
+
+    if (!frame && !notFound) {
+      // Фолбэк: подсказка по тексту/году.
+      const hintNorm = generationHint ? norm(generationHint) : "";
+      const byYear = year
+        ? frames.filter(
+            (f) =>
+              (f.yearStart == null || year >= f.yearStart) &&
+              (f.yearEnd == null || year <= f.yearEnd),
+          )
+        : frames.slice();
+      const pool = byYear.length ? byYear : frames;
+      if (hintNorm) {
+        frame = pool.find((f) => {
+          const n = norm(`${f.generationName ?? ""} ${f.restylingName ?? ""}`);
+          return n.includes(hintNorm) || hintNorm.includes(n);
+        });
+        if (frame) {
+          frameConf = 0.8;
+          frameReason = "Подбор по подсказке/году из Storage.GetModelGeneration";
+        }
+      }
+      if (!frame && pool.length === 1) {
         frame = pool[0];
-        frameConf = 0.3;
+        frameConf = 0.7;
+        frameReason = "Единственный кандидат по году";
+      }
+      if (!frame) {
+        const framePick = await pickFrame();
+        if (framePick?.frameId) {
+          frame = frames.find((f) => f.frameId === framePick.frameId);
+          frameConf = framePick.confidence;
+          frameReason = framePick.reason;
+        }
       }
     }
     trace.push({
