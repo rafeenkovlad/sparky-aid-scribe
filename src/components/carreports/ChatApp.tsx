@@ -747,6 +747,15 @@ function MessageBubble({
             })}
           </div>
         )}
+        {interactive && msg.step && msg.step !== "inspection" && (
+          <div className="flex flex-wrap gap-1.5">
+            <LexChips
+              step={msg.step}
+              selectedValues={selected}
+              onTap={onChipTap}
+            />
+          </div>
+        )}
         {showDate && (
           <InspectionDateField value={inspectionDateValue} onChange={onInspectionDateChange} />
         )}
