@@ -35,7 +35,7 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
 }
 
 export function filledCount(d: ReportDraft): number {
-  return FLOW_STEPS.slice(0, 6).filter((s) => isStepFilled(s.id, d)).length;
+  return FLOW_STEPS.slice(0, FLOW_STEPS.length - 1).filter((s) => isStepFilled(s.id, d)).length;
 }
 
 export function shortCarSummary(d: ReportDraft): string {

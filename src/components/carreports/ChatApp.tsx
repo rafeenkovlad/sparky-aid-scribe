@@ -69,7 +69,7 @@ function totalMessages(m: Thread["messages"]): number {
   );
 }
 const STEP_PLACEHOLDERS: Record<StepId, string> = {
-  car: "VIN, госномер, пробег, город и дата осмотра… (Enter — отправить)",
+  car: "VIN, госномер, пробег, город/дата осмотра, марка, модель, поколение, год, двигатель, КПП, привод, цвет… (Enter — отправить)",
   characteristics: "Марка, модель, поколение, год, двигатель, КПП, привод, цвет… (Enter — отправить)",
   docs: "Кол-во владельцев, совпадения VIN/двигателя/ФИО с ПТС/СТС… (Enter — отправить)",
   inspection: "Заметки по текущей зоне осмотра… (Enter — сохранить)",
@@ -366,15 +366,10 @@ export function ChatApp({ threadId }: Props) {
     if (!thread) return;
     const nextIdx = Math.min(thread.stepIndex + 1, FLOW_STEPS.length - 1);
     if (nextIdx === thread.stepIndex) return;
-    const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
     });
-    // Trigger VIN decode when entering characteristics
-    if (nextStep === "characteristics") {
-      void doVinDecode();
-    }
-  }, [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [thread]);
 
 
   const doVinDecode = useCallback(async () => {
@@ -387,7 +382,7 @@ export function ChatApp({ threadId }: Props) {
     if (patch) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        pushMsg(t, "characteristics", {
+        pushMsg(t, "car", {
           id: msgId(),
           role: "assistant",
           text: "Подтянул характеристики по VIN. Поправьте, если есть расхождения.",
@@ -448,6 +443,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const fresh = getThread(thread.id);
       if (!fresh) return;
+      const prevVin = fresh.draft.carStep.vin;
       const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
@@ -470,6 +466,14 @@ export function ChatApp({ threadId }: Props) {
               : "Новый отчёт";
         }
       });
+      // After car extract: if VIN newly known, decode it and fill characteristics
+      if (currentStep === "car") {
+        const after = getThread(thread.id);
+        const newVin = after?.draft.carStep.vin;
+        if (newVin && newVin !== prevVin && newVin.length >= 11) {
+          void doVinDecode();
+        }
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Ошибка ИИ";
       updateThread(thread.id, (t) => {
@@ -483,7 +487,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode]);
 
 
   function jumpTo(step: StepId) {

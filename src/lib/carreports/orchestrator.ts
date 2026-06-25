@@ -337,6 +337,52 @@ export async function extractForStep(
       // и подбираем по каталогу, чтобы не дублировать ввод на следующем шаге.
       const charPatch: CharacteristicsStep = { ...thread.draft.characteristicsStep };
       let charTouched = false;
+
+      // Combined step also extracts engine/transmission/drive/color/equipment.
+      try {
+        const charId = aiChatIdFor(thread, "extract:characteristics");
+        const charRes = await chatCompletions({ id: charId, text, cliche: CLICHE_CHARACTERISTICS });
+        const charData = parseJsonResponse<Record<string, unknown>>(charRes.content) ?? {};
+        if (typeof charData.engineVolume === "number") {
+          charPatch.engineVolume = charData.engineVolume;
+          charTouched = true;
+        }
+        if (typeof charData.enginePower === "number") {
+          charPatch.enginePower = charData.enginePower;
+          charTouched = true;
+        }
+        const et = pickEnum(charData.engineType, ENGINE_TYPES);
+        if (et) { charPatch.engineType = et; charTouched = true; }
+        const tr = pickEnum(charData.transmission, TRANSMISSIONS);
+        if (tr) { charPatch.transmission = tr; charTouched = true; }
+        const dr = pickEnum(charData.driveType, DRIVE_TYPES);
+        if (dr) { charPatch.driveType = dr; charTouched = true; }
+        if (typeof charData.color === "string" && charData.color.trim()) {
+          charPatch.color = charData.color.trim();
+          charTouched = true;
+        }
+        if (typeof charData.equipment === "string" && charData.equipment.trim()) {
+          charPatch.equipment = charData.equipment.trim();
+          charTouched = true;
+        }
+        // brand/model/year/generationHint already extracted by CLICHE_CAR below
+        // but if CAR didn't catch them, allow CHARACTERISTICS to fill in.
+        if (typeof charData.brandName === "string" && charData.brandName.trim() && !data.brandName) {
+          (data as Record<string, unknown>).brandName = charData.brandName.trim();
+        }
+        if (typeof charData.modelCarName === "string" && charData.modelCarName.trim() && !data.modelCarName) {
+          (data as Record<string, unknown>).modelCarName = charData.modelCarName.trim();
+        }
+        if (typeof charData.year === "number" && !data.year) {
+          (data as Record<string, unknown>).year = charData.year;
+        }
+        if (typeof charData.generationHint === "string" && !data.generationHint) {
+          (data as Record<string, unknown>).generationHint = charData.generationHint;
+        }
+      } catch {
+        /* ignore — partial extraction is fine */
+      }
+
       if (typeof data.brandName === "string" && data.brandName.trim()) {
         charPatch.brandName = data.brandName.trim();
         charTouched = true;
@@ -592,7 +638,8 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
   switch (step) {
     case "car": {
       const c = draft.carStep;
-      const has =
+      const ch = draft.characteristicsStep;
+      const hasCar =
         c.vin ||
         c.unreadableVin ||
         c.gosNumber ||
@@ -601,7 +648,10 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         c.dateInspection ||
         c.uriListing ||
         c.visuallyMileageNotMatchCondition;
-      if (!has) return "";
+      const hasChar =
+        ch.brandName || ch.modelCarName || ch.year || ch.engineVolume ||
+        ch.engineType || ch.transmission || ch.driveType || ch.color || ch.equipment;
+      if (!hasCar && !hasChar) return "";
       const parts: string[] = ["Уже зафиксировано по автомобилю:"];
       if (c.vin) parts.push(`• VIN ${c.vin}`);
       if (c.unreadableVin) parts.push("• VIN нечитаемый");
@@ -612,6 +662,18 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
       if (c.dateInspection) parts.push(`• Дата осмотра: ${c.dateInspection}`);
       if (c.uriListing) parts.push(`• Объявление: ${c.uriListing}`);
       if (c.visuallyMileageNotMatchCondition) parts.push("• Пробег не соответствует состоянию");
+      if (hasChar) {
+        if (ch.brandName || ch.modelCarName)
+          parts.push(`• Модель: ${[ch.brandName, ch.modelCarName].filter(Boolean).join(" ")}`);
+        if (ch.generationLabel) parts.push(`• Поколение: ${ch.generationLabel}`);
+        if (ch.year) parts.push(`• Год: ${ch.year}`);
+        if (ch.engineVolume) parts.push(`• Объём: ${ch.engineVolume} л`);
+        if (ch.engineType) parts.push(`• Тип двигателя: ${ch.engineType}`);
+        if (ch.transmission) parts.push(`• КПП: ${ch.transmission}`);
+        if (ch.driveType) parts.push(`• Привод: ${ch.driveType}`);
+        if (ch.color) parts.push(`• Цвет: ${ch.color}`);
+        if (ch.equipment) parts.push(`• Комплектация: ${ch.equipment}`);
+      }
       parts.push("\nМожно дополнить или нажмите «Всё верно, далее».");
       return parts.join("\n");
     }
