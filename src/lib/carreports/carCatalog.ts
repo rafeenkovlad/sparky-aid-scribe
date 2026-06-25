@@ -249,12 +249,20 @@ function topMatches<T extends { id: number; name?: string }>(
 /** Flatten generation → restyling → frame into pickable candidates. */
 function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[] {
   const out: GenerationFrameCandidate[] = [];
-  for (const g of generations) {
+  // Сортируем поколения по возрастанию номера (1, 2, 3 ...) если задан.
+  const gens = [...generations].sort((a, b) => {
+    const an = typeof a.generation === "number" ? a.generation : 0;
+    const bn = typeof b.generation === "number" ? b.generation : 0;
+    return an - bn;
+  });
+  for (const g of gens) {
     const genStart = asYear(g.yearStart) ?? asYear(g.startYear);
     const genEnd = asYear(g.yearEnd) ?? asYear(g.endYear);
+    const genNum = typeof g.generation === "number" ? g.generation : undefined;
     const genName =
       (g.name && g.name.trim()) ||
-      (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : "");
+      (genNum != null ? `Поколение ${genNum}` :
+        (genStart || genEnd ? `Поколение ${genStart ?? "?"}–${genEnd ?? "н.в."}` : ""));
     const genImg = pickImageUrl(g as unknown as Record<string, unknown>);
     const restylings = g.modelGenerationRestylings ?? g.restylings ?? [];
     if (restylings.length === 0) {
@@ -264,7 +272,9 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
         out.push({
           frameId: f.id,
           generationName: genName,
-          restylingName: f.name,
+          restylingName: f.name ?? f.frame,
+          generationNumber: genNum,
+          restylingNumber: 0,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? genStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? genEnd,
           urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? genImg,
@@ -272,17 +282,29 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
       }
       continue;
     }
-    for (const r of restylings) {
+    // Сортируем рестайлинги по возрастанию номера (0 = базовый, 1 = первый рестайлинг ...).
+    const sortedR = [...restylings].sort((a, b) => {
+      const an = Number(a.restyling ?? 999);
+      const bn = Number(b.restyling ?? 999);
+      return an - bn;
+    });
+    for (const r of sortedR) {
       const rStart = asYear(r.yearStart) ?? asYear(r.startYear) ?? genStart;
       const rEnd = asYear(r.yearEnd) ?? asYear(r.endYear) ?? genEnd;
       const rImg = pickImageUrl(r as unknown as Record<string, unknown>) ?? genImg;
+      const rNum = r.restyling != null && r.restyling !== "" ? Number(r.restyling) : undefined;
+      const rName =
+        r.name ??
+        (rNum === 0 ? "Базовый" : rNum != null ? `Рестайлинг ${rNum}` : "Базовый");
       const frames =
         r.modelGenerationRestylingFrames ?? r.restylingFrames ?? r.frames ?? [];
       if (frames.length === 0) {
         out.push({
           frameId: r.id,
           generationName: genName,
-          restylingName: r.name ?? "Базовый",
+          restylingName: rName,
+          generationNumber: genNum,
+          restylingNumber: rNum,
           yearStart: rStart,
           yearEnd: rEnd,
           urlImage: rImg,
@@ -293,7 +315,9 @@ function flattenFrames(generations: GenerationRow[]): GenerationFrameCandidate[]
         out.push({
           frameId: f.id,
           generationName: genName,
-          restylingName: f.name ?? r.name,
+          restylingName: f.name ?? f.frame ?? rName,
+          generationNumber: genNum,
+          restylingNumber: rNum,
           yearStart: asYear(f.yearStart) ?? asYear(f.startYear) ?? rStart,
           yearEnd: asYear(f.yearEnd) ?? asYear(f.endYear) ?? rEnd,
           urlImage: pickImageUrl(f as unknown as Record<string, unknown>) ?? rImg,
