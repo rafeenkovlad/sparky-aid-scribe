@@ -251,7 +251,7 @@ export function ChatApp({ threadId }: Props) {
             addedAt: Date.now(),
           });
           t.draft.inspectionStep.touched = true;
-          t.messages.push({
+          pushMsg(t, "inspection", {
             id: msgId(),
             role: "assistant",
             text: up.remote
