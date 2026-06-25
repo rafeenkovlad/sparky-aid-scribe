@@ -417,7 +417,7 @@ export function ChatApp({ threadId }: Props) {
     try {
       const fresh = getThread(thread.id);
       if (!fresh) return;
-      const { patch, reply } = await extractForStep(currentStep, text, fresh);
+      const { patch, reply, attachments } = await extractForStep(currentStep, text, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
@@ -426,6 +426,7 @@ export function ChatApp({ threadId }: Props) {
             role: "assistant",
             text: reply,
             step: currentStep,
+            ...(attachments && attachments.length ? { attachments } : {}),
             createdAt: Date.now(),
           });
         }
