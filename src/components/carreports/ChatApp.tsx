@@ -219,15 +219,11 @@ export function ChatApp({ threadId }: Props) {
   );
 
   const insertInspectionChip = useCallback((chip: ChatChip) => {
-    setComposer((cur) => {
-      const trimmed = cur.trim();
-      if (trimmed.includes(chip.value)) {
-        return trimmed
-          .split(/\n+/)
-          .filter((line) => line.trim() !== chip.value)
-          .join("\n");
-      }
-      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
+    setSelectedInspectionChips((prev) => {
+      const next = new Set(prev);
+      if (next.has(chip.value)) next.delete(chip.value);
+      else next.add(chip.value);
+      return next;
     });
     textareaRef.current?.focus();
   }, []);
