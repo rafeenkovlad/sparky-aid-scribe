@@ -337,6 +337,52 @@ export async function extractForStep(
       // и подбираем по каталогу, чтобы не дублировать ввод на следующем шаге.
       const charPatch: CharacteristicsStep = { ...thread.draft.characteristicsStep };
       let charTouched = false;
+
+      // Combined step also extracts engine/transmission/drive/color/equipment.
+      try {
+        const charId = aiChatIdFor(thread, "extract:characteristics");
+        const charRes = await chatCompletions({ id: charId, text, cliche: CLICHE_CHARACTERISTICS });
+        const charData = parseJsonResponse<Record<string, unknown>>(charRes.content) ?? {};
+        if (typeof charData.engineVolume === "number") {
+          charPatch.engineVolume = charData.engineVolume;
+          charTouched = true;
+        }
+        if (typeof charData.enginePower === "number") {
+          charPatch.enginePower = charData.enginePower;
+          charTouched = true;
+        }
+        const et = pickEnum(charData.engineType, ENGINE_TYPES);
+        if (et) { charPatch.engineType = et; charTouched = true; }
+        const tr = pickEnum(charData.transmission, TRANSMISSIONS);
+        if (tr) { charPatch.transmission = tr; charTouched = true; }
+        const dr = pickEnum(charData.driveType, DRIVE_TYPES);
+        if (dr) { charPatch.driveType = dr; charTouched = true; }
+        if (typeof charData.color === "string" && charData.color.trim()) {
+          charPatch.color = charData.color.trim();
+          charTouched = true;
+        }
+        if (typeof charData.equipment === "string" && charData.equipment.trim()) {
+          charPatch.equipment = charData.equipment.trim();
+          charTouched = true;
+        }
+        // brand/model/year/generationHint already extracted by CLICHE_CAR below
+        // but if CAR didn't catch them, allow CHARACTERISTICS to fill in.
+        if (typeof charData.brandName === "string" && charData.brandName.trim() && !data.brandName) {
+          (data as Record<string, unknown>).brandName = charData.brandName.trim();
+        }
+        if (typeof charData.modelCarName === "string" && charData.modelCarName.trim() && !data.modelCarName) {
+          (data as Record<string, unknown>).modelCarName = charData.modelCarName.trim();
+        }
+        if (typeof charData.year === "number" && !data.year) {
+          (data as Record<string, unknown>).year = charData.year;
+        }
+        if (typeof charData.generationHint === "string" && !data.generationHint) {
+          (data as Record<string, unknown>).generationHint = charData.generationHint;
+        }
+      } catch {
+        /* ignore — partial extraction is fine */
+      }
+
       if (typeof data.brandName === "string" && data.brandName.trim()) {
         charPatch.brandName = data.brandName.trim();
         charTouched = true;
