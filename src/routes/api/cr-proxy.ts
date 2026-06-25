@@ -20,16 +20,15 @@ export const Route = createFileRoute("/api/cr-proxy")({
         const body = await request.text();
 
         if (target === "ai") {
-          // AI API: accepts Bearer header (как в Postman). Доп. дублируем
-          // ?token=<jwt> на случай старого роутинга. Content-Type оставляем
-          // application/json — сервер парсит JSON-RPC и так.
-          const u = token ? `${upstream}?token=${encodeURIComponent(token)}` : upstream;
-          const r = await fetch(u, {
+          // AI API авторизуется ТОЛЬКО заголовком Authorization: Bearer <jwt>.
+          // Query-параметр ?token= игнорируется и приводит к Unauthorized.
+          if (!token) return new Response("Missing token", { status: 401 });
+          const r = await fetch(upstream, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              Authorization: `Bearer ${token}`,
             },
             body,
           });
