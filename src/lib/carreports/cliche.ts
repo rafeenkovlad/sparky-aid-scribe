@@ -47,6 +47,56 @@ export const CLICHE_DOCS = `${COMMON}
 Текст эксперта:
 {text}`;
 
+export const CLICHE_INSPECTION = (zoneLabel: string) => `${COMMON}
+
+Это заметка эксперта по зоне осмотра «${zoneLabel}». Очисти и структурируй
+её в короткую техническую запись (1–4 предложения) на русском. Сохрани все
+конкретные находки (сколы, ржавчина, люфт, замена детали, толщина ЛКП и т.д.)
+и количественные значения. Удали слова-паразиты, дубли, переход на новую
+мысль.
+
+Верни ТОЛЬКО валидный JSON:
+{
+  "note": "очищенная заметка",
+  "hasIssues": true|false        // true если есть дефекты/замечания
+}
+
+Текст эксперта:
+{text}`;
+
+export const CLICHE_TEST_DRIVE = `${COMMON}
+
+Извлеки данные тест-драйва из текста эксперта. Поля (все опциональные —
+включай только то, что упомянуто):
+- testDriveIsIncluded: false если эксперт сказал, что тест-драйв НЕ проводился, иначе true.
+- testDriveEngineIsWorkingProperly: true/false по двигателю в движении.
+- testDriveTransmissionIsWorkingProperly: true/false по КПП.
+- testDriveSteeringWheelIsWorkingProperly: true/false по рулевому.
+- testDriveSuspensionInDriveIsWorkingProperly: true/false по подвеске.
+- testDriveBrakesInDriveIsWorkingProperly: true/false по тормозам.
+- testDriveEngineTags / testDriveTransmissionTags / testDriveSteeringWheelTags /
+  testDriveSuspensionInDriveTags / testDriveBrakesInDriveTags: массивы коротких
+  меток с конкретными замечаниями (например ["вибрация на 80","пинок 2-3"]).
+- testDriveNote: общая заметка по тест-драйву (1–3 предложения).
+
+Текст эксперта:
+{text}`;
+
+export const CLICHE_RESULT = `${COMMON}
+
+Эксперт диктует итог осмотра. Раздели его на два поля:
+- summaryInspectionNote: краткое резюме текущего состояния авто
+  (что нашли, ключевые дефекты, общее впечатление).
+- resultSpecialistNote: вердикт/рекомендация специалиста
+  (брать/торговаться/отказаться/рекомендовать и т.п.).
+
+Если эксперт сказал только одно — заполни только соответствующее поле.
+
+Верни ТОЛЬКО валидный JSON с этими двумя полями (любое можно опустить).
+
+Текст эксперта:
+{text}`;
+
 /** Parse a strict-JSON model response, tolerating ```json fences. */
 export function parseJsonResponse<T = unknown>(content: string | null | undefined): T | null {
   if (!content) return null;
