@@ -268,6 +268,51 @@ export function ChatApp({ threadId }: Props) {
     }
   }, [thread, busy]);
 
+  const doGenSummary = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    updateThread(thread.id, (t) => {
+      t.messages.push({
+        id: msgId(),
+        role: "assistant",
+        text: "🪄 Готовлю AI-резюме отчёта…",
+        createdAt: Date.now(),
+      });
+    });
+    try {
+      const fresh = getThread(thread.id);
+      if (!fresh) return;
+      const r = await generateSummary(fresh);
+      updateThread(thread.id, (t) => {
+        t.draft.resultStep.summaryInspectionNote = r.summary;
+        if (r.verdict) t.draft.resultStep.resultSpecialistNote = r.verdict;
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text:
+            `✅ AI-резюме готово (${r.model}, ${Math.round(r.latencyMs)} мс):\n\n` +
+            r.summary +
+            (r.verdict ? `\n\nВЕРДИКТ: ${r.verdict}` : "") +
+            "\n\nПоправьте при необходимости и переходите к отправке.",
+          step: "result",
+          createdAt: Date.now(),
+        });
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Ошибка AI";
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: `⚠️ ${m}`,
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
 
 
 
