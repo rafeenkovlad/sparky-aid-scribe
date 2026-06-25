@@ -445,20 +445,35 @@ export async function extractForStep(
         // Уточняющие чипы для возможных опечаток/альтернатив.
         if (resolved.suggestions?.length) {
           for (const s of resolved.suggestions) {
-            chips.push({ label: s.label, value: s.value, group: s.group, single: true });
+            chips.push({
+              label: s.label,
+              value: s.value,
+              group: s.group,
+              single: true,
+              ...(s.image ? { image: s.image } : {}),
+              ...(s.description ? { description: s.description } : {}),
+            });
           }
         }
 
         const last = resolved.trace[resolved.trace.length - 1];
         const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
         const webHint = resolved.trace.some((t) => t.needsWeb);
-        if (resolved.modelCarId) {
+        if (resolved.modelCarId && resolved.modelGenerationRestylingFrameId) {
           const label =
             [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ") +
             (resolved.generationLabel ? ` · ${resolved.generationLabel}` : "");
           catalogNote = `\n🔎 По каталогу: ${label}`;
           if (lowConf || webHint)
             catalogNote += "\n⚠️ Уверенность подбора низкая — выберите вариант ниже или уточните.";
+        } else if (resolved.modelCarId && resolved.generationNotFound) {
+          catalogNote =
+            `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+            `\n❌ Указанное поколение/рестайлинг не найдено. Выберите подходящий вариант ниже:`;
+        } else if (resolved.modelCarId) {
+          catalogNote =
+            `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+            `\n⚠️ Поколение не определено — выберите вариант ниже.`;
         } else if (last) {
           catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
