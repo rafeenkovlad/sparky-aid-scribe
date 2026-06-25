@@ -68,6 +68,15 @@ function totalMessages(m: Thread["messages"]): number {
     m.submit.length
   );
 }
+const STEP_PLACEHOLDERS: Record<StepId, string> = {
+  car: "VIN, госномер, пробег, город и дата осмотра… (Enter — отправить)",
+  characteristics: "Марка, модель, поколение, год, двигатель, КПП, привод, цвет… (Enter — отправить)",
+  docs: "Кол-во владельцев, совпадения VIN/двигателя/ФИО с ПТС/СТС… (Enter — отправить)",
+  inspection: "Заметки по текущей зоне осмотра… (Enter — сохранить)",
+  testDrive: "Тест-драйв: двигатель, КПП, руль, подвеска, тормоза, замечания… (Enter — отправить)",
+  result: "Итоговый комментарий специалиста и вердикт… (Enter — отправить)",
+  submit: "Готово к отправке — подтвердите или уточните детали… (Enter — отправить)",
+};
 
 function makeIntroMessage(step: StepId): ChatMessage {
   const intro = STEP_INTROS[step];
