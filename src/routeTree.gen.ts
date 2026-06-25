@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiWebSearchRouteImport } from './routes/api/web-search'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiCrProxyRouteImport } from './routes/api/cr-proxy'
 
@@ -22,6 +23,11 @@ const ThreadIdRoute = ThreadIdRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebSearchRoute = ApiWebSearchRouteImport.update({
+  id: '/api/web-search',
+  path: '/api/web-search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/$threadId': typeof ThreadIdRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/web-search': typeof ApiWebSearchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/web-search': typeof ApiWebSearchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,30 @@ export interface FileRoutesById {
   '/$threadId': typeof ThreadIdRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/api/web-search': typeof ApiWebSearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$threadId' | '/api/cr-proxy' | '/api/transcribe'
+  fullPaths:
+    | '/'
+    | '/$threadId'
+    | '/api/cr-proxy'
+    | '/api/transcribe'
+    | '/api/web-search'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$threadId' | '/api/cr-proxy' | '/api/transcribe'
-  id: '__root__' | '/' | '/$threadId' | '/api/cr-proxy' | '/api/transcribe'
+  to:
+    | '/'
+    | '/$threadId'
+    | '/api/cr-proxy'
+    | '/api/transcribe'
+    | '/api/web-search'
+  id:
+    | '__root__'
+    | '/'
+    | '/$threadId'
+    | '/api/cr-proxy'
+    | '/api/transcribe'
+    | '/api/web-search'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +92,7 @@ export interface RootRouteChildren {
   ThreadIdRoute: typeof ThreadIdRoute
   ApiCrProxyRoute: typeof ApiCrProxyRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
+  ApiWebSearchRoute: typeof ApiWebSearchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -83,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/web-search': {
+      id: '/api/web-search'
+      path: '/api/web-search'
+      fullPath: '/api/web-search'
+      preLoaderRoute: typeof ApiWebSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/transcribe': {
@@ -107,6 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   ThreadIdRoute: ThreadIdRoute,
   ApiCrProxyRoute: ApiCrProxyRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
+  ApiWebSearchRoute: ApiWebSearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -46,6 +46,7 @@ export const CLICHE_PICK_BRAND = (
   userText: string,
   hint: string | undefined,
   brands: Array<{ id: number; name: string; country?: string | null }>,
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан список брендов автомобилей из каталога carreports
@@ -54,7 +55,7 @@ export const CLICHE_PICK_BRAND = (
 
 Подсказка эксперта по бренду: ${JSON.stringify(hint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
-
+${webContext ? `\nКонтекст из веб-поиска (используй для нормализации сокращений вроде «VW» → «Volkswagen»):\n${webContext}\n` : ""}
 Кандидаты (id — name [country]):
 ${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${b.country}]` : ""}`).join("\n") || "  (пусто)"}
 
@@ -69,11 +70,13 @@ ${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${
 Текст эксперта:
 {text}`;
 
+
 export const CLICHE_PICK_MODEL = (
   userText: string,
   brandName: string,
   modelHint: string | undefined,
   models: Array<{ id: number; name: string }>,
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан список моделей бренда «${brandName}» из каталога carreports
@@ -82,7 +85,7 @@ export const CLICHE_PICK_MODEL = (
 
 Подсказка эксперта по модели: ${JSON.stringify(modelHint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
-
+${webContext ? `\nКонтекст из веб-поиска (используй чтобы понять, какая модель имеется в виду):\n${webContext}\n` : ""}
 Кандидаты (id — name):
 ${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "  (пусто)"}
 
@@ -96,6 +99,7 @@ ${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "
 
 Текст эксперта:
 {text}`;
+
 
 export interface GenerationFrameCandidate {
   frameId: number;
@@ -112,6 +116,7 @@ export const CLICHE_PICK_GENERATION = (
   year: number | undefined,
   generationHint: string | undefined,
   frames: GenerationFrameCandidate[],
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан плоский список рестайлинг-фреймов модели «${brandName} ${modelName}»
@@ -122,6 +127,8 @@ export const CLICHE_PICK_GENERATION = (
 Год выпуска авто: ${year ?? "не указан"}
 Подсказка по поколению/рестайлингу: ${JSON.stringify(generationHint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
+${webContext ? `\nКонтекст из веб-поиска (годы выпуска поколений, кодовые имена и т.п.):\n${webContext}\n` : ""}
+
 
 Кандидаты (frameId — поколение / рестайлинг / годы):
 ${
@@ -292,3 +299,31 @@ export function pickEnum<T extends readonly string[]>(
 }
 
 export { ENGINE_TYPES, TRANSMISSIONS, DRIVE_TYPES };
+
+/**
+ * Из веб-контекста (выдачи поиска) определи каноническое имя автобренда.
+ * Используется когда каталог не нашёл совпадений по подсказке эксперта
+ * (например, эксперт написал «VW» → каноническое имя «Volkswagen»).
+ */
+export const CLICHE_CANONICAL_BRAND = (
+  hint: string,
+  webContext: string,
+) => `${COMMON}
+
+Из текста ниже определи каноническое (полное) название автомобильного бренда.
+Это нужно чтобы потом найти бренд в справочнике carreports по точному имени.
+
+Подсказка эксперта: ${JSON.stringify(hint)}
+
+Веб-контекст:
+${webContext}
+
+Верни ТОЛЬКО JSON:
+{
+  "brandName": "<каноническое имя бренда, например Volkswagen, BMW, Lada>",
+  "confidence": <0..1>
+}
+
+Текст эксперта:
+{text}`;
+

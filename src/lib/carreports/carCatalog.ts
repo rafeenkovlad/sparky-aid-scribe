@@ -1,10 +1,13 @@
 // AI-assisted resolver: brand+model+generation hints → modelCarId +
 // modelGenerationRestylingFrameId via Storage.GetBrand / Storage.GetModelCar /
 // Storage.GetModelGeneration. AI picks one option from real catalog lists at
-// each step. Falls back to string match if AI is unavailable.
+// each step. When AI is unsure or the catalog list is empty, falls back to a
+// Firecrawl web search and re-asks the AI with the web context. Falls back to
+// string match if AI is unavailable.
 
 import { aiChatIdFor, chatCompletions } from "./aiApi";
 import {
+  CLICHE_CANONICAL_BRAND,
   CLICHE_PICK_BRAND,
   CLICHE_PICK_GENERATION,
   CLICHE_PICK_MODEL,
@@ -13,6 +16,10 @@ import {
 } from "./cliche";
 import { rpc } from "./storageApi";
 import type { Thread } from "./types";
+import { webSearchContext } from "./webSearch";
+
+const LOW_CONF = 0.5;
+
 
 interface BrandRow {
   id: number;
@@ -251,36 +258,87 @@ export async function resolveCar(
     const trace: ResolvedCar["trace"] = [];
 
     // [1] Brand
-    const brands = await fetchBrands(brandHintOrName);
-    if (!brands.length) return { ...empty, trace };
+    let brands = await fetchBrands(brandHintOrName);
     let brand: BrandRow | undefined;
     let brandConf = 0;
-    const brandPick = await aiPick<{
-      brandId: number | null;
-      confidence: number;
-      needsWeb: boolean;
-      reason?: string;
-    }>(
-      thread,
-      "resolveCar:brand",
-      CLICHE_PICK_BRAND(userText, brandHintOrName, brands),
-      userText,
-      (raw) => {
-        const r = raw as { brandId?: unknown; confidence?: unknown; needsWeb?: unknown; reason?: unknown } | null;
-        if (!r || typeof r.brandId !== "number") return null;
-        return {
-          brandId: r.brandId,
-          confidence: typeof r.confidence === "number" ? r.confidence : 0,
-          needsWeb: r.needsWeb === true,
-          reason: typeof r.reason === "string" ? r.reason : undefined,
-        };
-      },
-    );
+    let brandWebUsed = false;
+    let brandReason: string | undefined;
+
+    const pickBrand = async (webContext?: string) =>
+      aiPick<{
+        brandId: number | null;
+        confidence: number;
+        needsWeb: boolean;
+        reason?: string;
+      }>(
+        thread,
+        "resolveCar:brand",
+        CLICHE_PICK_BRAND(userText, brandHintOrName, brands, webContext),
+        userText,
+        (raw) => {
+          const r = raw as { brandId?: unknown; confidence?: unknown; needsWeb?: unknown; reason?: unknown } | null;
+          if (!r || typeof r.brandId !== "number") return null;
+          return {
+            brandId: r.brandId,
+            confidence: typeof r.confidence === "number" ? r.confidence : 0,
+            needsWeb: r.needsWeb === true,
+            reason: typeof r.reason === "string" ? r.reason : undefined,
+          };
+        },
+      );
+
+    let brandPick = brands.length ? await pickBrand() : null;
     if (brandPick?.brandId) {
-      brand = brands.find((b) => b.id === brandPick.brandId);
+      brand = brands.find((b) => b.id === brandPick!.brandId);
       brandConf = brandPick.confidence;
+      brandReason = brandPick.reason;
     }
-    if (!brand) {
+
+    // Web fallback: empty catalog list OR low confidence OR AI explicitly asked
+    const needBrandWeb = !brand || brandConf < LOW_CONF || brandPick?.needsWeb === true || brands.length === 0;
+    if (needBrandWeb) {
+      const ctx = await webSearchContext(
+        `${brandHintOrName} автомобиль официальное название бренд производитель`,
+        5,
+      );
+      if (ctx) {
+        brandWebUsed = true;
+        // If catalog returned nothing, ask AI to extract canonical brand name from web → refetch
+        if (brands.length === 0) {
+          const canonical = await aiPick<{ brandName: string; confidence: number }>(
+            thread,
+            "resolveCar:brand:canonical",
+            CLICHE_CANONICAL_BRAND(brandHintOrName, ctx),
+            brandHintOrName,
+            (raw) => {
+              const r = raw as { brandName?: unknown; confidence?: unknown } | null;
+              if (!r || typeof r.brandName !== "string" || !r.brandName.trim()) return null;
+              return {
+                brandName: r.brandName.trim(),
+                confidence: typeof r.confidence === "number" ? r.confidence : 0,
+              };
+            },
+          );
+          if (canonical?.brandName) {
+            brands = await fetchBrands(canonical.brandName);
+          }
+        }
+        // Re-ask AI to pick from (possibly refreshed) list with web context
+        if (brands.length) {
+          const retry = await pickBrand(ctx);
+          if (retry?.brandId) {
+            const candidate = brands.find((b) => b.id === retry.brandId);
+            if (candidate && retry.confidence >= brandConf) {
+              brand = candidate;
+              brandConf = retry.confidence;
+              brandReason = retry.reason;
+              brandPick = retry;
+            }
+          }
+        }
+      }
+    }
+    if (!brand && brands.length) {
       brand = bestMatch(brands, brandHintOrName);
       brandConf = brand ? 0.4 : 0;
     }
@@ -289,8 +347,8 @@ export async function resolveCar(
       candidates: brands.length,
       pickedId: brand?.id ?? null,
       confidence: brandConf,
-      needsWeb: brandPick?.needsWeb ?? false,
-      reason: brandPick?.reason,
+      needsWeb: brandWebUsed,
+      reason: brandReason,
     });
     if (!brand) return { ...empty, trace };
 
@@ -301,35 +359,61 @@ export async function resolveCar(
     }
     let model: ModelRow | undefined;
     let modelConf = 0;
-    const modelPick = await aiPick<{
-      modelCarId: number | null;
-      confidence: number;
-      needsWeb: boolean;
-      reason?: string;
-    }>(
-      thread,
-      "resolveCar:model",
-      CLICHE_PICK_MODEL(userText, brand.name, modelHintOrName, models),
-      userText,
-      (raw) => {
-        const r = raw as {
-          modelCarId?: unknown;
-          confidence?: unknown;
-          needsWeb?: unknown;
-          reason?: unknown;
-        } | null;
-        if (!r || typeof r.modelCarId !== "number") return null;
-        return {
-          modelCarId: r.modelCarId,
-          confidence: typeof r.confidence === "number" ? r.confidence : 0,
-          needsWeb: r.needsWeb === true,
-          reason: typeof r.reason === "string" ? r.reason : undefined,
-        };
-      },
-    );
+    let modelWebUsed = false;
+    let modelReason: string | undefined;
+
+    const pickModel = async (webContext?: string) =>
+      aiPick<{
+        modelCarId: number | null;
+        confidence: number;
+        needsWeb: boolean;
+        reason?: string;
+      }>(
+        thread,
+        "resolveCar:model",
+        CLICHE_PICK_MODEL(userText, brand!.name, modelHintOrName, models, webContext),
+        userText,
+        (raw) => {
+          const r = raw as {
+            modelCarId?: unknown;
+            confidence?: unknown;
+            needsWeb?: unknown;
+            reason?: unknown;
+          } | null;
+          if (!r || typeof r.modelCarId !== "number") return null;
+          return {
+            modelCarId: r.modelCarId,
+            confidence: typeof r.confidence === "number" ? r.confidence : 0,
+            needsWeb: r.needsWeb === true,
+            reason: typeof r.reason === "string" ? r.reason : undefined,
+          };
+        },
+      );
+
+    let modelPick = await pickModel();
     if (modelPick?.modelCarId) {
-      model = models.find((m) => m.id === modelPick.modelCarId);
+      model = models.find((m) => m.id === modelPick!.modelCarId);
       modelConf = modelPick.confidence;
+      modelReason = modelPick.reason;
+    }
+    if (!model || modelConf < LOW_CONF || modelPick?.needsWeb === true) {
+      const ctx = await webSearchContext(
+        `${brand.name} ${modelHintOrName} модель автомобиля характеристики поколения`,
+        5,
+      );
+      if (ctx) {
+        modelWebUsed = true;
+        const retry = await pickModel(ctx);
+        if (retry?.modelCarId) {
+          const candidate = models.find((m) => m.id === retry.modelCarId);
+          if (candidate && retry.confidence >= modelConf) {
+            model = candidate;
+            modelConf = retry.confidence;
+            modelReason = retry.reason;
+            modelPick = retry;
+          }
+        }
+      }
     }
     if (!model) {
       model = bestMatch(models, modelHintOrName);
@@ -340,8 +424,8 @@ export async function resolveCar(
       candidates: models.length,
       pickedId: model?.id ?? null,
       confidence: modelConf,
-      needsWeb: modelPick?.needsWeb ?? false,
-      reason: modelPick?.reason,
+      needsWeb: modelWebUsed,
+      reason: modelReason,
     });
     if (!model) return { ...empty, trace, brandName: brand.name };
 
@@ -366,30 +450,54 @@ export async function resolveCar(
 
     let frame: GenerationFrameCandidate | undefined;
     let frameConf = 0;
-    const framePick = await aiPick<{
-      frameId: number | null;
-      confidence: number;
-      needsWeb: boolean;
-      reason?: string;
-    }>(
-      thread,
-      "resolveCar:generation",
-      CLICHE_PICK_GENERATION(userText, brand.name, model.name, year, generationHint, frames),
-      userText,
-      (raw) => {
-        const r = raw as { frameId?: unknown; confidence?: unknown; needsWeb?: unknown; reason?: unknown } | null;
-        if (!r || typeof r.frameId !== "number") return null;
-        return {
-          frameId: r.frameId,
-          confidence: typeof r.confidence === "number" ? r.confidence : 0,
-          needsWeb: r.needsWeb === true,
-          reason: typeof r.reason === "string" ? r.reason : undefined,
-        };
-      },
-    );
+    let frameWebUsed = false;
+    let frameReason: string | undefined;
+
+    const pickFrame = async (webContext?: string) =>
+      aiPick<{
+        frameId: number | null;
+        confidence: number;
+        needsWeb: boolean;
+        reason?: string;
+      }>(
+        thread,
+        "resolveCar:generation",
+        CLICHE_PICK_GENERATION(userText, brand!.name, model!.name, year, generationHint, frames, webContext),
+        userText,
+        (raw) => {
+          const r = raw as { frameId?: unknown; confidence?: unknown; needsWeb?: unknown; reason?: unknown } | null;
+          if (!r || typeof r.frameId !== "number") return null;
+          return {
+            frameId: r.frameId,
+            confidence: typeof r.confidence === "number" ? r.confidence : 0,
+            needsWeb: r.needsWeb === true,
+            reason: typeof r.reason === "string" ? r.reason : undefined,
+          };
+        },
+      );
+
+    let framePick = await pickFrame();
     if (framePick?.frameId) {
-      frame = frames.find((f) => f.frameId === framePick.frameId);
+      frame = frames.find((f) => f.frameId === framePick!.frameId);
       frameConf = framePick.confidence;
+      frameReason = framePick.reason;
+    }
+    if (!frame || frameConf < LOW_CONF || framePick?.needsWeb === true) {
+      const q = `${brand.name} ${model.name} ${generationHint ?? ""} ${year ?? ""} поколение годы выпуска рестайлинг`.trim();
+      const ctx = await webSearchContext(q, 5);
+      if (ctx) {
+        frameWebUsed = true;
+        const retry = await pickFrame(ctx);
+        if (retry?.frameId) {
+          const candidate = frames.find((f) => f.frameId === retry.frameId);
+          if (candidate && retry.confidence >= frameConf) {
+            frame = candidate;
+            frameConf = retry.confidence;
+            frameReason = retry.reason;
+            framePick = retry;
+          }
+        }
+      }
     }
     if (!frame && year) {
       frame =
@@ -405,9 +513,10 @@ export async function resolveCar(
       candidates: frames.length,
       pickedId: frame?.frameId ?? null,
       confidence: frameConf,
-      needsWeb: framePick?.needsWeb ?? false,
-      reason: framePick?.reason,
+      needsWeb: frameWebUsed,
+      reason: frameReason,
     });
+
 
     if (!frame) return partial;
     const label = [frame.generationName, frame.restylingName]
