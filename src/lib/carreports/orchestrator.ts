@@ -28,6 +28,7 @@ import { loadSectionTags, findTagId } from "./inspectionTags";
 import type {
   CarStep,
   CharacteristicsStep,
+  ChatChip,
   DocumentReconciliationStep,
   InspectionElementFinding,
   MessageAttachment,
@@ -50,7 +51,12 @@ export async function extractForStep(
   step: StepId,
   text: string,
   thread: Thread,
-): Promise<{ patch: Partial<Thread["draft"]>; reply: string; attachments?: MessageAttachment[] }> {
+): Promise<{
+  patch: Partial<Thread["draft"]>;
+  reply: string;
+  attachments?: MessageAttachment[];
+  chips?: ChatChip[];
+}> {
   // Inspection step: AI splits the dictated note into per-element findings,
   // resolves tag names against the server section catalogue, stores both the
   // legacy free-form note and structured findings.
