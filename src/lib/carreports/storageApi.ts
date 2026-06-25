@@ -148,7 +148,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
  */
 function buildPrepareReportPayload(
   draft: ReportDraft,
-  resolvedModelCarId: number | null,
+  resolved: ResolvedCar,
 ): Record<string, unknown> {
   const car = draft.carStep;
   const ch = draft.characteristicsStep;
@@ -161,7 +161,8 @@ function buildPrepareReportPayload(
     .filter(Boolean)
     .join("\n\n");
 
-  const modelCarId = ch.modelCarId ?? resolvedModelCarId ?? undefined;
+  const modelCarId = ch.modelCarId ?? resolved.modelCarId ?? undefined;
+  const frameId = resolved.modelGenerationRestylingFrameId ?? undefined;
 
   return {
     reportName: draft.reportName || `Отчёт ${new Date().toISOString().slice(0, 10)}`,
