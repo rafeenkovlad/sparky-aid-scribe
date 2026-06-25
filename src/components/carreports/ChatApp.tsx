@@ -696,29 +696,37 @@ export function ChatApp({ threadId }: Props) {
         )}
         <button
           onClick={() => {
-            setComposer("Всё верно, далее");
-            setTimeout(() => submit(), 0);
+            setAskMode(false);
+            advanceStep();
           }}
           className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
         </button>
         <button
-          onClick={() => textareaRef.current?.focus()}
+          onClick={() => {
+            setAskMode(false);
+            textareaRef.current?.focus();
+          }}
           className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           <Pencil className="h-3.5 w-3.5" /> Нужно изменить
         </button>
         <button
           onClick={() => {
-            setComposer((c) => (c ? c + "\nЕсть вопрос: " : "Есть вопрос: "));
+            setAskMode((v) => !v);
             textareaRef.current?.focus();
           }}
-          className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+          className={`rounded-full text-xs font-medium px-3 py-1.5 flex items-center gap-1 ${
+            askMode
+              ? "bg-sky-500 hover:bg-sky-600 text-white"
+              : "bg-white/5 hover:bg-white/10 text-white/80"
+          }`}
         >
-          <HelpCircle className="h-3.5 w-3.5" /> Есть вопрос
+          <HelpCircle className="h-3.5 w-3.5" /> {askMode ? "Отменить вопрос" : "Есть вопрос"}
         </button>
       </div>
+
 
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
