@@ -38,7 +38,7 @@ import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
-import { filledCount, nextMissingPrompt } from "@/lib/carreports/progress";
+import { filledCount, nextMissingPrompt, optionalHintSentence } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -469,7 +469,10 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         const nextAsk = nextMissingPrompt(currentStep, t.draft);
-        const replyText = [reply, nextAsk ? `➡️ ${nextAsk}` : "✅ Шаг заполнен. Нажмите «Всё верно, далее»."]
+        const tailLine = nextAsk
+          ? `➡️ ${nextAsk}`
+          : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
+        const replyText = [reply, tailLine]
           .filter(Boolean)
           .join("\n\n");
         if (replyText) {
