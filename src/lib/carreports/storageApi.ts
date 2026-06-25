@@ -79,7 +79,7 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
 }
 
 import type { ReportDraft } from "./types";
-import { resolveModelCarId } from "./carCatalog";
+import { resolveCar, type ResolvedCar } from "./carCatalog";
 import {
   INSPECTION_SECTIONS,
   ZONE_TO_SECTION as ZONE_TO_SECTION_SNAKE,
@@ -148,7 +148,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
  */
 function buildPrepareReportPayload(
   draft: ReportDraft,
-  resolvedModelCarId: number | null,
+  resolved: ResolvedCar,
 ): Record<string, unknown> {
   const car = draft.carStep;
   const ch = draft.characteristicsStep;
@@ -161,7 +161,8 @@ function buildPrepareReportPayload(
     .filter(Boolean)
     .join("\n\n");
 
-  const modelCarId = ch.modelCarId ?? resolvedModelCarId ?? undefined;
+  const modelCarId = ch.modelCarId ?? resolved.modelCarId ?? undefined;
+  const frameId = resolved.modelGenerationRestylingFrameId ?? undefined;
 
   return {
     reportName: draft.reportName || `Отчёт ${new Date().toISOString().slice(0, 10)}`,
@@ -180,6 +181,7 @@ function buildPrepareReportPayload(
     },
     characteristicsStep: {
       ...(typeof modelCarId === "number" ? { modelCarId } : {}),
+      ...(typeof frameId === "number" ? { modelGenerationRestylingFrameId: frameId } : {}),
       ...(ch.year ? { year: String(ch.year) } : {}),
       ...(typeof ch.engineVolume === "number" ? { engineVolume: ch.engineVolume } : {}),
       ...(ch.engineType ? { engineType: ch.engineType } : {}),
@@ -268,27 +270,32 @@ export async function submitReport(draft: ReportDraft): Promise<{
   note?: string;
 }> {
   try {
-    // Resolve modelCarId on the fly if missing — Doc requires it (or
-    // modelGenerationRestylingFrameId) on characteristicsStep.
-    let resolvedId: number | null = null;
+    // Resolve modelCarId + modelGenerationRestylingFrameId on the fly if
+    // missing — Doc requires one of them on characteristicsStep.
+    let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null };
     if (!draft.characteristicsStep.modelCarId) {
-      resolvedId = await resolveModelCarId(
+      resolved = await resolveCar(
         draft.characteristicsStep.brandName,
         draft.characteristicsStep.modelCarName,
+        draft.characteristicsStep.year,
       );
     }
 
-    const payload = buildPrepareReportPayload(draft, resolvedId);
+    const payload = buildPrepareReportPayload(draft, resolved);
     const r = await rpc<{ result?: PrepareReportResult } | PrepareReportResult>(
       "Storage.PrepareSpecialistReport",
       { report: payload },
     );
     const inner = (r as { result?: PrepareReportResult }).result ?? (r as PrepareReportResult);
     if (inner && inner.reportNumber) {
-      const idHint =
-        resolvedId && !draft.characteristicsStep.modelCarId
-          ? ` Распознан modelCarId=${resolvedId}.`
-          : "";
+      const hints: string[] = [];
+      if (resolved.modelCarId && !draft.characteristicsStep.modelCarId) {
+        hints.push(`modelCarId=${resolved.modelCarId}`);
+      }
+      if (resolved.modelGenerationRestylingFrameId) {
+        hints.push(`frameId=${resolved.modelGenerationRestylingFrameId}`);
+      }
+      const idHint = hints.length ? ` Распознан ${hints.join(", ")}.` : "";
       return {
         remote: true,
         reportId: inner.reportNumber,
