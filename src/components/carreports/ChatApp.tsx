@@ -734,7 +734,7 @@ export function ChatApp({ threadId }: Props) {
               const recap = summarizeStepDraft(currentStep, thread.draft);
               if (recap) {
                 updateThread(thread.id, (t) => {
-                  t.messages.push({
+                  pushMsg(t, currentStep, {
                     id: msgId(),
                     role: "assistant",
                     text: recap,
