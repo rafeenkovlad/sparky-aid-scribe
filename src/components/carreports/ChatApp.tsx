@@ -38,6 +38,7 @@ import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
+import { generateSummary } from "@/lib/carreports/aiSummary";
 
 interface Props {
   threadId: string;
@@ -254,6 +255,51 @@ export function ChatApp({ threadId }: Props) {
       });
     } catch (e) {
       const m = e instanceof Error ? e.message : "Ошибка отправки";
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: `⚠️ ${m}`,
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+  const doGenSummary = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    updateThread(thread.id, (t) => {
+      t.messages.push({
+        id: msgId(),
+        role: "assistant",
+        text: "🪄 Готовлю AI-резюме отчёта…",
+        createdAt: Date.now(),
+      });
+    });
+    try {
+      const fresh = getThread(thread.id);
+      if (!fresh) return;
+      const r = await generateSummary(fresh);
+      updateThread(thread.id, (t) => {
+        t.draft.resultStep.summaryInspectionNote = r.summary;
+        if (r.verdict) t.draft.resultStep.resultSpecialistNote = r.verdict;
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text:
+            `✅ AI-резюме готово (${r.model}, ${Math.round(r.latencyMs)} мс):\n\n` +
+            r.summary +
+            (r.verdict ? `\n\nВЕРДИКТ: ${r.verdict}` : "") +
+            "\n\nПоправьте при необходимости и переходите к отправке.",
+          step: "result",
+          createdAt: Date.now(),
+        });
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Ошибка AI";
       updateThread(thread.id, (t) => {
         t.messages.push({
           id: msgId(),
@@ -585,6 +631,15 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Quick actions */}
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
+        {currentStep === "result" && (
+          <button
+            onClick={() => void doGenSummary()}
+            disabled={busy}
+            className="rounded-full bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1 shadow-[0_0_24px_-6px_rgba(139,92,246,0.6)]"
+          >
+            ✨ AI-резюме
+          </button>
+        )}
         {currentStep === "submit" && (
           <button
             onClick={() => void doSubmit()}
