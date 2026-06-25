@@ -410,6 +410,7 @@ export async function extractForStep(
 
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
+      const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
         const { resolveCar } = await import("./carCatalog");
         const resolved = await resolveCar(
@@ -441,6 +442,13 @@ export async function extractForStep(
             kind: "generation",
           });
 
+        // Уточняющие чипы для возможных опечаток/альтернатив.
+        if (resolved.suggestions?.length) {
+          for (const s of resolved.suggestions) {
+            chips.push({ label: s.label, value: s.value, group: s.group, single: true });
+          }
+        }
+
         const last = resolved.trace[resolved.trace.length - 1];
         const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
         const webHint = resolved.trace.some((t) => t.needsWeb);
@@ -450,9 +458,9 @@ export async function extractForStep(
             (resolved.generationLabel ? ` · ${resolved.generationLabel}` : "");
           catalogNote = `\n🔎 По каталогу: ${label}`;
           if (lowConf || webHint)
-            catalogNote += "\n⚠️ Уверенность подбора низкая — уточните поколение.";
+            catalogNote += "\n⚠️ Уверенность подбора низкая — выберите вариант ниже или уточните.";
         } else if (last) {
-          catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
+          catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
       }
 
@@ -490,6 +498,7 @@ export async function extractForStep(
         },
         reply,
         ...(attachments.length ? { attachments } : {}),
+        ...(chips.length ? { chips } : {}),
       };
     }
     case "characteristics": {
