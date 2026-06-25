@@ -351,8 +351,23 @@ export function ChatApp({ threadId }: Props) {
     if (!thread) return;
     const nextIdx = Math.min(thread.stepIndex + 1, FLOW_STEPS.length - 1);
     if (nextIdx === thread.stepIndex) return;
+    const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
+      // Seed intro + guiding question if this step has no messages yet
+      if (t.messages[nextStep].length === 0) {
+        pushMsg(t, nextStep, makeIntroMessage(nextStep));
+      }
+      const ask = nextMissingPrompt(nextStep, t.draft);
+      if (ask) {
+        pushMsg(t, nextStep, {
+          id: msgId(),
+          role: "assistant",
+          text: `➡️ ${ask}`,
+          step: nextStep,
+          createdAt: Date.now(),
+        });
+      }
     });
   }, [thread]);
 
