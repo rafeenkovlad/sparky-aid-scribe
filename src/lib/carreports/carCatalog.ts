@@ -266,6 +266,8 @@ export interface CatalogSuggestion {
   label: string;
   value: string;
   group: "brand" | "model" | "generation";
+  image?: string;
+  description?: string;
 }
 
 export interface ResolvedCar {
@@ -280,6 +282,8 @@ export interface ResolvedCar {
   generationImage?: string;
   /** clickable suggestions when name lookup is uncertain or has alternatives */
   suggestions?: CatalogSuggestion[];
+  /** true when user explicitly named a generation/restyling that we couldn't find */
+  generationNotFound?: boolean;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
