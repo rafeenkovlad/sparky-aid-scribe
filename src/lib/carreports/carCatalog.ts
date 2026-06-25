@@ -515,6 +515,28 @@ export async function resolveCar(
 
     const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
     const modelImage = pickImageUrl(model as unknown as Record<string, unknown>);
+
+    // Соберём подсказки-чипы при низкой уверенности подбора (опечатки и т.п.).
+    const suggestions: CatalogSuggestion[] = [];
+    if (brandConf < 0.8) {
+      for (const b of topMatches(brands, brandHintOrName, 3, brand.id)) {
+        suggestions.push({
+          group: "brand",
+          label: `Марка: ${b.name}`,
+          value: `Марка: ${b.name}`,
+        });
+      }
+    }
+    if (modelConf < 0.8) {
+      for (const m of topMatches(models, modelHintOrName, 3, model.id)) {
+        suggestions.push({
+          group: "model",
+          label: `Модель: ${m.name}`,
+          value: `Модель: ${brand.name} ${m.name}`,
+        });
+      }
+    }
+
     const partial: ResolvedCar = {
       modelCarId: model.id,
       modelGenerationRestylingFrameId: null,
@@ -522,6 +544,7 @@ export async function resolveCar(
       modelCarName: model.name,
       brandImage,
       modelImage,
+      ...(suggestions.length ? { suggestions } : {}),
       trace,
     };
 
