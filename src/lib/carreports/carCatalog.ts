@@ -336,7 +336,7 @@ export async function resolveCar(
     const needBrandWeb = !brand || brandConf < LOW_CONF || brandPick?.needsWeb === true || brands.length === 0;
     if (needBrandWeb) {
       const ctx = await webSearchContext(
-        `${brandHintOrName} автомобиль официальное название бренд производитель`,
+        `site:drom.ru ${brandHintOrName} автомобиль марка производитель`,
         5,
       );
       if (ctx) {
