@@ -76,6 +76,7 @@ export const CLICHE_PICK_MODEL = (
   brandName: string,
   modelHint: string | undefined,
   models: Array<{ id: number; name: string }>,
+  webContext?: string,
 ) => `${COMMON}
 
 Тебе дан список моделей бренда «${brandName}» из каталога carreports
@@ -84,7 +85,7 @@ export const CLICHE_PICK_MODEL = (
 
 Подсказка эксперта по модели: ${JSON.stringify(modelHint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
-
+${webContext ? `\nКонтекст из веб-поиска (используй чтобы понять, какая модель имеется в виду):\n${webContext}\n` : ""}
 Кандидаты (id — name):
 ${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "  (пусто)"}
 
@@ -98,6 +99,7 @@ ${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "
 
 Текст эксперта:
 {text}`;
+
 
 export interface GenerationFrameCandidate {
   frameId: number;
