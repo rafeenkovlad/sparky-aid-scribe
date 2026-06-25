@@ -126,13 +126,51 @@ export function FullReportView({ thread, onClose }: Props) {
             {INSPECTION_ZONES.map((z) => {
               const note = ins.sectionNotes[z.id];
               const photos = ins.photos.filter((p) => p.section === z.id);
-              if (!note && photos.length === 0) return null;
+              const zoneFindings = Object.values(ins.findings ?? {}).filter((f) => {
+                const sn = ZONE_TO_SECTION[z.id];
+                return sn && f.section === sn;
+              });
+              if (!note && photos.length === 0 && zoneFindings.length === 0) return null;
+              const section = ZONE_TO_SECTION[z.id]
+                ? getSection(ZONE_TO_SECTION[z.id])
+                : undefined;
               return (
                 <div key={z.id} className="report-zone mb-3">
                   <div className="text-sm font-semibold text-zinc-700">
                     {z.emoji} {z.label}
                   </div>
-                  {note && (
+                  {zoneFindings.length > 0 && section && (
+                    <ul className="text-sm text-zinc-800 mt-1 space-y-0.5">
+                      {zoneFindings.map((f) => {
+                        const el = section.elements.find((e) => e.id === f.elementId);
+                        if (!el) return null;
+                        const mark =
+                          f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
+                        const pending = (f.pendingTagNames ?? [])
+                          .map((p) => (p.severity === "serious" ? `❗${p.name}` : p.name))
+                          .join(", ");
+                        const serverTagsCount =
+                          (f.seriousDamageTagIds?.length ?? 0) +
+                          (f.noSeriousDamageTagIds?.length ?? 0);
+                        return (
+                          <li key={`${f.section}.${f.elementId}`}>
+                            <span>{mark}</span> <b>{el.label}</b>
+                            {serverTagsCount > 0 && (
+                              <span className="text-zinc-500">
+                                {" "}
+                                · тегов: {serverTagsCount}
+                              </span>
+                            )}
+                            {pending && (
+                              <span className="text-zinc-500"> · {pending}</span>
+                            )}
+                            {f.note && <span> — {f.note}</span>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {note && zoneFindings.length === 0 && (
                     <div className="text-sm text-zinc-800 whitespace-pre-wrap mt-1">{note}</div>
                   )}
                   {photos.length > 0 && (
