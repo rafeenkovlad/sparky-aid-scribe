@@ -8,7 +8,6 @@ export interface StepDef {
 
 export const FLOW_STEPS: readonly StepDef[] = [
   { id: "car", label: "Автомобиль", short: "Авто" },
-  { id: "characteristics", label: "Характеристики", short: "Хар-ки" },
   { id: "docs", label: "Сверка документов", short: "Документы" },
   { id: "inspection", label: "Осмотр", short: "Осмотр" },
   { id: "testDrive", label: "Тест-драйв", short: "Тест" },
