@@ -268,8 +268,6 @@ function summarizeChar(c: CharacteristicsStep): string {
   return parts.join("\n");
 }
 
-import type { TestDriveStep } from "./types";
-
 function summarizeTestDrive(td: Record<string, unknown> & Partial<TestDriveStep>): string {
   if (td.testDriveIsIncluded === false || td.notDone) {
     return "Отметил: тест-драйв не проводился. Можно идти к итогу.";
