@@ -47,39 +47,156 @@ export async function extractForStep(
   text: string,
   thread: Thread,
 ): Promise<{ patch: Partial<Thread["draft"]>; reply: string }> {
-  // Inspection step: AI cleans the dictated note for the current zone.
+  // Inspection step: AI splits the dictated note into per-element findings,
+  // resolves tag names against the server section catalogue, stores both the
+  // legacy free-form note and structured findings.
   if (step === "inspection") {
     const ins = thread.draft.inspectionStep;
     const zone = ins.currentZone ?? "body";
     const zoneLabel = zoneById(zone)?.label ?? zone;
+    const sectionSnake: SectionSnake = ZONE_TO_SECTION[zone] ?? "body";
+    const section = getSection(sectionSnake);
+
+    // Fetch tags catalogue for this section (cached); never throws.
+    const tagCatalogue = await loadSectionTags(sectionSnake);
 
     let cleaned = text;
-    let hasIssues = false;
+    let aiFindings: Array<{
+      elementId?: string;
+      noDamage?: boolean;
+      seriousTags?: unknown;
+      nonSeriousTags?: unknown;
+      note?: string;
+    }> = [];
     try {
       const id = aiChatIdFor(thread, `extract:inspection:${zone}`);
-      const res = await chatCompletions({ id, text, cliche: CLICHE_INSPECTION(zoneLabel) });
-      const raw = parseJsonResponse<{ note?: string; hasIssues?: boolean }>(res.content);
+      const res = await chatCompletions({
+        id,
+        text,
+        cliche: CLICHE_INSPECTION(
+          zoneLabel,
+          section.label,
+          section.elements.map((el) => ({ id: el.id, label: el.label })),
+          tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+        ),
+      });
+      const raw = parseJsonResponse<{
+        note?: string;
+        findings?: typeof aiFindings;
+      }>(res.content);
       if (raw?.note && typeof raw.note === "string") cleaned = raw.note.trim();
-      if (raw?.hasIssues === true) hasIssues = true;
+      if (Array.isArray(raw?.findings)) aiFindings = raw!.findings!;
     } catch {
-      // fall through: keep raw text
+      /* keep raw text */
+    }
+
+    // Resolve element findings: validate elementId, map tag names → server IDs.
+    const elementIds = new Set(section.elements.map((el) => el.id));
+    const prevFindings = ins.findings ?? {};
+    const nextFindings: Record<string, InspectionElementFinding> = { ...prevFindings };
+    let hasIssues = false;
+
+    for (const f of aiFindings) {
+      const eid = typeof f.elementId === "string" ? f.elementId : "";
+      if (!eid || !elementIds.has(eid)) continue;
+      const key = findingKey(sectionSnake, eid);
+      const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
+
+      const noDamage = typeof f.noDamage === "boolean" ? f.noDamage : base.noDamage;
+
+      const sNames = Array.isArray(f.seriousTags)
+        ? (f.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+        : [];
+      const nsNames = Array.isArray(f.nonSeriousTags)
+        ? (f.nonSeriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+        : [];
+
+      const sIds = new Set(base.seriousDamageTagIds ?? []);
+      const nsIds = new Set(base.noSeriousDamageTagIds ?? []);
+      const pending: PendingTagName[] = [...(base.pendingTagNames ?? [])];
+
+      for (const name of sNames) {
+        const t = findTagId(tagCatalogue, name);
+        if (t) sIds.add(t.id);
+        else if (!pending.some((p) => p.name === name)) pending.push({ name, severity: "serious" });
+      }
+      for (const name of nsNames) {
+        const t = findTagId(tagCatalogue, name);
+        if (t) nsIds.add(t.id);
+        else if (!pending.some((p) => p.name === name))
+          pending.push({ name, severity: "non_serious" });
+      }
+
+      const nextNote = f.note?.trim()
+        ? base.note
+          ? `${base.note}\n${f.note.trim()}`
+          : f.note.trim()
+        : base.note;
+
+      nextFindings[key] = {
+        section: sectionSnake,
+        elementId: eid,
+        ...(noDamage !== undefined ? { noDamage } : {}),
+        ...(sIds.size ? { seriousDamageTagIds: [...sIds] } : {}),
+        ...(nsIds.size ? { noSeriousDamageTagIds: [...nsIds] } : {}),
+        ...(pending.length ? { pendingTagNames: pending } : {}),
+        ...(nextNote ? { note: nextNote } : {}),
+      };
+
+      if (noDamage === false || sIds.size || nsIds.size) hasIssues = true;
     }
 
     const prev = ins.sectionNotes[zone] ?? "";
     const merged = prev ? `${prev}\n${cleaned}` : cleaned;
     const nextNotes = { ...ins.sectionNotes, [zone]: merged };
+
+    // Build a human-readable reply that lists per-element findings.
+    const lines: string[] = [`Записал по зоне «${zoneLabel}»:`];
+    const zoneFindings = Object.values(nextFindings).filter(
+      (f) => f.section === sectionSnake,
+    );
+    for (const f of zoneFindings) {
+      const el = section.elements.find((x) => x.id === f.elementId);
+      if (!el) continue;
+      const mark = f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
+      const tags: string[] = [];
+      const idToName = new Map(tagCatalogue.map((t) => [t.id, t.name]));
+      for (const id of f.seriousDamageTagIds ?? []) {
+        const n = idToName.get(id);
+        if (n) tags.push(`❗${n}`);
+      }
+      for (const id of f.noSeriousDamageTagIds ?? []) {
+        const n = idToName.get(id);
+        if (n) tags.push(n);
+      }
+      for (const p of f.pendingTagNames ?? []) {
+        tags.push(`${p.severity === "serious" ? "❗" : ""}${p.name}*`);
+      }
+      const tagPart = tags.length ? ` — ${tags.join(", ")}` : "";
+      const notePart = f.note ? ` · ${f.note}` : "";
+      lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
+    }
+    if (zoneFindings.length === 0) lines.push(cleaned);
+    lines.push(
+      hasIssues
+        ? "\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
+        : "",
+    );
+    lines.push(
+      "Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».",
+    );
+
     return {
       patch: {
         inspectionStep: {
           ...ins,
           sectionNotes: nextNotes,
+          findings: nextFindings,
           touched: true,
           currentZone: zone,
         },
       },
-      reply:
-        `Записал по зоне «${zoneLabel}»${hasIssues ? " — замечания зафиксированы" : ""}:\n${cleaned}\n\n` +
-        `Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».`,
+      reply: lines.filter(Boolean).join("\n"),
     };
   }
 
