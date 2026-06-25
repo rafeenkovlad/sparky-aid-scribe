@@ -366,15 +366,10 @@ export function ChatApp({ threadId }: Props) {
     if (!thread) return;
     const nextIdx = Math.min(thread.stepIndex + 1, FLOW_STEPS.length - 1);
     if (nextIdx === thread.stepIndex) return;
-    const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
     });
-    // Trigger VIN decode when entering characteristics
-    if (nextStep === "characteristics") {
-      void doVinDecode();
-    }
-  }, [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [thread]);
 
 
   const doVinDecode = useCallback(async () => {
@@ -387,7 +382,7 @@ export function ChatApp({ threadId }: Props) {
     if (patch) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        pushMsg(t, "characteristics", {
+        pushMsg(t, "car", {
           id: msgId(),
           role: "assistant",
           text: "Подтянул характеристики по VIN. Поправьте, если есть расхождения.",
