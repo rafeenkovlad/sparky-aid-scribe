@@ -21,6 +21,7 @@ import type {
   CharacteristicsStep,
   DocumentReconciliationStep,
   StepId,
+  TestDriveStep,
   Thread,
 } from "./types";
 
