@@ -778,26 +778,30 @@ export async function resolveCar(
     // и когда не нашли (показать варианты), и когда нашли (позволить поправить).
     const buildGenChips = (): CatalogSuggestion[] => {
       const out: CatalogSuggestion[] = [];
-      let gi = 0;
       for (const group of genGroups) {
-        gi++;
-        let ri = 0;
+        const gNum = group.number;
         const multi = group.items.length > 1;
         for (const f of group.items) {
-          ri++;
           const years =
             f.yearStart || f.yearEnd
               ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
               : "";
-          // Имя поколения берём как пришло из Storage.GetModelGeneration.
-          const genTitle = (group.name && group.name.trim()) || `Поколение ${gi}`;
-          const restTitle = multi ? ` · ${f.restylingName ?? `рест. ${ri}`}` : "";
-          const value = multi
-            ? `Поколение ${gi}, рестайлинг ${ri}`
-            : `Поколение ${gi}`;
+          const rNum = f.restylingNumber;
+          const genLabel = gNum != null ? `Поколение ${gNum}` : (group.name || "Поколение");
+          const restLabel = multi
+            ? rNum === 0
+              ? " · базовый"
+              : rNum != null
+                ? ` · рестайлинг ${rNum}`
+                : ` · ${f.restylingName ?? ""}`
+            : "";
+          const value =
+            multi && rNum != null
+              ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+              : `Поколение ${gNum ?? "?"}`;
           out.push({
             group: "generation",
-            label: `${gi}. ${genTitle}${restTitle}`,
+            label: `${genLabel}${restLabel}`,
             value,
             image: f.urlImage,
             description: years,
