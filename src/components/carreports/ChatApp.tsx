@@ -37,7 +37,7 @@ import {
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, summarizeStepDraft } from "@/lib/carreports/orchestrator";
+import { extractForStep, applyVinDecode, askQuestion } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
@@ -82,6 +82,8 @@ export function ChatApp({ threadId }: Props) {
   const [fullReportOpen, setFullReportOpen] = useState(false);
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
+  const [askMode, setAskMode] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -336,23 +338,13 @@ export function ChatApp({ threadId }: Props) {
     const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
-      t.messages.push(makeIntroMessage(nextStep));
-      const recap = summarizeStepDraft(nextStep, t.draft);
-      if (recap) {
-        t.messages.push({
-          id: msgId(),
-          role: "assistant",
-          text: recap,
-          step: nextStep,
-          createdAt: Date.now(),
-        });
-      }
     });
     // Trigger VIN decode when entering characteristics
     if (nextStep === "characteristics") {
       void doVinDecode();
     }
   }, [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const doVinDecode = useCallback(async () => {
     if (!thread) return;
@@ -380,7 +372,7 @@ export function ChatApp({ threadId }: Props) {
     if (!text) return;
 
     // Confirm-advance shortcut.
-    if (isConfirmAdvance(text)) {
+    if (!askMode && isConfirmAdvance(text)) {
       setComposer("");
       advanceStep();
       return;
@@ -392,12 +384,35 @@ export function ChatApp({ threadId }: Props) {
       t.messages.push({
         id: msgId(),
         role: "user",
-        text,
+        text: askMode ? `❓ ${text}` : text,
         step: currentStep,
         createdAt: Date.now(),
       });
     });
     setComposer("");
+
+    // Q&A mode: free-form question, no draft mutation.
+    if (askMode) {
+      try {
+        const fresh = getThread(thread.id);
+        if (!fresh) return;
+        const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
+        const answer = await askQuestion(currentStep, text, fresh, stepLabel);
+        updateThread(thread.id, (t) => {
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: answer,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        });
+      } finally {
+        setAskMode(false);
+        setBusy(false);
+      }
+      return;
+    }
 
     try {
       const fresh = getThread(thread.id);
@@ -436,7 +451,8 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode]);
+
 
   function jumpTo(step: StepId) {
     if (!thread) return;
@@ -444,21 +460,10 @@ export function ChatApp({ threadId }: Props) {
     if (idx < 0) return;
     updateThread(thread.id, (t) => {
       t.stepIndex = idx;
-      // re-add intro for that step
-      t.messages.push(makeIntroMessage(step));
-      const recap = summarizeStepDraft(step, t.draft);
-      if (recap) {
-        t.messages.push({
-          id: msgId(),
-          role: "assistant",
-          text: recap,
-          step,
-          createdAt: Date.now(),
-        });
-      }
     });
     setDraftOpen(false);
   }
+
 
   function newThread() {
     const t = createThread();
@@ -691,29 +696,37 @@ export function ChatApp({ threadId }: Props) {
         )}
         <button
           onClick={() => {
-            setComposer("Всё верно, далее");
-            setTimeout(() => submit(), 0);
+            setAskMode(false);
+            advanceStep();
           }}
           className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
         </button>
         <button
-          onClick={() => textareaRef.current?.focus()}
+          onClick={() => {
+            setAskMode(false);
+            textareaRef.current?.focus();
+          }}
           className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           <Pencil className="h-3.5 w-3.5" /> Нужно изменить
         </button>
         <button
           onClick={() => {
-            setComposer((c) => (c ? c + "\nЕсть вопрос: " : "Есть вопрос: "));
+            setAskMode((v) => !v);
             textareaRef.current?.focus();
           }}
-          className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+          className={`rounded-full text-xs font-medium px-3 py-1.5 flex items-center gap-1 ${
+            askMode
+              ? "bg-sky-500 hover:bg-sky-600 text-white"
+              : "bg-white/5 hover:bg-white/10 text-white/80"
+          }`}
         >
-          <HelpCircle className="h-3.5 w-3.5" /> Есть вопрос
+          <HelpCircle className="h-3.5 w-3.5" /> {askMode ? "Отменить вопрос" : "Есть вопрос"}
         </button>
       </div>
+
 
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
@@ -753,11 +766,16 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             placeholder={
-              currentStep === "inspection"
-                ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
-                : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+              askMode
+                ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
+                : currentStep === "inspection"
+                  ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                  : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
             }
-            className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
+            className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
+              askMode ? "ring-1 ring-sky-400/60 rounded-md" : ""
+            }`}
+
           />
           <button
             onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}

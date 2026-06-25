@@ -13,7 +13,9 @@ import {
   TRANSMISSIONS,
   parseJsonResponse,
   pickEnum,
+  CLICHE_ASK,
 } from "./cliche";
+
 import { decodeVin } from "./storageApi";
 import { zoneById } from "./inspectionZones";
 import {
@@ -639,3 +641,27 @@ export async function applyVinDecode(thread: Thread): Promise<Partial<Thread["dr
     return null;
   }
 }
+
+/**
+ * Свободный Q&A режим. Не модифицирует черновик. Использует summarizeStepDraft
+ * как контекст. Возвращает текст ответа ассистента (или сообщение об ошибке).
+ */
+export async function askQuestion(
+  step: StepId,
+  question: string,
+  thread: Thread,
+  stepLabel: string,
+): Promise<string> {
+  const text = question.trim();
+  if (!text) return "Задайте вопрос.";
+  try {
+    const draftContext = summarizeStepDraft(step, thread.draft);
+    const cliche = CLICHE_ASK(stepLabel, draftContext);
+    const id = aiChatIdFor(thread, `ask:${step}`);
+    const res = await chatCompletions({ id, text, cliche });
+    return res.content?.trim() || "Не удалось получить ответ.";
+  } catch (e) {
+    return `⚠️ ${e instanceof Error ? e.message : "Ошибка ИИ"}`;
+  }
+}
+
