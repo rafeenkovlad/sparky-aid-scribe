@@ -572,6 +572,7 @@ export async function resolveCar(
       ...partial,
       modelGenerationRestylingFrameId: frame.frameId,
       generationLabel: `${label}${years}`,
+      generationImage: frame.urlImage,
     };
   } catch {
     return empty;
