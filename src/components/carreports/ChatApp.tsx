@@ -443,7 +443,7 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         if (reply) {
-          t.messages.push({
+          pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
             text: reply,
