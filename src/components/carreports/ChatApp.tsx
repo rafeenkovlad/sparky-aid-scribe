@@ -465,7 +465,7 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const prevVin = fresh.draft.carStep.vin;
-      const { patch, reply, attachments } = await extractForStep(currentStep, combined, fresh);
+      const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh);
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         const nextAsk = nextMissingPrompt(currentStep, t.draft);
@@ -482,6 +482,9 @@ export function ChatApp({ threadId }: Props) {
             text: replyText,
             step: currentStep,
             ...(attachments && attachments.length ? { attachments } : {}),
+            ...(chips && chips.length
+              ? { chips, optionsStep: currentStep, selectedChipValues: [] }
+              : {}),
             createdAt: Date.now(),
           });
         }
