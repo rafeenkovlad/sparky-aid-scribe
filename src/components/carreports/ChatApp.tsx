@@ -189,19 +189,6 @@ export function ChatApp({ threadId }: Props) {
       }
       msg.selectedChipValues = nextSelected;
     });
-
-    // Add chip text to composer if newly selected; remove if deselected.
-    setComposer((cur) => {
-      const trimmed = cur.trim();
-      const already = trimmed.includes(chip.value);
-      if (already) {
-        return trimmed
-          .split(/\n+/)
-          .filter((line) => line.trim() !== chip.value)
-          .join("\n");
-      }
-      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
-    });
     textareaRef.current?.focus();
   }, [thread]);
 
