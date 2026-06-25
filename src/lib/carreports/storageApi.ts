@@ -80,58 +80,65 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
 
 import type { ReportDraft } from "./types";
 import { resolveModelCarId } from "./carCatalog";
+import {
+  INSPECTION_SECTIONS,
+  ZONE_TO_SECTION as ZONE_TO_SECTION_SNAKE,
+  getSection,
+  type SectionSnake,
+} from "./inspectionSections";
 
-// Map our 8 local zones → server inspection section + collection.
-// Notes go into the chosen collection as a single element with noDamage=true.
-const ZONE_TO_SECTION: Record<string, { section: string; collection: string }> = {
-  body: { section: "bodySection", collection: "bodyElementGeneralConditionCollection" },
-  underbody: { section: "bodySection", collection: "bodyElementGeneralConditionCollection" },
-  geometry: {
-    section: "bodyReinforcementElementsSection",
-    collection: "bodyReinforcementElementGeneralConditionCollection",
-  },
-  interior: { section: "interiorSection", collection: "interiorElementGeneralConditionCollection" },
-  engine: { section: "underHoodSpaceSection", collection: "underHoodElementEngineCollection" },
-  transmission: {
-    section: "underHoodSpaceSection",
-    collection: "underHoodElementGeneralConditionCollection",
-  },
-  suspension: {
-    section: "wheelsAndBrakesSection",
-    collection: "wheelsAndBrakesElementGeneralConditionCollection",
-  },
-  brakes: {
-    section: "wheelsAndBrakesSection",
-    collection: "wheelsAndBrakesElementGeneralConditionCollection",
-  },
-};
-
-const REQUIRED_SECTIONS = [
-  "bodySection",
-  "bodyReinforcementElementsSection",
-  "glassSection",
-  "interiorSection",
-  "underHoodSpaceSection",
-  "wheelsAndBrakesSection",
-  "lightningSection",
-  "computerDiagnosticsSection",
-] as const;
-
+/**
+ * Build the inspectionStep payload from structured findings (preferred) plus
+ * a legacy fallback: any zone note that did not yield findings is dropped as
+ * a single element into the section's generalCondition collection so nothing
+ * is lost.
+ */
 function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
   const out: Record<string, Record<string, unknown[]>> = {};
-  for (const s of REQUIRED_SECTIONS) out[s] = {};
+  for (const s of INSPECTION_SECTIONS) out[s.doc] = {};
 
+  const findings = draft.inspectionStep.findings ?? {};
+  const zonesCovered = new Set<string>();
+
+  // 1) Structured findings → exact element collection.
+  for (const f of Object.values(findings)) {
+    const section = getSection(f.section as SectionSnake);
+    if (!section) continue;
+    const el = section.elements.find((e) => e.id === f.elementId);
+    if (!el) continue;
+    const sec = out[section.doc];
+    const arr = (sec[el.collection] as unknown[] | undefined) ?? [];
+    arr.push({
+      noDamage: f.noDamage ?? true,
+      ...(f.seriousDamageTagIds?.length
+        ? { seriousDamageTags: f.seriousDamageTagIds }
+        : {}),
+      ...(f.noSeriousDamageTagIds?.length
+        ? { noSeriousDamageTags: f.noSeriousDamageTagIds }
+        : {}),
+      ...(f.note ? { note: f.note } : {}),
+      audioNotes: f.audioNotes ?? [],
+    });
+    sec[el.collection] = arr;
+    zonesCovered.add(f.section);
+  }
+
+  // 2) Legacy fallback: zone notes for sections not covered by findings.
   const notes = draft.inspectionStep.sectionNotes ?? {};
   for (const [zoneId, note] of Object.entries(notes)) {
     const text = note?.trim();
     if (!text) continue;
-    const map = ZONE_TO_SECTION[zoneId];
-    if (!map) continue;
-    const sec = out[map.section];
-    const arr = (sec[map.collection] as unknown[] | undefined) ?? [];
+    const snake = ZONE_TO_SECTION_SNAKE[zoneId];
+    if (!snake || zonesCovered.has(snake)) continue;
+    const section = getSection(snake);
+    const general = section.elements.find((e) => e.id === "generalCondition");
+    if (!general) continue;
+    const sec = out[section.doc];
+    const arr = (sec[general.collection] as unknown[] | undefined) ?? [];
     arr.push({ noDamage: true, note: text, audioNotes: [] });
-    sec[map.collection] = arr;
+    sec[general.collection] = arr;
   }
+
   return out;
 }
 
