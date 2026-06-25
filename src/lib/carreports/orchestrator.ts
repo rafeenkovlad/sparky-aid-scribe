@@ -451,10 +451,31 @@ export async function extractForStep(
       }
 
       const mergedCar = { ...thread.draft.carStep, ...carStep };
+
+      // Если VIN не указан (или помечен как нечитаемый), но есть госномер —
+      // конвертируем плэйт→VIN через ApiCloud (Storage.RunBatchLegalReview
+      // checkType=api_cloud_converter_search).
+      let vinNote = "";
+      if (!mergedCar.vin && mergedCar.gosNumber) {
+        try {
+          const { resolveVinFromGosNumber } = await import("./storageApi");
+          const vin = await resolveVinFromGosNumber(mergedCar.gosNumber);
+          if (vin) {
+            mergedCar.vin = vin;
+            mergedCar.unreadableVin = false;
+            vinNote = `\n🔎 VIN получен по госномеру: ${vin}`;
+          } else {
+            vinNote = "\n⚠️ Не удалось получить VIN по госномеру — введите вручную или загрузите фото документа.";
+          }
+        } catch (e) {
+          vinNote = `\n⚠️ Ошибка конвертации госномера в VIN: ${(e as Error).message}`;
+        }
+      }
+
       const mergedChar = charTouched
         ? { ...thread.draft.characteristicsStep, ...charPatch }
         : thread.draft.characteristicsStep;
-      const reply = summarizeCarAndChar(mergedCar, mergedChar, catalogNote);
+      const reply = summarizeCarAndChar(mergedCar, mergedChar, catalogNote + vinNote);
 
       return {
         patch: {
