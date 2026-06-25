@@ -78,6 +78,92 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
   return (r as { result?: DecodedVin }).result ?? (r as DecodedVin);
 }
 
+/**
+ * Конвертация госномера → VIN через ApiCloud (Storage.RunBatchLegalReview с
+ * checkType=api_cloud_converter_search) и опрос результатов через
+ * Storage.GetBatchLegalReviewResults. Возвращает VIN из responseNormalized
+ * или null если не удалось получить за timeout.
+ */
+export async function resolveVinFromGosNumber(
+  gosNumber: string,
+  opts: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<string | null> {
+  const timeoutMs = opts.timeoutMs ?? 25000;
+  const intervalMs = opts.intervalMs ?? 1500;
+  const plate = gosNumber.toUpperCase().replace(/\s+/g, "");
+  if (!plate) return null;
+
+  type RunRes = { result?: { batchNumber?: string } } | { batchNumber?: string };
+  const runRaw = await rpc<RunRes>("Storage.RunBatchLegalReview", {
+    checkTypes: ["api_cloud_converter_search"],
+    gosNumber: plate,
+  });
+  const batchNumber =
+    (runRaw as { result?: { batchNumber?: string } }).result?.batchNumber ??
+    (runRaw as { batchNumber?: string }).batchNumber;
+  if (!batchNumber) return null;
+
+  type Check = {
+    checkType?: string | null;
+    status?: string | null;
+    vehicleVin?: string | null;
+    responseNormalized?: unknown;
+  };
+  type ResultsRes =
+    | { result?: { checks?: Check[] } }
+    | { checks?: Check[] };
+
+  const extractVin = (r: unknown): string | null => {
+    if (!r) return null;
+    if (typeof r === "string") {
+      const m = r.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i);
+      return m ? m[0].toUpperCase() : null;
+    }
+    if (typeof r === "object") {
+      const obj = r as Record<string, unknown>;
+      for (const key of ["vin", "VIN", "Vin"]) {
+        const v = obj[key];
+        if (typeof v === "string" && /^[A-HJ-NPR-Z0-9]{17}$/i.test(v)) {
+          return v.toUpperCase();
+        }
+      }
+      for (const v of Object.values(obj)) {
+        const found = extractVin(v);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const resRaw = await rpc<ResultsRes>("Storage.GetBatchLegalReviewResults", {
+        batchNumber,
+      });
+      const checks =
+        (resRaw as { result?: { checks?: Check[] } }).result?.checks ??
+        (resRaw as { checks?: Check[] }).checks ??
+        [];
+      const conv = checks.find((c) => c.checkType === "api_cloud_converter_search");
+      if (!conv) continue;
+      if (conv.vehicleVin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(conv.vehicleVin)) {
+        return conv.vehicleVin.toUpperCase();
+      }
+      const fromBody = extractVin(conv.responseNormalized);
+      if (fromBody) return fromBody;
+      if (conv.status && conv.status !== "pending") {
+        // Завершено, но VIN не найден.
+        return null;
+      }
+    } catch {
+      // продолжаем опрос
+    }
+  }
+  return null;
+}
+
 import type { ReportDraft } from "./types";
 import { resolveCar, type ResolvedCar } from "./carCatalog";
 import {
