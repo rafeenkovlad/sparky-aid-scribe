@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThreadIdRouteImport } from './routes/$threadId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiCrProxyRouteImport } from './routes/api/cr-proxy'
 
 const ThreadIdRoute = ThreadIdRouteImport.update({
   id: '/$threadId',
@@ -22,31 +23,40 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCrProxyRoute = ApiCrProxyRouteImport.update({
+  id: '/api/cr-proxy',
+  path: '/api/cr-proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/api/cr-proxy': typeof ApiCrProxyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/api/cr-proxy': typeof ApiCrProxyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
+  '/api/cr-proxy': typeof ApiCrProxyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$threadId'
+  fullPaths: '/' | '/$threadId' | '/api/cr-proxy'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$threadId'
-  id: '__root__' | '/' | '/$threadId'
+  to: '/' | '/$threadId' | '/api/cr-proxy'
+  id: '__root__' | '/' | '/$threadId' | '/api/cr-proxy'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
+  ApiCrProxyRoute: typeof ApiCrProxyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cr-proxy': {
+      id: '/api/cr-proxy'
+      path: '/api/cr-proxy'
+      fullPath: '/api/cr-proxy'
+      preLoaderRoute: typeof ApiCrProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
+  ApiCrProxyRoute: ApiCrProxyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
