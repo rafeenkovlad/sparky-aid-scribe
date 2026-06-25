@@ -38,7 +38,7 @@ import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
-import { filledCount, isStepFilled } from "@/lib/carreports/progress";
+import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -482,6 +482,7 @@ export function ChatApp({ threadId }: Props) {
 
   const filled = filledCount(thread.draft);
   const stepDef = stepById(currentStep);
+  const hasCurrentStepDraft = summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white">
@@ -704,7 +705,7 @@ export function ChatApp({ threadId }: Props) {
         >
           <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
         </button>
-        {isStepFilled(currentStep, thread.draft) && (
+        {hasCurrentStepDraft && (
           <button
             onClick={() => {
               setAskMode(false);
