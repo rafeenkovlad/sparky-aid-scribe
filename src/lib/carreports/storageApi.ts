@@ -79,7 +79,7 @@ export async function decodeVin(vin: string): Promise<DecodedVin> {
 }
 
 import type { ReportDraft } from "./types";
-import { resolveModelCarId } from "./carCatalog";
+import { resolveCar, type ResolvedCar } from "./carCatalog";
 import {
   INSPECTION_SECTIONS,
   ZONE_TO_SECTION as ZONE_TO_SECTION_SNAKE,
