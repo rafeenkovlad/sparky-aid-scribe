@@ -36,6 +36,7 @@ import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
+import { submitReport } from "@/lib/carreports/storageApi";
 
 interface Props {
   threadId: string;
@@ -234,6 +235,38 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread],
   );
+
+  const doSubmit = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    try {
+      const r = await submitReport(thread.draft);
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: r.remote
+            ? `✅ Отчёт отправлен (id: ${r.reportId ?? "—"}, метод: ${r.method ?? "?"}).`
+            : `⚠️ ${r.note ?? "Отправка не удалась."}`,
+          createdAt: Date.now(),
+        });
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Ошибка отправки";
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: `⚠️ ${m}`,
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+
 
 
   const advanceStep = useCallback(() => {
@@ -545,6 +578,15 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Quick actions */}
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
+        {currentStep === "submit" && (
+          <button
+            onClick={() => void doSubmit()}
+            disabled={busy}
+            className="rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1 shadow-[0_0_24px_-6px_rgba(16,185,129,0.6)]"
+          >
+            <CheckCheck className="h-3.5 w-3.5" /> Отправить отчёт
+          </button>
+        )}
         <button
           onClick={() => {
             setComposer("Всё верно, далее");
