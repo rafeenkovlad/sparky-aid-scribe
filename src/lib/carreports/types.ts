@@ -140,6 +140,10 @@ export interface ChatChip {
   group?: string;
   /** if true, only one chip in the group can be selected at a time */
   single?: boolean;
+  /** optional preview image (e.g. generation/restyling photo) */
+  image?: string;
+  /** optional sub-label (e.g. years range) */
+  description?: string;
 }
 
 export interface MessageAttachment {

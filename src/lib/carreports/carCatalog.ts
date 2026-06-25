@@ -266,6 +266,8 @@ export interface CatalogSuggestion {
   label: string;
   value: string;
   group: "brand" | "model" | "generation";
+  image?: string;
+  description?: string;
 }
 
 export interface ResolvedCar {
@@ -280,6 +282,8 @@ export interface ResolvedCar {
   generationImage?: string;
   /** clickable suggestions when name lookup is uncertain or has alternatives */
   suggestions?: CatalogSuggestion[];
+  /** true when user explicitly named a generation/restyling that we couldn't find */
+  generationNotFound?: boolean;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
@@ -679,28 +683,38 @@ export async function resolveCar(
 
 
     if (!frame) {
-      // Поколение не подобрано — предложим клик-чипы со всеми вариантами.
+      // Поколение не подобрано — предложим клик-чипы со всеми вариантами
+      // (поколение + рестайлинг + годы + картинка).
       const genSuggestions: CatalogSuggestion[] = [];
-      const seen = new Set<string>();
-      let n = 1;
-      for (const f of frames) {
-        const key = f.generationName ?? `gen-${n}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const years =
-          f.yearStart || f.yearEnd
-            ? ` (${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."})`
-            : "";
-        genSuggestions.push({
-          group: "generation",
-          label: `Поколение ${n}${years}`,
-          value: `Поколение ${n}`,
-        });
-        n++;
-        if (genSuggestions.length >= 6) break;
+      let gi = 0;
+      for (const group of genGroups) {
+        gi++;
+        let ri = 0;
+        for (const f of group.items) {
+          ri++;
+          const years =
+            f.yearStart || f.yearEnd
+              ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
+              : "";
+          const restName = f.restylingName ? ` · ${f.restylingName}` : "";
+          const value =
+            group.items.length > 1
+              ? `Поколение ${gi}, рестайлинг ${ri}`
+              : `Поколение ${gi}`;
+          genSuggestions.push({
+            group: "generation",
+            label: `Поколение ${gi}${group.items.length > 1 ? ` · рест. ${ri}` : ""}${restName}`,
+            value,
+            image: f.urlImage,
+            description: years,
+          });
+          if (genSuggestions.length >= 12) break;
+        }
+        if (genSuggestions.length >= 12) break;
       }
       return {
         ...partial,
+        generationNotFound: notFound,
         suggestions: [...(partial.suggestions ?? []), ...genSuggestions],
       };
     }

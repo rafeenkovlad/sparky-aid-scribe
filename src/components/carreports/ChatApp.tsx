@@ -1020,9 +1020,43 @@ function MessageBubble({
           );
         })()}
         {msg.chips && msg.chips.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {msg.chips.map((c) => {
               const isSel = selected.has(c.value);
+              const hasImage = !!c.image;
+              if (hasImage) {
+                return (
+                  <button
+                    key={c.label}
+                    disabled={!interactive}
+                    onClick={() => onChipTap(c)}
+                    className={
+                      "flex flex-col items-stretch w-[112px] rounded-lg overflow-hidden border transition-colors text-left " +
+                      (isSel
+                        ? "bg-orange-500/10 border-orange-500"
+                        : interactive
+                          ? "border-white/15 hover:border-orange-400/60"
+                          : "border-white/10 opacity-60 cursor-default")
+                    }
+                  >
+                    <img
+                      src={c.image}
+                      alt={c.label}
+                      loading="lazy"
+                      className="block w-full h-16 object-contain bg-white/5"
+                    />
+                    <div className="px-1.5 py-1">
+                      <div className={"text-[11px] leading-tight " + (isSel ? "text-white" : "text-white/85")}>
+                        {isSel ? "✓ " : ""}
+                        {c.label}
+                      </div>
+                      {c.description && (
+                        <div className="text-[10px] text-white/55 truncate">{c.description}</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
               return (
                 <button
                   key={c.label}
@@ -1039,6 +1073,7 @@ function MessageBubble({
                 >
                   {isSel ? "✓ " : ""}
                   {c.label}
+                  {c.description ? ` · ${c.description}` : ""}
                 </button>
               );
             })}
