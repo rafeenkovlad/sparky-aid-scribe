@@ -13,7 +13,9 @@ import {
   TRANSMISSIONS,
   parseJsonResponse,
   pickEnum,
+  CLICHE_ASK,
 } from "./cliche";
+
 import { decodeVin } from "./storageApi";
 import { zoneById } from "./inspectionZones";
 import {
