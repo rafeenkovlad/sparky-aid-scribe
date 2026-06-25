@@ -336,23 +336,13 @@ export function ChatApp({ threadId }: Props) {
     const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
-      t.messages.push(makeIntroMessage(nextStep));
-      const recap = summarizeStepDraft(nextStep, t.draft);
-      if (recap) {
-        t.messages.push({
-          id: msgId(),
-          role: "assistant",
-          text: recap,
-          step: nextStep,
-          createdAt: Date.now(),
-        });
-      }
     });
     // Trigger VIN decode when entering characteristics
     if (nextStep === "characteristics") {
       void doVinDecode();
     }
   }, [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const doVinDecode = useCallback(async () => {
     if (!thread) return;
