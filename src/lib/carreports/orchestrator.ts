@@ -267,6 +267,34 @@ function summarizeChar(c: CharacteristicsStep): string {
   return parts.join("\n");
 }
 
+import type { TestDriveStep } from "./types";
+
+function summarizeTestDrive(td: Record<string, unknown> & Partial<TestDriveStep>): string {
+  if (td.testDriveIsIncluded === false || td.notDone) {
+    return "Отметил: тест-драйв не проводился. Можно идти к итогу.";
+  }
+  const parts: string[] = ["Тест-драйв зафиксирован:"];
+  const sys: Array<[string, string, string]> = [
+    ["testDriveEngineIsWorkingProperly", "testDriveEngineTags", "Двигатель"],
+    ["testDriveTransmissionIsWorkingProperly", "testDriveTransmissionTags", "КПП"],
+    ["testDriveSteeringWheelIsWorkingProperly", "testDriveSteeringWheelTags", "Рулевое"],
+    ["testDriveSuspensionInDriveIsWorkingProperly", "testDriveSuspensionInDriveTags", "Подвеска"],
+    ["testDriveBrakesInDriveIsWorkingProperly", "testDriveBrakesInDriveTags", "Тормоза"],
+  ];
+  for (const [okKey, tagsKey, label] of sys) {
+    const ok = td[okKey];
+    const tags = Array.isArray(td[tagsKey]) ? (td[tagsKey] as string[]) : [];
+    if (ok === undefined && tags.length === 0) continue;
+    const mark = ok === true ? "✅" : ok === false ? "⚠️" : "•";
+    const t = tags.length ? ` — ${tags.join(", ")}` : "";
+    parts.push(`${mark} ${label}${t}`);
+  }
+  if (typeof td.testDriveNote === "string" && td.testDriveNote) {
+    parts.push(`📝 ${td.testDriveNote}`);
+  }
+  parts.push("\nДополните или нажмите «Всё верно, далее».");
+  return parts.join("\n");
+
 function summarizeDocs(c: DocumentReconciliationStep): string {
   const parts: string[] = ["Зафиксировал сверку документов:"];
   if (typeof c.ownersCount === "number") parts.push(`• Владельцев по ПТС: ${c.ownersCount}`);
