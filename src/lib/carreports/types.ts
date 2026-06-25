@@ -70,6 +70,18 @@ export interface InspectionStep {
 export interface TestDriveStep {
   notDone?: boolean;
   notes?: string;
+  testDriveIsIncluded?: boolean;
+  testDriveEngineIsWorkingProperly?: boolean;
+  testDriveTransmissionIsWorkingProperly?: boolean;
+  testDriveSteeringWheelIsWorkingProperly?: boolean;
+  testDriveSuspensionInDriveIsWorkingProperly?: boolean;
+  testDriveBrakesInDriveIsWorkingProperly?: boolean;
+  testDriveEngineTags?: string[];
+  testDriveTransmissionTags?: string[];
+  testDriveSteeringWheelTags?: string[];
+  testDriveSuspensionInDriveTags?: string[];
+  testDriveBrakesInDriveTags?: string[];
+  testDriveNote?: string;
 }
 
 export interface ResultStep {

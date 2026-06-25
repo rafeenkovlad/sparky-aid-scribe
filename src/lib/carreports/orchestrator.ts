@@ -5,6 +5,9 @@ import {
   CLICHE_CAR,
   CLICHE_CHARACTERISTICS,
   CLICHE_DOCS,
+  CLICHE_INSPECTION,
+  CLICHE_RESULT,
+  CLICHE_TEST_DRIVE,
   DRIVE_TYPES,
   ENGINE_TYPES,
   TRANSMISSIONS,
@@ -18,6 +21,7 @@ import type {
   CharacteristicsStep,
   DocumentReconciliationStep,
   StepId,
+  TestDriveStep,
   Thread,
 } from "./types";
 
@@ -34,12 +38,26 @@ export async function extractForStep(
   text: string,
   thread: Thread,
 ): Promise<{ patch: Partial<Thread["draft"]>; reply: string }> {
-  // Inspection step: no AI call — append free text to the current zone note.
+  // Inspection step: AI cleans the dictated note for the current zone.
   if (step === "inspection") {
     const ins = thread.draft.inspectionStep;
     const zone = ins.currentZone ?? "body";
+    const zoneLabel = zoneById(zone)?.label ?? zone;
+
+    let cleaned = text;
+    let hasIssues = false;
+    try {
+      const id = aiChatIdFor(thread, `extract:inspection:${zone}`);
+      const res = await chatCompletions({ id, text, cliche: CLICHE_INSPECTION(zoneLabel) });
+      const raw = parseJsonResponse<{ note?: string; hasIssues?: boolean }>(res.content);
+      if (raw?.note && typeof raw.note === "string") cleaned = raw.note.trim();
+      if (raw?.hasIssues === true) hasIssues = true;
+    } catch {
+      // fall through: keep raw text
+    }
+
     const prev = ins.sectionNotes[zone] ?? "";
-    const merged = prev ? `${prev}\n${text}` : text;
+    const merged = prev ? `${prev}\n${cleaned}` : cleaned;
     const nextNotes = { ...ins.sectionNotes, [zone]: merged };
     return {
       patch: {
@@ -50,49 +68,105 @@ export async function extractForStep(
           currentZone: zone,
         },
       },
-      reply: `Записал по зоне «${zoneById(zone)?.label ?? zone}». Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».`,
+      reply:
+        `Записал по зоне «${zoneLabel}»${hasIssues ? " — замечания зафиксированы" : ""}:\n${cleaned}\n\n` +
+        `Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».`,
     };
   }
 
-  // Test-drive: append to notes, detect "не проводился".
+  // Test-drive: AI extracts per-system flags + tags + note.
   if (step === "testDrive") {
     const prev = thread.draft.testDriveStep ?? {};
-    const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
-    const notes = prev.notes ? `${prev.notes}\n${text}` : text;
-    const merged = { ...prev, notDone, notes };
-    return {
-      patch: { testDriveStep: merged },
-      reply: notDone
-        ? "Отметил: тест-драйв не проводился. Можно идти к итогу."
-        : "Записал заметки по тест-драйву. Дополните, либо «Всё верно, далее».",
-    };
+    try {
+      const id = aiChatIdFor(thread, "extract:testDrive");
+      const res = await chatCompletions({ id, text, cliche: CLICHE_TEST_DRIVE });
+      const raw = parseJsonResponse<Record<string, unknown>>(res.content) ?? {};
+      const merged: Record<string, unknown> = { ...prev };
+      const bool = (k: string) => {
+        if (typeof raw[k] === "boolean") merged[k] = raw[k];
+      };
+      const tags = (k: string) => {
+        if (Array.isArray(raw[k])) merged[k] = (raw[k] as unknown[]).filter((x) => typeof x === "string");
+      };
+      bool("testDriveIsIncluded");
+      bool("testDriveEngineIsWorkingProperly");
+      bool("testDriveTransmissionIsWorkingProperly");
+      bool("testDriveSteeringWheelIsWorkingProperly");
+      bool("testDriveSuspensionInDriveIsWorkingProperly");
+      bool("testDriveBrakesInDriveIsWorkingProperly");
+      tags("testDriveEngineTags");
+      tags("testDriveTransmissionTags");
+      tags("testDriveSteeringWheelTags");
+      tags("testDriveSuspensionInDriveTags");
+      tags("testDriveBrakesInDriveTags");
+      if (typeof raw.testDriveNote === "string") {
+        merged.testDriveNote = prev.notes
+          ? `${prev.notes}\n${raw.testDriveNote}`
+          : raw.testDriveNote;
+      }
+      // mirror legacy local fields for UI/preview compatibility
+      merged.notDone = merged.testDriveIsIncluded === false ? true : prev.notDone;
+      merged.notes =
+        typeof merged.testDriveNote === "string"
+          ? merged.testDriveNote
+          : prev.notes
+            ? `${prev.notes}\n${text}`
+            : text;
+      return {
+        patch: { testDriveStep: merged },
+        reply: summarizeTestDrive(merged),
+      };
+    } catch {
+      const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
+      const notes = prev.notes ? `${prev.notes}\n${text}` : text;
+      return {
+        patch: { testDriveStep: { ...prev, notDone, notes } },
+        reply: notDone
+          ? "Отметил: тест-драйв не проводился. Можно идти к итогу."
+          : "Записал заметки по тест-драйву. Дополните, либо «Всё верно, далее».",
+      };
+    }
   }
 
-  // Result: text alternates between summary and recommendation.
+  // Result: AI splits text into summary vs verdict.
   if (step === "result") {
     const prev = thread.draft.resultStep ?? {};
-    // Heuristic: if contains "рекоменд" — это рекомендация. Иначе — резюме.
-    const isRec = /рекоменд/i.test(text);
-    const merged = isRec
-      ? {
-          ...prev,
-          resultSpecialistNote: prev.resultSpecialistNote
-            ? `${prev.resultSpecialistNote}\n${text}`
-            : text,
-        }
-      : {
-          ...prev,
-          summaryInspectionNote: prev.summaryInspectionNote
-            ? `${prev.summaryInspectionNote}\n${text}`
-            : text,
-        };
-    return {
-      patch: { resultStep: merged },
-      reply: isRec
-        ? "Зафиксировал рекомендацию. Готовы — переходим к отправке."
-        : "Зафиксировал резюме по состоянию. Дополните рекомендацией или нажмите «Всё верно, далее».",
-    };
+    try {
+      const id = aiChatIdFor(thread, "extract:result");
+      const res = await chatCompletions({ id, text, cliche: CLICHE_RESULT });
+      const raw = parseJsonResponse<{
+        summaryInspectionNote?: string;
+        resultSpecialistNote?: string;
+      }>(res.content) ?? {};
+      const merged = { ...prev };
+      if (typeof raw.summaryInspectionNote === "string" && raw.summaryInspectionNote.trim()) {
+        merged.summaryInspectionNote = prev.summaryInspectionNote
+          ? `${prev.summaryInspectionNote}\n${raw.summaryInspectionNote.trim()}`
+          : raw.summaryInspectionNote.trim();
+      }
+      if (typeof raw.resultSpecialistNote === "string" && raw.resultSpecialistNote.trim()) {
+        merged.resultSpecialistNote = prev.resultSpecialistNote
+          ? `${prev.resultSpecialistNote}\n${raw.resultSpecialistNote.trim()}`
+          : raw.resultSpecialistNote.trim();
+      }
+      const bits: string[] = [];
+      if (raw.summaryInspectionNote) bits.push(`📝 Резюме:\n${raw.summaryInspectionNote.trim()}`);
+      if (raw.resultSpecialistNote) bits.push(`✅ Вердикт:\n${raw.resultSpecialistNote.trim()}`);
+      return {
+        patch: { resultStep: merged },
+        reply: bits.length
+          ? `${bits.join("\n\n")}\n\nДополните или нажмите «Всё верно, далее».`
+          : "Зафиксировал. Дополните или нажмите «Всё верно, далее».",
+      };
+    } catch {
+      const isRec = /рекоменд/i.test(text);
+      const merged = isRec
+        ? { ...prev, resultSpecialistNote: prev.resultSpecialistNote ? `${prev.resultSpecialistNote}\n${text}` : text }
+        : { ...prev, summaryInspectionNote: prev.summaryInspectionNote ? `${prev.summaryInspectionNote}\n${text}` : text };
+      return { patch: { resultStep: merged }, reply: "Зафиксировал. Дополните или нажмите «Всё верно, далее»." };
+    }
   }
+
 
 
   const cliche =
@@ -193,6 +267,35 @@ function summarizeChar(c: CharacteristicsStep): string {
   parts.push("\nЕсли всё верно — стрелка дальше, к документам.");
   return parts.join("\n");
 }
+
+function summarizeTestDrive(td: Record<string, unknown> & Partial<TestDriveStep>): string {
+  if (td.testDriveIsIncluded === false || td.notDone) {
+    return "Отметил: тест-драйв не проводился. Можно идти к итогу.";
+  }
+  const parts: string[] = ["Тест-драйв зафиксирован:"];
+  const sys: Array<[string, string, string]> = [
+    ["testDriveEngineIsWorkingProperly", "testDriveEngineTags", "Двигатель"],
+    ["testDriveTransmissionIsWorkingProperly", "testDriveTransmissionTags", "КПП"],
+    ["testDriveSteeringWheelIsWorkingProperly", "testDriveSteeringWheelTags", "Рулевое"],
+    ["testDriveSuspensionInDriveIsWorkingProperly", "testDriveSuspensionInDriveTags", "Подвеска"],
+    ["testDriveBrakesInDriveIsWorkingProperly", "testDriveBrakesInDriveTags", "Тормоза"],
+  ];
+  for (const [okKey, tagsKey, label] of sys) {
+    const ok = td[okKey];
+    const tags = Array.isArray(td[tagsKey]) ? (td[tagsKey] as string[]) : [];
+    if (ok === undefined && tags.length === 0) continue;
+    const mark = ok === true ? "✅" : ok === false ? "⚠️" : "•";
+    const t = tags.length ? ` — ${tags.join(", ")}` : "";
+    parts.push(`${mark} ${label}${t}`);
+  }
+  if (typeof td.testDriveNote === "string" && td.testDriveNote) {
+    parts.push(`📝 ${td.testDriveNote}`);
+  }
+  parts.push("\nДополните или нажмите «Всё верно, далее».");
+  return parts.join("\n");
+}
+
+
 
 function summarizeDocs(c: DocumentReconciliationStep): string {
   const parts: string[] = ["Зафиксировал сверку документов:"];
