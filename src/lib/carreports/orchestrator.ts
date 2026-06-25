@@ -30,13 +30,6 @@ import type {
   CharacteristicsStep,
   DocumentReconciliationStep,
   InspectionElementFinding,
-  PendingTagName,
-  StepId,
-import type {
-  CarStep,
-  CharacteristicsStep,
-  DocumentReconciliationStep,
-  InspectionElementFinding,
   MessageAttachment,
   PendingTagName,
   StepId,
