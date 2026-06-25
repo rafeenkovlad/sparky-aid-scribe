@@ -448,20 +448,18 @@ export async function extractForStep(
         }
       }
 
-      const reply = summarizeCar({ ...thread.draft.carStep, ...carStep });
-      const charBits: string[] = [];
-      if (charPatch.brandName || charPatch.modelCarName)
-        charBits.push(`• ${[charPatch.brandName, charPatch.modelCarName].filter(Boolean).join(" ")}`);
-      if (charPatch.year) charBits.push(`• Год: ${charPatch.year}`);
-      if (charPatch.generationLabel) charBits.push(`• Поколение: ${charPatch.generationLabel}`);
-      const charReply = charBits.length ? `\n\nХарактеристики:\n${charBits.join("\n")}${catalogNote}` : "";
+      const mergedCar = { ...thread.draft.carStep, ...carStep };
+      const mergedChar = charTouched
+        ? { ...thread.draft.characteristicsStep, ...charPatch }
+        : thread.draft.characteristicsStep;
+      const reply = summarizeCarAndChar(mergedCar, mergedChar, catalogNote);
 
       return {
         patch: {
-          carStep: { ...thread.draft.carStep, ...carStep },
+          carStep: mergedCar,
           ...(charTouched ? { characteristicsStep: charPatch } : {}),
         },
-        reply: reply + charReply,
+        reply,
         ...(attachments.length ? { attachments } : {}),
       };
     }
@@ -558,17 +556,31 @@ export async function extractForStep(
   }
 }
 
-function summarizeCar(c: CarStep): string {
+function summarizeCarAndChar(
+  c: CarStep,
+  ch: CharacteristicsStep,
+  catalogNote: string,
+): string {
   const parts: string[] = ["Зафиксировал по автомобилю:"];
   if (c.vin) parts.push(`• VIN ${c.vin}`);
   if (c.unreadableVin) parts.push("• VIN нечитаемый");
   if (c.gosNumber) parts.push(`• Госномер ${c.gosNumber}`);
+  if (ch.brandName || ch.modelCarName)
+    parts.push(`• Модель: ${[ch.brandName, ch.modelCarName].filter(Boolean).join(" ")}`);
+  if (ch.generationLabel) parts.push(`• Поколение: ${ch.generationLabel}`);
+  if (ch.year) parts.push(`• Год: ${ch.year}`);
+  if (ch.engineVolume) parts.push(`• Объём: ${ch.engineVolume} л`);
+  if (ch.engineType) parts.push(`• Тип двигателя: ${ch.engineType}`);
+  if (ch.transmission) parts.push(`• КПП: ${ch.transmission}`);
+  if (ch.driveType) parts.push(`• Привод: ${ch.driveType}`);
+  if (ch.color) parts.push(`• Цвет: ${ch.color}`);
+  if (ch.equipment) parts.push(`• Комплектация: ${ch.equipment}`);
   if (typeof c.mileage === "number") parts.push(`• Пробег ${c.mileage.toLocaleString("ru-RU")} км`);
   if (c.cityInspection) parts.push(`• Город осмотра: ${c.cityInspection}`);
   if (c.dateInspection) parts.push(`• Дата осмотра: ${c.dateInspection}`);
   if (c.uriListing) parts.push(`• Объявление: ${c.uriListing}`);
   if (c.visuallyMileageNotMatchCondition) parts.push("• Пробег не соответствует состоянию");
-  parts.push("\nЕсли всё верно — нажмите стрелку, перейдём к характеристикам.");
+  if (catalogNote) parts.push(catalogNote.trimStart());
   return parts.join("\n");
 }
 
