@@ -149,7 +149,15 @@ export function updateThread(id: string, mut: (t: Thread) => Thread | void): Thr
         testDriveStep: { ...t.draft.testDriveStep },
         resultStep: { ...t.draft.resultStep },
       },
-      messages: [...t.messages],
+      messages: {
+        car: [...t.messages.car],
+        characteristics: [...t.messages.characteristics],
+        docs: [...t.messages.docs],
+        inspection: [...t.messages.inspection],
+        testDrive: [...t.messages.testDrive],
+        result: [...t.messages.result],
+        submit: [...t.messages.submit],
+      },
       aiChatIds: { ...t.aiChatIds },
     };
     const result = mut(clone) ?? clone;
