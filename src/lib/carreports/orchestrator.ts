@@ -36,6 +36,7 @@ import type {
   TestDriveStep,
   Thread,
 } from "./types";
+import { optionalHintSentence } from "./progress";
 
 function todayIso(): string {
   const d = new Date();
