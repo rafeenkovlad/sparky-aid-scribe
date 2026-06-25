@@ -631,6 +631,15 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Quick actions */}
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
+        {currentStep === "result" && (
+          <button
+            onClick={() => void doGenSummary()}
+            disabled={busy}
+            className="rounded-full bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1 shadow-[0_0_24px_-6px_rgba(139,92,246,0.6)]"
+          >
+            ✨ AI-резюме
+          </button>
+        )}
         {currentStep === "submit" && (
           <button
             onClick={() => void doSubmit()}
