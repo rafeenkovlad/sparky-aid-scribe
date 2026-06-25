@@ -487,7 +487,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode]);
 
 
   function jumpTo(step: StepId) {
