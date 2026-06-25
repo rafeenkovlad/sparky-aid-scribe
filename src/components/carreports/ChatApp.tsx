@@ -120,10 +120,11 @@ export function ChatApp({ threadId }: Props) {
   useEffect(() => {
     if (!thread) return;
     const fresh = getThread(thread.id);
-    if (fresh && fresh.messages.length === 0) {
+    if (fresh && totalMessages(fresh.messages) === 0) {
       updateThread(thread.id, (t) => {
-        if (t.messages.length === 0) {
-          t.messages.push(makeIntroMessage(FLOW_STEPS[t.stepIndex].id));
+        if (totalMessages(t.messages) === 0) {
+          const step = FLOW_STEPS[t.stepIndex].id;
+          pushMsg(t, step, makeIntroMessage(step));
         }
       });
     }
@@ -136,26 +137,31 @@ export function ChatApp({ threadId }: Props) {
     textareaRef.current?.focus();
   }, [threadId, busy]);
 
-  // Auto-scroll.
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [thread?.messages.length]);
-
   const currentStep = thread ? FLOW_STEPS[thread.stepIndex].id : "car";
 
+  const currentStepMessages = thread ? thread.messages[currentStep] : [];
+
+  // Auto-scroll on new messages in the current step.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [currentStepMessages.length, currentStep]);
+
   const lastOptionsMsgId = useMemo(() => {
-    if (!thread) return null;
-    for (let i = thread.messages.length - 1; i >= 0; i--) {
-      const m = thread.messages[i];
+    for (let i = currentStepMessages.length - 1; i >= 0; i--) {
+      const m = currentStepMessages[i];
       if (m.optionsStep === currentStep) return m.id;
     }
     return null;
-  }, [thread, currentStep]);
+  }, [currentStepMessages, currentStep]);
 
   const insertChip = useCallback((messageId: string, chip: ChatChip) => {
     if (!thread) return;
     updateThread(thread.id, (t) => {
-      const msg = t.messages.find((m) => m.id === messageId);
+      let msg: ChatMessage | undefined;
+      for (const key of Object.keys(t.messages) as StepId[]) {
+        msg = t.messages[key].find((x) => x.id === messageId);
+        if (msg) break;
+      }
       if (!msg) return;
       const prev = msg.selectedChipValues ?? [];
       // single-group: replace any previously-selected chip from same group
