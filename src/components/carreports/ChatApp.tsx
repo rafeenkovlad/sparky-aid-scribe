@@ -446,6 +446,16 @@ export function ChatApp({ threadId }: Props) {
       t.stepIndex = idx;
       // re-add intro for that step
       t.messages.push(makeIntroMessage(step));
+      const recap = summarizeStepDraft(step, t.draft);
+      if (recap) {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: recap,
+          step,
+          createdAt: Date.now(),
+        });
+      }
     });
     setDraftOpen(false);
   }
