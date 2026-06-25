@@ -309,7 +309,7 @@ export function ChatApp({ threadId }: Props) {
     if (!thread || busy) return;
     setBusy(true);
     updateThread(thread.id, (t) => {
-      t.messages.push({
+      pushMsg(t, "result", {
         id: msgId(),
         role: "assistant",
         text: "🪄 Готовлю AI-резюме отчёта…",
