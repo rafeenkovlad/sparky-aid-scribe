@@ -263,7 +263,7 @@ export function ChatApp({ threadId }: Props) {
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Ошибка обработки фото";
         updateThread(thread.id, (t) => {
-          t.messages.push({
+          pushMsg(t, "inspection", {
             id: msgId(),
             role: "assistant",
             text: `⚠️ ${msg}`,
