@@ -164,13 +164,28 @@ export interface ChatMessage {
   createdAt: number;
 }
 
+export type StepMessages = Record<StepId, ChatMessage[]>;
+
+export function emptyStepMessages(): StepMessages {
+  return {
+    car: [],
+    characteristics: [],
+    docs: [],
+    inspection: [],
+    testDrive: [],
+    result: [],
+    submit: [],
+  };
+}
+
 export interface Thread {
   id: string;
   title: string;
   updatedAt: number;
   stepIndex: number;
   draft: ReportDraft;
-  messages: ChatMessage[];
+  /** Messages stored per-step so each step has its own conversation. */
+  messages: StepMessages;
   aiChatIds: Record<string, number>;
 }
 
