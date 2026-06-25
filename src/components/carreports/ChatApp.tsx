@@ -1,0 +1,535 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  ArrowUp,
+  CheckCheck,
+  HelpCircle,
+  Menu,
+  Pencil,
+  Plus,
+  Settings2,
+  Trash2,
+  PanelRightOpen,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+import logo from "@/assets/cr-logo.png";
+import { TokenDialog } from "./TokenDialog";
+import { ReportPreview } from "./ReportPreview";
+import { InspectionDateField } from "./InspectionDateField";
+
+import { useThreads, useToken } from "@/hooks/useThreads";
+import {
+  createThread,
+  deleteThread,
+  getThread,
+  updateThread,
+} from "@/lib/carreports/threadStore";
+import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
+import { STEP_INTROS } from "@/lib/carreports/stepChips";
+import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
+import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
+import { filledCount } from "@/lib/carreports/progress";
+
+interface Props {
+  threadId: string;
+}
+
+function msgId(): string {
+  return Math.random().toString(36).slice(2);
+}
+
+function makeIntroMessage(step: StepId): ChatMessage {
+  const intro = STEP_INTROS[step];
+  return {
+    id: msgId(),
+    role: "assistant",
+    text: intro.greeting,
+    step,
+    chips: intro.chips,
+    optionsStep: step,
+    selectedChipValues: [],
+    createdAt: Date.now(),
+  };
+}
+
+export function ChatApp({ threadId }: Props) {
+  const threads = useThreads();
+  const token = useToken();
+  const navigate = useNavigate();
+
+  const thread = useMemo(() => threads.find((t) => t.id === threadId) ?? null, [threads, threadId]);
+
+  const [tokenOpen, setTokenOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [composer, setComposer] = useState("");
+  const [busy, setBusy] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Open token dialog automatically the very first time.
+  useEffect(() => {
+    if (!token) setTokenOpen(true);
+  }, [token]);
+
+  // Seed first intro message on a fresh thread.
+  useEffect(() => {
+    if (thread && thread.messages.length === 0) {
+      updateThread(thread.id, (t) => {
+        t.messages.push(makeIntroMessage(FLOW_STEPS[t.stepIndex].id));
+      });
+    }
+  }, [thread]);
+
+  // Keep textarea focused.
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [threadId, busy]);
+
+  // Auto-scroll.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [thread?.messages.length]);
+
+  const currentStep = thread ? FLOW_STEPS[thread.stepIndex].id : "car";
+
+  const lastOptionsMsgId = useMemo(() => {
+    if (!thread) return null;
+    for (let i = thread.messages.length - 1; i >= 0; i--) {
+      const m = thread.messages[i];
+      if (m.optionsStep === currentStep) return m.id;
+    }
+    return null;
+  }, [thread, currentStep]);
+
+  const insertChip = useCallback((messageId: string, chip: ChatChip) => {
+    if (!thread) return;
+    updateThread(thread.id, (t) => {
+      const msg = t.messages.find((m) => m.id === messageId);
+      if (!msg) return;
+      const prev = msg.selectedChipValues ?? [];
+      // single-group: replace any previously-selected chip from same group
+      let nextSelected: string[];
+      if (chip.single && chip.group) {
+        const groupValues = (msg.chips ?? [])
+          .filter((c) => c.group === chip.group)
+          .map((c) => c.value);
+        nextSelected = prev.filter((v) => !groupValues.includes(v));
+        if (!prev.includes(chip.value)) nextSelected.push(chip.value);
+      } else if (prev.includes(chip.value)) {
+        nextSelected = prev.filter((v) => v !== chip.value);
+      } else {
+        nextSelected = [...prev, chip.value];
+      }
+      msg.selectedChipValues = nextSelected;
+    });
+
+    // Add chip text to composer if newly selected; remove if deselected.
+    setComposer((cur) => {
+      const trimmed = cur.trim();
+      const already = trimmed.includes(chip.value);
+      if (already) {
+        return trimmed
+          .split(/\n+/)
+          .filter((line) => line.trim() !== chip.value)
+          .join("\n");
+      }
+      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
+    });
+    textareaRef.current?.focus();
+  }, [thread]);
+
+  const setInspectionDate = useCallback(
+    (iso: string) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        t.draft.carStep.dateInspection = iso;
+      });
+    },
+    [thread],
+  );
+
+  const advanceStep = useCallback(() => {
+    if (!thread) return;
+    const nextIdx = Math.min(thread.stepIndex + 1, FLOW_STEPS.length - 1);
+    if (nextIdx === thread.stepIndex) return;
+    const nextStep = FLOW_STEPS[nextIdx].id;
+    updateThread(thread.id, (t) => {
+      t.stepIndex = nextIdx;
+      t.messages.push(makeIntroMessage(nextStep));
+    });
+    // Trigger VIN decode when entering characteristics
+    if (nextStep === "characteristics") {
+      void doVinDecode();
+    }
+  }, [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const doVinDecode = useCallback(async () => {
+    if (!thread) return;
+    const vin = thread.draft.carStep.vin;
+    if (!vin) return;
+    const fresh = getThread(thread.id);
+    if (!fresh) return;
+    const patch = await applyVinDecode(fresh);
+    if (patch) {
+      updateThread(thread.id, (t) => {
+        Object.assign(t.draft, patch);
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: "Подтянул характеристики по VIN. Поправьте, если есть расхождения.",
+          createdAt: Date.now(),
+        });
+      });
+    }
+  }, [thread]);
+
+  const submit = useCallback(async () => {
+    if (!thread || busy) return;
+    const text = composer.trim();
+    if (!text) return;
+
+    // Confirm-advance shortcut.
+    if (isConfirmAdvance(text)) {
+      setComposer("");
+      advanceStep();
+      return;
+    }
+
+    setBusy(true);
+    // 1) push user message
+    updateThread(thread.id, (t) => {
+      t.messages.push({
+        id: msgId(),
+        role: "user",
+        text,
+        step: currentStep,
+        createdAt: Date.now(),
+      });
+    });
+    setComposer("");
+
+    try {
+      const fresh = getThread(thread.id);
+      if (!fresh) return;
+      const { patch, reply } = await extractForStep(currentStep, text, fresh);
+      updateThread(thread.id, (t) => {
+        Object.assign(t.draft, patch);
+        if (reply) {
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: reply,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        }
+        if (currentStep === "car" && !t.draft.reportName) {
+          const c = t.draft.carStep;
+          t.title = c.vin
+            ? `Отчёт · VIN ${c.vin.slice(-6)}`
+            : c.gosNumber
+              ? `Отчёт · ${c.gosNumber}`
+              : "Новый отчёт";
+        }
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Ошибка ИИ";
+      updateThread(thread.id, (t) => {
+        t.messages.push({
+          id: msgId(),
+          role: "assistant",
+          text: `⚠️ ${message}`,
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy, composer, currentStep, advanceStep]);
+
+  function jumpTo(step: StepId) {
+    if (!thread) return;
+    const idx = FLOW_STEPS.findIndex((s) => s.id === step);
+    if (idx < 0) return;
+    updateThread(thread.id, (t) => {
+      t.stepIndex = idx;
+      // re-add intro for that step
+      t.messages.push(makeIntroMessage(step));
+    });
+    setDraftOpen(false);
+  }
+
+  function newThread() {
+    const t = createThread();
+    setMenuOpen(false);
+    navigate({ to: "/$threadId", params: { threadId: t.id } });
+  }
+
+  if (!thread) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white">
+        <div className="text-sm text-white/60">Открываю отчёт…</div>
+      </div>
+    );
+  }
+
+  const filled = filledCount(thread.draft);
+  const stepDef = stepById(currentStep);
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white">
+      {/* Header */}
+      <header className="flex items-center gap-2 px-3 h-12 border-b border-white/10 shrink-0">
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[360px]">
+            <SheetHeader className="px-4 py-3 border-b border-white/10">
+              <SheetTitle className="flex items-center gap-2 text-white">
+                <img src={logo} alt="" className="h-6 w-6 invert" />
+                ИИ-отчёт carreports
+              </SheetTitle>
+            </SheetHeader>
+            <div className="p-3 space-y-2">
+              <Button
+                onClick={newThread}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white justify-start"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Новый отчёт
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setTokenOpen(true);
+                  setMenuOpen(false);
+                }}
+                className="w-full justify-start text-white hover:bg-white/10"
+              >
+                <Settings2 className="h-4 w-4 mr-2" /> Токен carreports
+              </Button>
+            </div>
+            <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wider text-white/40">История</div>
+            <div className="px-2 pb-4 space-y-1 overflow-y-auto" style={{ maxHeight: "60dvh" }}>
+              {threads.length === 0 && <div className="px-2 py-3 text-sm text-white/50">Пока пусто</div>}
+              {threads.map((t) => (
+                <div
+                  key={t.id}
+                  className={
+                    "group flex items-center rounded-lg px-2 py-2 text-sm cursor-pointer " +
+                    (t.id === threadId ? "bg-white/10" : "hover:bg-white/5")
+                  }
+                  onClick={() => {
+                    navigate({ to: "/$threadId", params: { threadId: t.id } });
+                    setMenuOpen(false);
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">{t.title}</div>
+                    <div className="text-xs text-white/40">
+                      {new Date(t.updatedAt).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!confirm("Удалить этот отчёт?")) return;
+                      const remaining = threads.filter((x) => x.id !== t.id);
+                      deleteThread(t.id);
+                      if (t.id === threadId) {
+                        const next = remaining[0] ?? createThread();
+                        navigate({ to: "/$threadId", params: { threadId: next.id } });
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-white/60 hover:text-destructive p-1"
+                    aria-label="Удалить"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex-1 min-w-0 text-center">
+          <div className="text-sm font-medium truncate">{thread.title}</div>
+          <div className="text-[11px] text-white/50 truncate">Шаг: {stepDef.label}</div>
+        </div>
+
+        <div className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/80 tabular-nums">
+          {filled}/{FLOW_STEPS.length - 1}
+        </div>
+        <Sheet open={draftOpen} onOpenChange={setDraftOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+              <PanelRightOpen className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[400px]">
+            <ReportPreview thread={thread} onJump={jumpTo} />
+          </SheetContent>
+        </Sheet>
+      </header>
+
+      {/* Messages */}
+      <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+        {thread.messages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            msg={m}
+            interactive={m.id === lastOptionsMsgId}
+            onChipTap={(chip) => insertChip(m.id, chip)}
+            inspectionDateValue={thread.draft.carStep.dateInspection}
+            onInspectionDateChange={setInspectionDate}
+          />
+        ))}
+        {busy && (
+          <div className="flex items-center gap-2 text-sm text-white/50">
+            <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
+            ИИ-ассистент думает…
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </main>
+
+      {/* Quick actions */}
+      <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
+        <button
+          onClick={() => {
+            setComposer("Всё верно, далее");
+            setTimeout(() => submit(), 0);
+          }}
+          className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+        >
+          <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
+        </button>
+        <button
+          onClick={() => textareaRef.current?.focus()}
+          className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Нужно изменить
+        </button>
+        <button
+          onClick={() => {
+            setComposer((c) => (c ? c + "\nЕсть вопрос: " : "Есть вопрос: "));
+            textareaRef.current?.focus();
+          }}
+          className="rounded-full bg-white/5 hover:bg-white/10 text-white/80 text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+        >
+          <HelpCircle className="h-3.5 w-3.5" /> Есть вопрос
+        </button>
+      </div>
+
+      {/* Composer */}
+      <div className="px-3 pb-3 pt-2 shrink-0">
+        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          <Textarea
+            ref={textareaRef}
+            value={composer}
+            onChange={(e) => setComposer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder="Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+            className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
+          />
+          <button
+            onClick={() => void submit()}
+            disabled={busy || !composer.trim()}
+            className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
+            aria-label="Отправить и перейти дальше"
+          >
+            <ArrowUp className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+    </div>
+  );
+}
+
+// ─── Message bubble ────────────────────────────────────────────────────────
+
+interface BubbleProps {
+  msg: ChatMessage;
+  interactive: boolean;
+  onChipTap: (chip: ChatChip) => void;
+  inspectionDateValue?: string;
+  onInspectionDateChange: (iso: string) => void;
+}
+
+function MessageBubble({
+  msg,
+  interactive,
+  onChipTap,
+  inspectionDateValue,
+  onInspectionDateChange,
+}: BubbleProps) {
+  if (msg.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+          {msg.text}
+        </div>
+      </div>
+    );
+  }
+  // assistant
+  const intro = msg.step ? STEP_INTROS[msg.step] : null;
+  const showDate = interactive && intro?.needsDate;
+  const selected = new Set(msg.selectedChipValues ?? []);
+
+  return (
+    <div className="flex gap-2 items-start">
+      <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+        <img src={logo} alt="" className="h-4 w-4 invert" />
+      </div>
+      <div className="max-w-[85%] space-y-2">
+        <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
+        <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
+          {msg.text}
+        </div>
+        {msg.chips && msg.chips.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {msg.chips.map((c) => {
+              const isSel = selected.has(c.value);
+              return (
+                <button
+                  key={c.label}
+                  disabled={!interactive}
+                  onClick={() => onChipTap(c)}
+                  className={
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                    (isSel
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : interactive
+                        ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                        : "border-white/10 text-white/40 cursor-default")
+                  }
+                >
+                  {isSel ? "✓ " : ""}
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {showDate && (
+          <InspectionDateField value={inspectionDateValue} onChange={onInspectionDateChange} />
+        )}
+      </div>
+    </div>
+  );
+}

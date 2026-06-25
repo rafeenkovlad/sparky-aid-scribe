@@ -1,29 +1,37 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createThread, loadThreads } from "@/lib/carreports/threadStore";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "ИИ-отчёт об автомобиле · carreports" },
+      {
+        name: "description",
+        content:
+          "Голосовой ИИ-ассистент для автоподборщика: соберите технический отчёт об автомобиле прямо в чате — без форм.",
+      },
+      { property: "og:title", content: "ИИ-отчёт об автомобиле · carreports" },
+      {
+        property: "og:description",
+        content: "Чат-ассистент для эксперта: 7 шагов отчёта, чипы клише, авто-извлечение фактов.",
+      },
     ],
   }),
-  component: Index,
+  component: IndexRoute,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function IndexRoute() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const existing = loadThreads();
+    const t = existing[0] ?? createThread();
+    void navigate({ to: "/$threadId", params: { threadId: t.id }, replace: true });
+  }, [navigate]);
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="flex h-screen items-center justify-center bg-zinc-950 text-white">
+      <div className="text-sm text-white/60">Загружаю…</div>
     </div>
   );
 }
