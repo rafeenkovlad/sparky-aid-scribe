@@ -37,7 +37,7 @@ import {
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
+import { extractForStep, applyVinDecode, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
