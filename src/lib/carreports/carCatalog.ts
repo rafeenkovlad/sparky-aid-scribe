@@ -21,14 +21,40 @@ import { webSearchContext } from "./webSearch";
 const LOW_CONF = 0.5;
 
 
+/** Common image-url aliases that carreports endpoints have been seen to use. */
+function pickImageUrl(row: Record<string, unknown> | null | undefined): string | undefined {
+  if (!row) return undefined;
+  const keys = [
+    "urlImage",
+    "urlLogo",
+    "urlPhoto",
+    "urlPicture",
+    "urlPreview",
+    "urlAvatar",
+    "image",
+    "logo",
+    "photo",
+    "picture",
+    "preview",
+    "url",
+  ];
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "string" && /^https?:\/\//.test(v)) return v;
+  }
+  return undefined;
+}
+
 interface BrandRow {
   id: number;
   name: string;
   country?: string | null;
+  urlImage?: string;
 }
 interface ModelRow {
   id: number;
   name: string;
+  urlImage?: string;
 }
 
 interface RestylingFrameRow {
@@ -38,6 +64,7 @@ interface RestylingFrameRow {
   yearEnd?: number | string | null;
   startYear?: number | string | null;
   endYear?: number | string | null;
+  urlImage?: string;
 }
 interface RestylingRow {
   id: number;
@@ -49,6 +76,7 @@ interface RestylingRow {
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
+  urlImage?: string;
 }
 interface GenerationRow {
   id: number;
@@ -62,6 +90,7 @@ interface GenerationRow {
   frames?: RestylingFrameRow[];
   restylingFrames?: RestylingFrameRow[];
   modelGenerationRestylingFrames?: RestylingFrameRow[];
+  urlImage?: string;
 }
 
 const brandCache = new Map<string, BrandRow[]>();
