@@ -48,11 +48,23 @@ export interface DocumentReconciliationStep {
   note?: string;
 }
 
+export interface InspectionPhoto {
+  section: string;
+  filename: string;
+  /** local preview (data: URL). May be absent for server-only photos. */
+  dataUrl?: string;
+  /** true if uploaded to remote storage via presigned PUT. */
+  remote?: boolean;
+  addedAt?: number;
+}
+
 export interface InspectionStep {
-  // Phase 2: 8 zones. For now keep a flexible bag.
+  // Phase 2: 8 zones. Notes are keyed by zone id.
   sectionNotes: Record<string, string>;
-  photos: Array<{ section: string; filename: string }>;
+  photos: InspectionPhoto[];
   touched?: boolean;
+  /** zone id last interacted with */
+  currentZone?: string;
 }
 
 export interface TestDriveStep {

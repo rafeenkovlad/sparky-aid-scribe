@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
+  Camera,
   CheckCheck,
   HelpCircle,
   Menu,
@@ -33,6 +34,8 @@ import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode } from "@/lib/carreports/orchestrator";
 import { filledCount } from "@/lib/carreports/progress";
+import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 
 interface Props {
   threadId: string;
@@ -161,6 +164,77 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread],
   );
+
+  // Inspection: current zone (defaults to first when entering the step)
+  const currentZoneId = thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+  const currentZone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const selectZone = useCallback(
+    (zoneId: string) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        t.draft.inspectionStep.currentZone = zoneId;
+      });
+      textareaRef.current?.focus();
+    },
+    [thread],
+  );
+
+  const insertInspectionChip = useCallback((chip: ChatChip) => {
+    setComposer((cur) => {
+      const trimmed = cur.trim();
+      if (trimmed.includes(chip.value)) {
+        return trimmed
+          .split(/\n+/)
+          .filter((line) => line.trim() !== chip.value)
+          .join("\n");
+      }
+      return trimmed ? `${trimmed}\n${chip.value}` : chip.value;
+    });
+    textareaRef.current?.focus();
+  }, []);
+
+  const onPickPhoto = useCallback(
+    async (file: File) => {
+      if (!thread) return;
+      const zoneId = thread.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+      try {
+        const prepared = await preparePhoto(file);
+        const up = await uploadPhoto(prepared);
+        updateThread(thread.id, (t) => {
+          t.draft.inspectionStep.photos.push({
+            section: zoneId,
+            filename: up.filename,
+            dataUrl: prepared.dataUrl,
+            remote: up.remote,
+            addedAt: Date.now(),
+          });
+          t.draft.inspectionStep.touched = true;
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: up.remote
+              ? `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» (загружено: ${up.filename}).`
+              : `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» локально. ${up.note ?? ""}`,
+            createdAt: Date.now(),
+          });
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Ошибка обработки фото";
+        updateThread(thread.id, (t) => {
+          t.messages.push({
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${msg}`,
+            createdAt: Date.now(),
+          });
+        });
+      }
+    },
+    [thread],
+  );
+
 
   const advanceStep = useCallback(() => {
     if (!thread) return;
@@ -409,6 +483,66 @@ export function ChatApp({ threadId }: Props) {
         <div ref={messagesEndRef} />
       </main>
 
+      {/* Inspection panel: zone picker + per-zone chips + photo button */}
+      {currentStep === "inspection" && (
+        <div className="px-3 pt-2 shrink-0 border-t border-white/5">
+          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
+            {INSPECTION_ZONES.map((z) => {
+              const sel = z.id === currentZoneId;
+              const hasNote = !!thread.draft.inspectionStep.sectionNotes[z.id];
+              const photoCount = thread.draft.inspectionStep.photos.filter(
+                (p) => p.section === z.id,
+              ).length;
+              return (
+                <button
+                  key={z.id}
+                  onClick={() => selectZone(z.id)}
+                  className={
+                    "shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium border whitespace-nowrap transition-colors " +
+                    (sel
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : hasNote || photoCount > 0
+                        ? "bg-white/10 border-white/15 text-white"
+                        : "bg-transparent border-white/10 text-white/70 hover:border-white/25")
+                  }
+                >
+                  <span className="mr-1">{z.emoji}</span>
+                  {z.label}
+                  {(hasNote || photoCount > 0) && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] opacity-80">
+                      {hasNote && <span>✓</span>}
+                      {photoCount > 0 && <span>📷{photoCount}</span>}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[11px] text-white/50 px-0.5 pb-1.5">{currentZone.intro}</div>
+          <div className="flex flex-wrap gap-1.5 pb-1">
+            {currentZone.chips.map((c) => {
+              const isSel = composer.includes(c.value);
+              return (
+                <button
+                  key={c.label}
+                  onClick={() => insertInspectionChip(c)}
+                  className={
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                    (isSel
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white")
+                  }
+                >
+                  {isSel ? "✓ " : ""}
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
       {/* Quick actions */}
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
         <button
@@ -440,6 +574,30 @@ export function ChatApp({ threadId }: Props) {
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          {currentStep === "inspection" && (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onPickPhoto(f);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
+                aria-label="Прикрепить фото"
+                title="Прикрепить фото"
+              >
+                <Camera className="h-5 w-5" />
+              </button>
+            </>
+          )}
           <Textarea
             ref={textareaRef}
             value={composer}
@@ -450,7 +608,11 @@ export function ChatApp({ threadId }: Props) {
                 void submit();
               }
             }}
-            placeholder="Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+            placeholder={
+              currentStep === "inspection"
+                ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                : "Опишите шаг — VIN, пробег, дефекты… (Enter — отправить)"
+            }
             className="min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0"
           />
           <button
@@ -463,6 +625,7 @@ export function ChatApp({ threadId }: Props) {
           </button>
         </div>
       </div>
+
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
     </div>

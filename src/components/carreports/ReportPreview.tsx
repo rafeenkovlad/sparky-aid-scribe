@@ -1,5 +1,6 @@
 import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { filledCount, isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
+import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
 import { Check, ChevronRight, FileText } from "lucide-react";
 
@@ -16,6 +17,14 @@ function summaryFor(step: StepId, t: Thread): string {
       return shortCharSummary(t.draft);
     case "docs":
       return shortDocsSummary(t.draft);
+    case "inspection": {
+      const ins = t.draft.inspectionStep;
+      const zones = INSPECTION_ZONES.filter(
+        (z) => ins.sectionNotes[z.id] || ins.photos.some((p) => p.section === z.id),
+      );
+      if (zones.length === 0) return "—";
+      return `${zones.length}/${INSPECTION_ZONES.length} зон · ${ins.photos.length} фото`;
+    }
     default:
       return "Доступно позже";
   }
@@ -61,11 +70,30 @@ export function ReportPreview({ thread, onJump }: Props) {
                 <div className="text-sm font-medium">{step.label}</div>
                 <ChevronRight className="h-4 w-4 text-white/40 ml-auto" />
               </div>
-              <div className="text-xs text-white/60 mt-1 line-clamp-2">{summaryFor(step.id, thread)}</div>
-            </button>
-          );
-        })}
+                <div className="text-xs text-white/60 mt-1 line-clamp-2">{summaryFor(step.id, thread)}</div>
+              </button>
+            );
+          })}
+          {/* Inspection details */}
+          {thread.draft.inspectionStep.photos.length > 0 && (
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {thread.draft.inspectionStep.photos.map((p, i) => (
+                <div key={i} className="relative aspect-square rounded-md overflow-hidden bg-white/5">
+                  {p.dataUrl ? (
+                    <img src={p.dataUrl} alt={p.filename} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-white/50">
+                      {p.filename}
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 inset-x-0 bg-black/60 text-[10px] text-white px-1 py-0.5 truncate">
+                    {zoneById(p.section)?.label ?? p.section}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
   );
 }
