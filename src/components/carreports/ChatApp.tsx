@@ -571,6 +571,12 @@ export function ChatApp({ threadId }: Props) {
                 </button>
               );
             })}
+            <LexChips
+              step="inspection"
+              zone={currentZoneId}
+              selectedValues={new Set(composer.split(/\n+/).map((s) => s.trim()))}
+              onTap={insertInspectionChip}
+            />
           </div>
         </div>
       )}
