@@ -1,10 +1,13 @@
 // AI-assisted resolver: brand+model+generation hints → modelCarId +
 // modelGenerationRestylingFrameId via Storage.GetBrand / Storage.GetModelCar /
 // Storage.GetModelGeneration. AI picks one option from real catalog lists at
-// each step. Falls back to string match if AI is unavailable.
+// each step. When AI is unsure or the catalog list is empty, falls back to a
+// Firecrawl web search and re-asks the AI with the web context. Falls back to
+// string match if AI is unavailable.
 
 import { aiChatIdFor, chatCompletions } from "./aiApi";
 import {
+  CLICHE_CANONICAL_BRAND,
   CLICHE_PICK_BRAND,
   CLICHE_PICK_GENERATION,
   CLICHE_PICK_MODEL,
@@ -13,6 +16,10 @@ import {
 } from "./cliche";
 import { rpc } from "./storageApi";
 import type { Thread } from "./types";
+import { webSearchContext } from "./webSearch";
+
+const LOW_CONF = 0.5;
+
 
 interface BrandRow {
   id: number;
