@@ -213,6 +213,7 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         t.draft.inspectionStep.currentZone = zoneId;
       });
+      setSelectedInspectionChips(new Set());
       textareaRef.current?.focus();
     },
     [thread],
