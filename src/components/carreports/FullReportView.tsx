@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+import { ZONE_TO_SECTION, getSection } from "@/lib/carreports/inspectionSections";
 import type { Thread } from "@/lib/carreports/types";
 
 interface Props {
