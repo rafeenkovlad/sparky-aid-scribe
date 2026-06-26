@@ -1540,6 +1540,8 @@ interface BubbleProps {
   onClearElement?: () => void;
   onAllNoDamage?: () => void;
   onNextElement?: () => void;
+  onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
+  onOpenAnnotator?: (photoIdx: number) => void;
 }
 
 function MessageBubble({
@@ -1561,7 +1563,10 @@ function MessageBubble({
   onClearElement,
   onAllNoDamage,
   onNextElement,
+  onPickInspectionPhotos,
+  onOpenAnnotator,
 }: BubbleProps) {
+
 
   if (msg.role === "user") {
     return (
