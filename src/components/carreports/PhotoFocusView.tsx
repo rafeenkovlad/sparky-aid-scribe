@@ -594,63 +594,6 @@ function tagChip(tone: "serious" | "minor", selected: boolean): string {
   );
 }
 
-function CustomTagInput(props: {
-  bucket: "serious" | "non_serious";
-  onAdd: (name: string, severity: "serious" | "non_serious") => void;
-}) {
-  const { bucket, onAdd } = props;
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-xs text-white/65 hover:text-white hover:border-white/40"
-      >
-        <Plus className="h-3 w-3" /> Свой тег в «{bucket === "serious" ? "серьёзные" : "мелкие"}»
-      </button>
-    );
-  }
-  return (
-    <form
-      className="flex items-center gap-1.5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const n = name.trim();
-        if (!n) return;
-        onAdd(n, bucket);
-        setName("");
-        setOpen(false);
-      }}
-    >
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={
-          bucket === "serious" ? "Новый серьёзный тег" : "Новый мелкий тег"
-        }
-        className="flex-1 rounded-md bg-white/[0.06] border border-white/15 px-2 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-orange-400/60"
-      />
-      <button
-        type="submit"
-        className="rounded-md bg-orange-500 hover:bg-orange-600 px-2 py-1 text-xs text-white"
-      >
-        <Check className="h-3 w-3" />
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setOpen(false);
-          setName("");
-        }}
-        className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/70 hover:text-white"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </form>
-  );
-}
 
 function NoteBlock(props: {
   note?: string;
