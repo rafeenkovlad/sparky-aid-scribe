@@ -588,7 +588,6 @@ export async function extractForStep(
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
       if (merged.brandName && merged.modelCarName) {
-        const { resolveCar } = await import("./carCatalog");
         const prev = thread.draft.characteristicsStep;
         const brandModelChanged =
           prev.brandName !== merged.brandName || prev.modelCarName !== merged.modelCarName;
@@ -597,13 +596,31 @@ export async function extractForStep(
           !merged.modelCarId ||
           (merged.year && !merged.modelGenerationRestylingFrameId) ||
           mentionsGen;
+        const knownModelCarId =
+          !brandModelChanged && typeof prev.modelCarId === "number"
+            ? prev.modelCarId
+            : undefined;
 
         if (needsResolve) {
-          const resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
-            thread,
-            userText: text,
-            generationHint,
-          });
+          let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
+          if (mentionsGen && knownModelCarId) {
+            const { resolveGenerationByModelId } = await import("./carCatalog");
+            resolved = await resolveGenerationByModelId(knownModelCarId, {
+              thread,
+              userText: text,
+              generationHint,
+              year: merged.year,
+              brandName: merged.brandName,
+              modelCarName: merged.modelCarName,
+            });
+          } else {
+            const { resolveCar } = await import("./carCatalog");
+            resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
+              thread,
+              userText: text,
+              generationHint,
+            });
+          }
           if (resolved.modelCarId) {
             merged.modelCarId = resolved.modelCarId;
             if (resolved.modelGenerationRestylingFrameId) {
