@@ -435,6 +435,7 @@ export async function extractForStep(
       // Уточняющий шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
       // марка не извлечена ни сейчас, ни в черновике. Делаем follow-up запрос
       // к нейронке, чтобы определить марку по имени модели (с веб-фолбэком).
+      const clarifyLog: Array<{ kind: "ai" | "web"; label: string; detail?: string }> = [];
       if (!charPatch.brandName && charPatch.modelCarName) {
         try {
           const { inferBrandFromModelName } = await import("./carCatalog");
@@ -447,6 +448,7 @@ export async function extractForStep(
             charPatch.brandName = inferred.brandName;
             if (inferred.modelCarName) charPatch.modelCarName = inferred.modelCarName;
             charTouched = true;
+            clarifyLog.push(...inferred.trace);
           }
         } catch {
           /* ignore — поведение деградирует к ручному уточнению ниже */
