@@ -74,7 +74,7 @@ import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementF
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
-import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
+import { ensurePhotoAccessible, preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
