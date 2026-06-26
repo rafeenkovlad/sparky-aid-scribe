@@ -863,9 +863,9 @@ export function ChatApp({ threadId }: Props) {
           "@/lib/carreports/orchestrator"
         );
         for (const a of atts) {
-          let up: { url: string; filename: string; remote: boolean } | null = null;
+          let up: { url: string; filename: string } | null = null;
           try {
-            up = await uploadPhoto({
+            up = await uploadTemporary({
               filename: a.filename,
               blob: a.blob,
               dataUrl: a.dataUrl,
@@ -881,16 +881,19 @@ export function ChatApp({ threadId }: Props) {
             });
             continue;
           }
+          const uploaded = up;
 
           const fresh = getThread(thread.id);
           const section = fresh
-            ? await classifyInspectionPhotoSection(fresh, up.url)
+            ? await classifyInspectionPhotoSection(fresh, uploaded.url)
             : null;
           if (fresh) {
             updateThread(thread.id, (t) => {
               t.aiChatIds = fresh.aiChatIds;
             });
           }
+
+
 
           if (section) {
             const sectionLabel =
