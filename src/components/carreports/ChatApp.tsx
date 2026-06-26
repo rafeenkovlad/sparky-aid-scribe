@@ -1296,7 +1296,7 @@ function MessageBubble({
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
         {msg.kind === "passport" && draft ? (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
-            <CarChecklist draft={draft} />
+            <CarChecklist draft={draft} onFillMissing={onFillMissing} />
             {msg.text && (
               <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
                 {msg.text}
