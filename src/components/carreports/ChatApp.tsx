@@ -398,6 +398,65 @@ export function ChatApp({ threadId }: Props) {
     }
   }, [thread]);
 
+  const addAttachment = useCallback(async (file: File) => {
+    try {
+      const prepared = await preparePhoto(file, { maxBytes: 2 * 1024 * 1024 });
+      setPendingAttachments((prev) => [
+        ...prev,
+        {
+          id: msgId(),
+          dataUrl: prepared.dataUrl,
+          blob: prepared.blob,
+          filename: prepared.filename,
+        },
+      ]);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Не удалось подготовить фото";
+      if (thread) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, FLOW_STEPS[t.stepIndex].id, {
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${m}`,
+            createdAt: Date.now(),
+          });
+        });
+      }
+    }
+  }, [thread]);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  /** Распознать прикреплённые фото и вернуть текстовое summary для AI. */
+  const analyzeAttachments = useCallback(
+    async (
+      atts: Array<{ id: string; blob: Blob; filename: string }>,
+      step: StepId,
+      userText: string,
+    ): Promise<string> => {
+      if (!atts.length) return "";
+      const parts: string[] = [];
+      for (const a of atts) {
+        const form = new FormData();
+        form.append("file", a.blob, a.filename);
+        form.append("step", step);
+        if (userText) form.append("prompt", userText);
+        try {
+          const r = await fetch("/api/analyze-image", { method: "POST", body: form });
+          const j = (await r.json()) as { text?: string; error?: string };
+          if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+          if (j.text) parts.push(j.text.trim());
+        } catch (e) {
+          parts.push(`[не удалось распознать фото ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}]`);
+        }
+      }
+      return parts.join("\n\n");
+    },
+    [],
+  );
+
   const submit = useCallback(async () => {
     if (!thread || busy) return;
     const typed = composer.trim();
