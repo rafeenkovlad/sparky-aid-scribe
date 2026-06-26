@@ -1016,6 +1016,7 @@ export async function analyzeInspectionPhoto(
 ): Promise<PhotoFindingDraft> {
   const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
   const { CLICHE_INSPECTION_PHOTO } = await import("./cliche");
+  const { elementHint } = await import("./inspectionElementHints");
   const tagCatalogue = await loadSectionTags(sectionSnake);
 
   const id = aiChatIdFor(thread, `vision:inspection:${sectionSnake}:${photoUrl.slice(-12)}`);
@@ -1024,10 +1025,15 @@ export async function analyzeInspectionPhoto(
     text: hint?.trim() || "Опиши, что видно на фото.",
     cliche: CLICHE_INSPECTION_PHOTO(
       section.label,
-      section.elements.map((el) => ({ id: el.id, label: el.label })),
+      section.elements.map((el) => ({
+        id: el.id,
+        label: el.label,
+        hint: elementHint(sectionSnake, el.id),
+      })),
       tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
     ),
     fileUrls: [photoUrl],
+    model: "qwen3.6-plus",
   });
 
   const raw = parseJsonResponse<{
