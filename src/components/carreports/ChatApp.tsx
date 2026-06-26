@@ -1481,14 +1481,19 @@ function MessageBubble({
             </>
           )
         )}
-        {msg.kind === "inspectionChips" && (
-          <InspectionChipsBlock
-            currentZoneId={currentZoneId ?? INSPECTION_ZONES[0].id}
+        {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
+          <InspectionChipsCard
+            ins={inspectionDraft}
+            cursor={inspectionCursor}
             interactive={interactive}
-            selectedValues={new Set(msg.selectedChipValues ?? [])}
-            onZoneSelect={onZoneSelect}
-            onChipTap={onChipTap}
-            zoneStats={zoneStats ?? {}}
+            onSelectSection={onSelectSection ?? (() => {})}
+            onSelectElement={onSelectElement ?? (() => {})}
+            onSetVerdict={onSetVerdict ?? (() => {})}
+            onToggleTag={onToggleTag ?? (() => {})}
+            onAddPendingTag={onAddPendingTag ?? (() => {})}
+            onClearElement={onClearElement ?? (() => {})}
+            onAllNoDamage={onAllNoDamage ?? (() => {})}
+            onNextElement={onNextElement ?? (() => {})}
           />
         )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
