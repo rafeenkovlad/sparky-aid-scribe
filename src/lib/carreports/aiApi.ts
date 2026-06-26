@@ -4,7 +4,9 @@
 import { getToken } from "./tokenStore";
 import { ApiError } from "./storageApi";
 
-const AI_URL = "/api/cr-proxy?target=ai";
+// Прямой вызов AI API без локального прокси: токен идёт в заголовке
+// Authorization: Bearer <jwt>, как требует https://ai.carreports.ru/.
+const AI_URL = "https://ai.carreports.ru/";
 
 export interface ChatCompletionsResult {
   content: string | null;
