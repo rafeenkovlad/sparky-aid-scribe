@@ -856,6 +856,18 @@ export function ChatApp({ threadId }: Props) {
             inspectionDateValue={thread.draft.carStep.dateInspection}
             onInspectionDateChange={setInspectionDate}
             draft={thread.draft}
+            onFillMissing={(template) => {
+              setComposer((prev) => (prev.trim() ? prev + "\n" + template : template));
+              setAskMode(false);
+              requestAnimationFrame(() => {
+                const ta = textareaRef.current;
+                if (ta) {
+                  ta.focus();
+                  ta.setSelectionRange(ta.value.length, ta.value.length);
+                  ta.scrollTop = ta.scrollHeight;
+                }
+              });
+            }}
           />
         ))}
 
@@ -1234,6 +1246,7 @@ interface BubbleProps {
   inspectionDateValue?: string;
   onInspectionDateChange: (iso: string) => void;
   draft?: import("@/lib/carreports/types").ReportDraft;
+  onFillMissing?: (template: string) => void;
 }
 
 function MessageBubble({
@@ -1243,6 +1256,7 @@ function MessageBubble({
   inspectionDateValue,
   onInspectionDateChange,
   draft,
+  onFillMissing,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1294,7 +1308,7 @@ function MessageBubble({
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
         {msg.kind === "passport" && draft ? (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
-            <CarChecklist draft={draft} />
+            <CarChecklist draft={draft} onFillMissing={onFillMissing} />
             {msg.text && (
               <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
                 {msg.text}
