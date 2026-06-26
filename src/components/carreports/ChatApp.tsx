@@ -1519,16 +1519,57 @@ function MessageBubble({
           }
           return (
             <div className="space-y-2">
-              {groups.map((g) => (
-                <div key={g.label || "_"} className="space-y-1">
-                  {g.label && (
-                    <div className="text-[10px] uppercase tracking-wide text-white/45">
-                      {g.label}
+              {groups.map((g) => {
+                const isYesNo = g.items.length > 0 && g.items.every((c) => c.groupKind === "yesno");
+                if (isYesNo) {
+                  return (
+                    <div
+                      key={g.label || "_"}
+                      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5"
+                    >
+                      <div className="text-[12px] text-white/75 flex-1 min-w-0">
+                        {g.label || "Вопрос"}
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        {g.items.map((c) => {
+                          const isSel = selected.has(c.value);
+                          const isYes = /^да$/i.test(c.label.trim());
+                          const onCls = isYes
+                            ? "bg-emerald-500 text-white border-emerald-500"
+                            : "bg-rose-500 text-white border-rose-500";
+                          return (
+                            <button
+                              key={c.label}
+                              disabled={!interactive}
+                              onClick={() => onChipTap(c)}
+                              className={
+                                "rounded-full border px-3 py-1 text-xs min-w-[44px] transition-colors " +
+                                (isSel
+                                  ? onCls
+                                  : interactive
+                                    ? "border-white/15 text-white/80 hover:border-white/40 hover:text-white"
+                                    : "border-white/10 text-white/40 cursor-default")
+                              }
+                            >
+                              {c.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
-                  <div className="flex flex-wrap gap-1.5">{g.items.map(renderChip)}</div>
-                </div>
-              ))}
+                  );
+                }
+                return (
+                  <div key={g.label || "_"} className="space-y-1">
+                    {g.label && (
+                      <div className="text-[10px] uppercase tracking-wide text-white/45">
+                        {g.label}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">{g.items.map(renderChip)}</div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}

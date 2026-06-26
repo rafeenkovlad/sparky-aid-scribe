@@ -150,6 +150,9 @@ export interface ChatChip {
   description?: string;
   /** optional visible section header — chips with the same groupLabel render together under it */
   groupLabel?: string;
+  /** if "yesno", the group renders as a question with two answer buttons
+   *  (the chip's `label` is used as the answer text, e.g. "Да" / "Нет"). */
+  groupKind?: "yesno";
 }
 
 
