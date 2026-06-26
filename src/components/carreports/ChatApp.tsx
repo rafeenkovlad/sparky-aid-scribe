@@ -142,6 +142,8 @@ export function ChatApp({ threadId }: Props) {
   const [fullReportOpen, setFullReportOpen] = useState(false);
   const [composer, setComposer] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
+  const [composerHeight, setComposerHeight] = useState<number | null>(null);
+  const composerDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
   /** Открытый «чат с фотографией»: индекс фото в `inspectionStep.photos`. */
