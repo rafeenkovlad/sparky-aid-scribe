@@ -963,7 +963,6 @@ export function ChatApp({ threadId }: Props) {
               setAskMode(false);
               const intro = STEP_INTROS[currentStep];
               updateThread(thread.id, (t) => {
-                const recap = summarizeStepDraft(currentStep, t.draft);
                 const recapId = `recap-${currentStep}`;
                 t.messages[currentStep] = t.messages[currentStep].filter(
                   (m) => m.id !== recapId,
@@ -971,7 +970,7 @@ export function ChatApp({ threadId }: Props) {
                 pushMsg(t, currentStep, {
                   id: recapId,
                   role: "assistant",
-                  text: recap || "Текущие значения шага:",
+                  text: "",
                   step: currentStep,
                   chips: intro.chips,
                   optionsStep: currentStep,
