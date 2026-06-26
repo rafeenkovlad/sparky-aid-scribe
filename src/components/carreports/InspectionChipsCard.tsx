@@ -60,7 +60,7 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
 
   const { section, element } = cursor;
   const finding = getFinding(ins, section.snake, element.id);
-  const verdict: Verdict | null = finding
+  const derivedVerdict: Verdict | null = finding
     ? (finding.seriousDamageTagIds?.length ?? 0) > 0
       ? "serious"
       : (finding.noSeriousDamageTagIds?.length ?? 0) > 0
@@ -69,6 +69,21 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
           ? "ok"
           : null
     : null;
+
+  // Explicit user choice via the verdict segment overrides the derived value
+  // (e.g. they tapped "Мелкие" but the finding still has serious tags from
+  // a previous classification — show the minor bucket regardless).
+  const [verdictOverride, setVerdictOverride] = useState<Verdict | null>(null);
+  useEffect(() => {
+    setVerdictOverride(null);
+  }, [section.snake, element.id]);
+  const verdict: Verdict | null = verdictOverride ?? derivedVerdict;
+
+  const handleSetVerdict = (v: Verdict) => {
+    setVerdictOverride(v);
+    onSetVerdict(v);
+  };
+
 
   const elementPhotos = photosFor(ins, section.snake, element.id);
 
@@ -175,7 +190,7 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
         finding={finding ?? null}
         interactive={interactive}
         photosCount={elementPhotos}
-        onSetVerdict={onSetVerdict}
+        onSetVerdict={handleSetVerdict}
         onToggleTag={onToggleTag}
         onAddPendingTag={onAddPendingTag}
         onClearElement={onClearElement}
