@@ -1002,7 +1002,9 @@ function MessageBubble({
   }
   // assistant
   const intro = msg.step ? STEP_INTROS[msg.step] : null;
-  const showDate = interactive && intro?.needsDate;
+  // Дата осмотра — только если значения ещё нет (режим первичного заполнения).
+  // Когда дата уже выбрана, поле появляется только из режима редактирования (драфт).
+  const showDate = interactive && intro?.needsDate && !inspectionDateValue;
   const selected = new Set(msg.selectedChipValues ?? []);
 
   return (
