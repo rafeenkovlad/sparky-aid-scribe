@@ -120,7 +120,7 @@ function makeIntroMessage(step: StepId): ChatMessage {
     chips: intro.chips,
     optionsStep: step,
     selectedChipValues: [],
-    ...(step === "inspection" ? { kind: "inspectionChips" as const } : {}),
+    ...(step === "inspection" ? { kind: "inspectionSectionPicker" as const } : {}),
     createdAt: Date.now(),
   };
 }
