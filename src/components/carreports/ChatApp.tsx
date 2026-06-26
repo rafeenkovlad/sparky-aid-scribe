@@ -2174,7 +2174,7 @@ function MessageBubble({
       <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
         <img src={logo} alt="" className="h-4 w-4 invert" />
       </div>
-      <div className="max-w-[85%] space-y-2">
+      <div className={`${msg.kind === "inspectionCollage" ? "flex-1 min-w-0" : "max-w-[85%]"} space-y-2`}>
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
         {msg.kind === "passport" && draft ? (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
