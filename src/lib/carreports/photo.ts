@@ -198,11 +198,11 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
   // AI ожидает presigned GET URL, а не прямую ссылку на S3.
   const basename = (key ?? photo.filename).split("/").pop() ?? photo.filename;
   const view = await rpc<{ url?: string; key?: string }>(
-    "ObjectStorage.GetTemporaryViewUrl",
-    { reportNumber: "temp", filename: basename, expiresInSeconds: 3600 },
+    "ObjectStorage.GetTemporaryViewUrlBucketTemp",
+    { filename: basename, expiresInSeconds: 3600 },
   );
   if (!view.url) {
-    throw new ApiError("ObjectStorage.GetTemporaryViewUrl: пустой url", 500);
+    throw new ApiError("ObjectStorage.GetTemporaryViewUrlBucketTemp: пустой url", 500);
   }
   return { filename: basename, url: view.url, key };
 }
