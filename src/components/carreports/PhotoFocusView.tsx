@@ -1,5 +1,6 @@
-// Полноэкранный «чат с фотографией»: фото + быстрые действия (элемент,
-// вердикт, теги). Заметка пишется через композер чата (см. ChatApp).
+// Полноэкранный «чат с фотографией»: фото-шапка + последовательные
+// сообщения-ассистента (элемент → вердикт → теги) и пузырь-заметки.
+// Заметка пишется через композер чата (см. ChatApp).
 //
 // Контракт: компонент чистый, никаких сетевых вызовов. Все мутации идут
 // через колбэки наверх — родитель оркестрирует updateThread().
@@ -22,6 +23,7 @@ import {
 } from "@/lib/carreports/inspectionState";
 import type { InspectionStep } from "@/lib/carreports/types";
 import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import logo from "@/assets/cr-logo.png";
 
 type Verdict = "ok" | "minor" | "serious";
 type TagTab = "serious" | "minor" | "custom";
@@ -78,7 +80,6 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
             ? "minor"
             : "ok";
 
-  // Теги раздела (lazy).
   const [tags, setTags] = useState<UserTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   useEffect(() => {
@@ -106,7 +107,6 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
   const totalSelected =
     selectedSeriousTags.length + selectedMinorTags.length + pending.length;
 
-  // Свайп фото.
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const goPrev = () => {
     if (posInSection > 0) onChangePhotoIdx(siblings[posInSection - 1].idx);
@@ -116,18 +116,15 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
       onChangePhotoIdx(siblings[posInSection + 1].idx);
   };
 
-  // Какая вкладка тегов открыта — по умолчанию ведём от вердикта.
   const [tab, setTab] = useState<TagTab>("serious");
   useEffect(() => {
     setTab(verdict === "serious" ? "serious" : verdict === "minor" ? "minor" : "serious");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoIdx]);
 
-  // Поиск по тегам.
   const [query, setQuery] = useState("");
   useEffect(() => setQuery(""), [photoIdx, tab]);
 
-  // Inline-добавление кастомного тега.
   const [addName, setAddName] = useState("");
   const activeBucket: "serious" | "non_serious" =
     tab === "serious" ? "serious" : "non_serious";
@@ -143,24 +140,21 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
     );
   }
 
-  const verdictMeta: Record<Verdict, { label: string; dot: string; ring: string; soft: string }> = {
+  const verdictMeta: Record<Verdict, { label: string; dot: string; ring: string }> = {
     ok: {
       label: "Без замечаний",
       dot: "bg-emerald-400",
       ring: "ring-emerald-400/60 bg-emerald-500/15 text-emerald-100",
-      soft: "text-emerald-200/80",
     },
     minor: {
       label: "Мелкие",
       dot: "bg-amber-400",
       ring: "ring-amber-400/60 bg-amber-500/15 text-amber-100",
-      soft: "text-amber-200/80",
     },
     serious: {
       label: "Серьёзные",
       dot: "bg-rose-400",
       ring: "ring-rose-400/60 bg-rose-500/15 text-rose-100",
-      soft: "text-rose-200/80",
     },
   };
 
@@ -179,24 +173,14 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           <div className="text-[13px] font-medium truncate text-white">
             {elementLabel}
           </div>
-          <div className="text-[11px] text-white/50 truncate flex items-center gap-1.5">
-            <span>{section?.label ?? sectionSnake}</span>
-            <span className="text-white/25">·</span>
-            <span>
-              {posInSection >= 0 ? `${posInSection + 1}/${siblings.length}` : "—"}
-            </span>
-            <span className="text-white/25">·</span>
-            <span
-              className={`inline-flex items-center gap-1 ${verdictMeta[verdict].soft}`}
-            >
-              <span
-                className={`inline-block h-1.5 w-1.5 rounded-full ${verdictMeta[verdict].dot}`}
-              />
-              {verdictMeta[verdict].label}
-              {totalSelected > 0 && (
-                <span className="text-white/40">· 🏷{totalSelected}</span>
-              )}
-            </span>
+          <div className="text-[11px] text-white/50 truncate">
+            {section?.label ?? sectionSnake}
+            {posInSection >= 0 && (
+              <>
+                <span className="text-white/25"> · </span>
+                {posInSection + 1}/{siblings.length}
+              </>
+            )}
           </div>
         </div>
         <button
@@ -210,7 +194,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
         </button>
       </div>
 
-      {/* Photo */}
+      {/* Photo as the "pinned" message */}
       <div
         className="relative bg-gradient-to-b from-black to-black/70 select-none"
         onTouchStart={(e) => {
@@ -234,7 +218,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           <img
             src={photo.dataUrl}
             alt=""
-            className="block w-full max-h-[42dvh] object-contain"
+            className="block w-full max-h-[34dvh] object-contain"
           />
         ) : (
           <div className="h-40 flex items-center justify-center text-white/40 text-sm">
@@ -242,25 +226,12 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           </div>
         )}
 
-        {/* Floating verdict badge */}
         <div
           className={`absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 backdrop-blur ${verdictMeta[verdict].ring}`}
         >
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictMeta[verdict].dot}`} />
           {verdictMeta[verdict].label}
         </div>
-
-        {/* Note overlay */}
-        {finding?.note && (
-          <div className="absolute inset-x-0 bottom-0 px-3 pt-6 pb-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
-            <div className="text-[11px] uppercase tracking-wide text-white/50 mb-0.5">
-              📝 Заметка
-            </div>
-            <div className="text-[12px] text-white/95 whitespace-pre-wrap line-clamp-3">
-              {finding.note}
-            </div>
-          </div>
-        )}
 
         {siblings.length > 1 && (
           <>
@@ -297,7 +268,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                   key={s.idx}
                   onClick={() => onChangePhotoIdx(s.idx)}
                   className={
-                    "relative h-12 w-12 rounded-md overflow-hidden border shrink-0 " +
+                    "relative h-11 w-11 rounded-md overflow-hidden border shrink-0 " +
                     (sel
                       ? "border-orange-400 ring-1 ring-orange-400"
                       : "border-white/10 opacity-60 hover:opacity-100")
@@ -315,12 +286,10 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
         </div>
       )}
 
-      <div className="px-3 pt-3 pb-4 space-y-3">
-        {/* Element scroller */}
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5 px-0.5">
-            Элемент
-          </div>
+      {/* Chat-like conversation */}
+      <div className="px-3 pt-3 pb-5 space-y-3">
+        {/* 1. Element picker bubble */}
+        <AssistantBubble title="Какой элемент на фото?">
           <div className="-mx-3 px-3 overflow-x-auto">
             <div className="flex gap-1.5 w-max pb-0.5">
               {section?.elements.map((el) => {
@@ -332,7 +301,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                     className={
                       "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
                       (sel
-                        ? "bg-orange-500 text-white border-orange-500 shadow-[0_0_0_3px_rgba(249,115,22,0.15)]"
+                        ? "bg-orange-500 text-white border-orange-500"
                         : "bg-white/[0.03] border-white/10 text-white/75 hover:border-orange-400/50 hover:text-white")
                     }
                   >
@@ -342,56 +311,203 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
               })}
             </div>
           </div>
-        </div>
+        </AssistantBubble>
 
-        {/* Verdict segmented */}
-        <div className="rounded-xl bg-white/[0.04] border border-white/10 p-1 grid grid-cols-3 gap-1">
-          {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-            const sel = verdict === v;
-            const tone =
-              v === "ok"
-                ? sel
-                  ? "bg-emerald-500 text-white shadow-[0_2px_10px_-2px_rgba(16,185,129,0.6)]"
-                  : "text-emerald-200/80 hover:bg-emerald-500/10"
-                : v === "minor"
+        {/* User reply bubble: selected element */}
+        <UserBubble>{elementLabel}</UserBubble>
+
+        {/* 2. Verdict bubble */}
+        <AssistantBubble title="Что с этим элементом?">
+          <div className="grid grid-cols-3 gap-1.5">
+            {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
+              const sel = verdict === v;
+              const tone =
+                v === "ok"
                   ? sel
-                    ? "bg-amber-500 text-white shadow-[0_2px_10px_-2px_rgba(245,158,11,0.6)]"
-                    : "text-amber-200/80 hover:bg-amber-500/10"
-                  : sel
-                    ? "bg-rose-500 text-white shadow-[0_2px_10px_-2px_rgba(244,63,94,0.6)]"
-                    : "text-rose-200/80 hover:bg-rose-500/10";
-            const icon = v === "ok" ? "✓" : v === "minor" ? "•" : "!";
-            return (
-              <button
-                key={v}
-                onClick={() => onSetVerdict(v)}
-                className={
-                  "rounded-lg px-2 py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 " +
-                  tone
-                }
-              >
-                <span className="text-sm leading-none">{icon}</span>
-                {v === "ok" ? "OK" : v === "minor" ? "Мелкие" : "Серьёзные"}
-              </button>
-            );
-          })}
-        </div>
+                    ? "bg-emerald-500 text-white border-emerald-500"
+                    : "border-emerald-400/30 text-emerald-100/85 hover:bg-emerald-500/10"
+                  : v === "minor"
+                    ? sel
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : "border-amber-400/30 text-amber-100/85 hover:bg-amber-500/10"
+                    : sel
+                      ? "bg-rose-500 text-white border-rose-500"
+                      : "border-rose-400/30 text-rose-100/85 hover:bg-rose-500/10";
+              const icon = v === "ok" ? "✓" : v === "minor" ? "•" : "!";
+              return (
+                <button
+                  key={v}
+                  onClick={() => onSetVerdict(v)}
+                  className={
+                    "rounded-lg border px-2 py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 " +
+                    tone
+                  }
+                >
+                  <span className="text-sm leading-none">{icon}</span>
+                  {v === "ok" ? "OK" : v === "minor" ? "Мелкие" : "Серьёзные"}
+                </button>
+              );
+            })}
+          </div>
+        </AssistantBubble>
 
-        {/* Selected pills */}
-        {totalSelected > 0 && (
-          <div className="rounded-xl bg-white/[0.03] border border-white/10 p-2 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-wide text-white/45">
-                Выбрано · {totalSelected}
-              </div>
-              <div className="text-[10px] text-white/35">тап — снять</div>
+        {/* User reply: verdict */}
+        <UserBubble>
+          <span className="inline-flex items-center gap-1.5">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictMeta[verdict].dot}`} />
+            {verdictMeta[verdict].label}
+          </span>
+        </UserBubble>
+
+        {/* 3. Tags bubble — only when there can be tags */}
+        {verdict === "ok" && totalSelected === 0 ? (
+          <AssistantBubble title="Готово">
+            <div className="text-[12px] text-emerald-100/85">
+              ✓ Без замечаний по «{elementLabel}». Если что-то заметили — переключите вердикт выше.
             </div>
-            <div className="flex flex-wrap gap-1.5">
+          </AssistantBubble>
+        ) : (
+          <AssistantBubble title="Что именно заметили? Выберите теги">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1 rounded-lg bg-white/[0.04] border border-white/10 p-0.5">
+                <TabBtn
+                  active={tab === "serious"}
+                  onClick={() => setTab("serious")}
+                  dot="bg-rose-400"
+                  label="Серьёзные"
+                  count={serious.length}
+                />
+                <TabBtn
+                  active={tab === "minor"}
+                  onClick={() => setTab("minor")}
+                  dot="bg-amber-400"
+                  label="Мелкие"
+                  count={minor.length}
+                />
+                <TabBtn
+                  active={tab === "custom"}
+                  onClick={() => setTab("custom")}
+                  dot="bg-violet-400"
+                  label="Свои"
+                  count={pending.length}
+                />
+              </div>
+
+              {tab !== "custom" && tags.length > 6 && (
+                <div className="relative">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Поиск тега…"
+                    className="w-full rounded-lg bg-white/[0.04] border border-white/10 pl-3 pr-7 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
+                  />
+                  {query && (
+                    <button
+                      onClick={() => setQuery("")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {tagsLoading && tab !== "custom" && (
+                <div className="flex items-center gap-1.5 text-[11px] text-white/50">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+                </div>
+              )}
+
+              {!tagsLoading && tab === "serious" && (
+                <TagGrid
+                  tone="serious"
+                  tags={filterTags(serious, query)}
+                  selected={sIds}
+                  onTap={onToggleTag}
+                />
+              )}
+              {!tagsLoading && tab === "minor" && (
+                <TagGrid
+                  tone="minor"
+                  tags={filterTags(minor, query)}
+                  selected={nsIds}
+                  onTap={onToggleTag}
+                />
+              )}
+
+              {tab === "custom" && (
+                <div className="space-y-2">
+                  {pending.length === 0 && (
+                    <div className="text-[11px] text-white/45 italic">
+                      Своих тегов ещё нет. Добавьте ниже — они создадутся при отправке.
+                    </div>
+                  )}
+                  {pending.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {pending.map((p) => (
+                        <button
+                          key={`cp-${p.severity ?? "_"}-${p.name}`}
+                          onClick={() =>
+                            onTogglePendingTag(
+                              p.name,
+                              (p.severity ?? "non_serious") as "serious" | "non_serious",
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-400/40 px-2.5 py-1 text-[11px] text-violet-100"
+                        >
+                          <Check className="h-3 w-3" /> ✨ {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <form
+                className="flex items-center gap-1.5 pt-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const name = addName.trim();
+                  if (!name) return;
+                  onAddPendingTag(name, activeBucket);
+                  setAddName("");
+                }}
+              >
+                <div className="flex items-center gap-1 text-[10px] text-white/40 shrink-0">
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      activeBucket === "serious" ? "bg-rose-400" : "bg-amber-400"
+                    }`}
+                  />
+                  {activeBucket === "serious" ? "серьёз." : "мелкий"}
+                </div>
+                <input
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  placeholder="Свой тег…"
+                  className="flex-1 min-w-0 rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
+                />
+                <button
+                  type="submit"
+                  disabled={!addName.trim()}
+                  className="inline-flex items-center gap-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 px-2.5 py-1.5 text-xs text-white"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </form>
+            </div>
+          </AssistantBubble>
+        )}
+
+        {/* User reply: selected tags */}
+        {totalSelected > 0 && (
+          <UserBubble>
+            <div className="flex flex-wrap gap-1.5 justify-end">
               {selectedSeriousTags.map((t) => (
                 <button
                   key={`s-${t.id}`}
                   onClick={() => onToggleTag(t)}
-                  className="inline-flex items-center gap-1 rounded-full bg-rose-500/90 hover:bg-rose-500 px-2.5 py-1 text-[11px] text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-500/90 hover:bg-rose-500 px-2 py-0.5 text-[11px] text-white"
                 >
                   {t.name}
                   <X className="h-3 w-3 opacity-80" />
@@ -401,7 +517,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <button
                   key={`n-${t.id}`}
                   onClick={() => onToggleTag(t)}
-                  className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 hover:bg-amber-500 px-2.5 py-1 text-[11px] text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 hover:bg-amber-500 px-2 py-0.5 text-[11px] text-white"
                 >
                   {t.name}
                   <X className="h-3 w-3 opacity-80" />
@@ -416,160 +532,66 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                       (p.severity ?? "non_serious") as "serious" | "non_serious",
                     )
                   }
-                  className="inline-flex items-center gap-1 rounded-full bg-violet-500/80 hover:bg-violet-500 px-2.5 py-1 text-[11px] text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-violet-500/80 hover:bg-violet-500 px-2 py-0.5 text-[11px] text-white"
                 >
                   ✨ {p.name}
                   <X className="h-3 w-3 opacity-80" />
                 </button>
               ))}
             </div>
-          </div>
+          </UserBubble>
         )}
 
-        {/* Tag tabs */}
-        {verdict !== "ok" || totalSelected > 0 ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1 rounded-lg bg-white/[0.04] border border-white/10 p-0.5">
-              <TabBtn
-                active={tab === "serious"}
-                onClick={() => setTab("serious")}
-                dot="bg-rose-400"
-                label="Серьёзные"
-                count={serious.length}
-              />
-              <TabBtn
-                active={tab === "minor"}
-                onClick={() => setTab("minor")}
-                dot="bg-amber-400"
-                label="Мелкие"
-                count={minor.length}
-              />
-              <TabBtn
-                active={tab === "custom"}
-                onClick={() => setTab("custom")}
-                dot="bg-violet-400"
-                label="Свои"
-                count={pending.length}
-              />
-            </div>
-
-            {/* Search (only for known tag tabs) */}
-            {tab !== "custom" && tags.length > 6 && (
-              <div className="relative">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Поиск тега…"
-                  className="w-full rounded-lg bg-white/[0.04] border border-white/10 pl-3 pr-7 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
-                />
-                {query && (
-                  <button
-                    onClick={() => setQuery("")}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
+        {/* 4. Note bubble */}
+        {finding?.note ? (
+          <>
+            <AssistantBubble title="Заметка к фото">
+              <div className="text-[11px] text-white/45">
+                Сохранено · отредактируйте через композер ниже.
               </div>
-            )}
-
-            {tagsLoading && tab !== "custom" && (
-              <div className="flex items-center gap-1.5 text-[11px] text-white/50">
-                <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-              </div>
-            )}
-
-            {!tagsLoading && tab === "serious" && (
-              <TagGrid
-                tone="serious"
-                tags={filterTags(serious, query)}
-                selected={sIds}
-                onTap={onToggleTag}
-              />
-            )}
-            {!tagsLoading && tab === "minor" && (
-              <TagGrid
-                tone="minor"
-                tags={filterTags(minor, query)}
-                selected={nsIds}
-                onTap={onToggleTag}
-              />
-            )}
-
-            {tab === "custom" && (
-              <div className="space-y-2">
-                {pending.length === 0 && (
-                  <div className="text-[11px] text-white/45 italic">
-                    Своих тегов ещё нет. Добавьте ниже — они создадутся при отправке.
-                  </div>
-                )}
-                {pending.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {pending.map((p) => (
-                      <button
-                        key={`cp-${p.severity ?? "_"}-${p.name}`}
-                        onClick={() =>
-                          onTogglePendingTag(
-                            p.name,
-                            (p.severity ?? "non_serious") as "serious" | "non_serious",
-                          )
-                        }
-                        className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-400/40 px-2.5 py-1 text-[11px] text-violet-100"
-                      >
-                        <Check className="h-3 w-3" /> ✨ {p.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Inline add custom tag */}
-            <form
-              className="flex items-center gap-1.5"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const name = addName.trim();
-                if (!name) return;
-                onAddPendingTag(name, activeBucket);
-                setAddName("");
-              }}
-            >
-              <div className="flex items-center gap-1 text-[10px] text-white/40 shrink-0">
-                <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    activeBucket === "serious" ? "bg-rose-400" : "bg-amber-400"
-                  }`}
-                />
-                {activeBucket === "serious" ? "серьёз." : "мелкий"}
-              </div>
-              <input
-                value={addName}
-                onChange={(e) => setAddName(e.target.value)}
-                placeholder="Свой тег…"
-                className="flex-1 min-w-0 rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
-              />
-              <button
-                type="submit"
-                disabled={!addName.trim()}
-                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 px-2.5 py-1.5 text-xs text-white"
-              >
-                <Plus className="h-3 w-3" />
-                Добавить
-              </button>
-            </form>
-          </div>
+            </AssistantBubble>
+            <UserBubble>
+              <div className="whitespace-pre-wrap">{finding.note}</div>
+            </UserBubble>
+          </>
         ) : (
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3 text-[12px] text-emerald-100/85">
-            ✓ Без замечаний по «{elementLabel}». Если что-то заметили — переключите вердикт выше.
-          </div>
+          <AssistantBubble title="Заметка к фото">
+            <div className="text-[12px] text-white/65">
+              💬 Напишите заметку в композере ниже — отправка сохранит её к этому фото.
+              <br />
+              <span className="text-white/45">✨ — ИИ разберёт заметку по тегам.</span>
+            </div>
+          </AssistantBubble>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {!finding?.note && (
-          <div className="text-[11px] text-white/40 text-center px-2">
-            💬 Напишите заметку в композере ниже — отправка сохранит её к этому фото. ✨ — ИИ разберёт по тегам.
-          </div>
-        )}
+function AssistantBubble(props: { title?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2 items-start">
+      <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+        <img src={logo} alt="" className="h-4 w-4 invert" />
+      </div>
+      <div className="max-w-[88%] space-y-1.5">
+        <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
+        <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
+          {props.title && (
+            <div className="text-[12px] text-white/85 mb-2">{props.title}</div>
+          )}
+          {props.children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserBubble(props: { children: React.ReactNode }) {
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2">
+        {props.children}
       </div>
     </div>
   );
@@ -629,10 +651,10 @@ function TagGrid(props: {
         const base =
           tone === "serious"
             ? sel
-              ? "bg-rose-500 border-rose-500 text-white shadow-[0_2px_8px_-2px_rgba(244,63,94,0.5)]"
+              ? "bg-rose-500 border-rose-500 text-white"
               : "border-rose-400/25 bg-rose-500/[0.04] text-rose-100/85 hover:bg-rose-500/10 hover:border-rose-400/50"
             : sel
-              ? "bg-amber-500 border-amber-500 text-white shadow-[0_2px_8px_-2px_rgba(245,158,11,0.5)]"
+              ? "bg-amber-500 border-amber-500 text-white"
               : "border-amber-400/25 bg-amber-500/[0.04] text-amber-100/85 hover:bg-amber-500/10 hover:border-amber-400/50";
         return (
           <button
