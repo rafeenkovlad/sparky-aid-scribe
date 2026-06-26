@@ -1342,14 +1342,8 @@ export function ChatApp({ threadId }: Props) {
         >
           <HelpCircle className="h-4 w-4" />
         </button>
-        {currentStep === "inspection" && cursor && (
-          <SectionPickerButton
-            ins={thread.draft.inspectionStep}
-            currentSection={cursor.section.snake}
-            onPick={selectSection}
-          />
-        )}
       </div>
+
 
 
 
