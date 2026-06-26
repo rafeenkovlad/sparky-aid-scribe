@@ -88,6 +88,73 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
   }
 }
 
+/** Short labels of all still-missing fields for this step (required + optional),
+ *  excluding the one already asked via `nextMissingPrompt`. For showing a brief
+ *  "осталось: …" hint after each assistant answer. */
+export function remainingFieldLabels(id: StepId, d: ReportDraft): string[] {
+  if (!d) return [];
+  const out: string[] = [];
+  switch (id) {
+    case "car": {
+      const c = d.carStep ?? {};
+      const ch = d.characteristicsStep ?? {};
+      if (!c.vin) out.push("VIN");
+      if (!ch.brandName || !ch.modelCarName) out.push("марка/модель");
+      if (!c.mileage) out.push("пробег");
+      if (!c.cityInspection) out.push("город");
+      if (!c.dateInspection) out.push("дата осмотра");
+      if (!ch.year) out.push("год");
+      if (!ch.engineType) out.push("двигатель");
+      if (!ch.transmission) out.push("КПП");
+      if (!ch.driveType) out.push("привод");
+      if (!ch.color) out.push("цвет");
+      if (!ch.generationLabel) out.push("поколение");
+      if (!ch.engineVolume) out.push("объём");
+      if (!ch.equipment) out.push("комплектация");
+      if (!c.gosNumber) out.push("госномер");
+      if (!c.uriListing) out.push("ссылка на объявление");
+      break;
+    }
+    case "docs": {
+      const c = d.documentReconciliationStep ?? {};
+      if (typeof c.ownersCount !== "number") out.push("кол-во владельцев");
+      if (c.ownerFullNameMatchWithPTSOrSTS === undefined) out.push("собственник vs продавец");
+      if (c.vinOnBodyMatchWithPTSOrSTS === undefined) out.push("VIN на кузове vs документы");
+      if (c.engineModelMatchWithPTSOrSTS === undefined) out.push("№ двигателя vs ПТС");
+      if (!c.note) out.push("комментарий");
+      break;
+    }
+    case "inspection": {
+      const ins = d.inspectionStep ?? { sectionNotes: {}, photos: [] };
+      if (!ins.touched) out.push("первая зона");
+      const zonesWithNotes = Object.keys(ins.sectionNotes ?? {}).length;
+      if (zonesWithNotes < 8) out.push(`ещё зон: ${8 - zonesWithNotes}`);
+      if ((ins.photos?.length ?? 0) === 0) out.push("фото");
+      break;
+    }
+    case "testDrive": {
+      const c = d.testDriveStep ?? {};
+      if (c.testDriveIsIncluded === undefined && !c.notDone) out.push("проводился ли тест-драйв");
+      if (c.testDriveEngineIsWorkingProperly === undefined) out.push("двигатель");
+      if (c.testDriveTransmissionIsWorkingProperly === undefined) out.push("КПП");
+      if (c.testDriveSteeringWheelIsWorkingProperly === undefined) out.push("руль");
+      if (c.testDriveSuspensionInDriveIsWorkingProperly === undefined) out.push("подвеска");
+      if (c.testDriveBrakesInDriveIsWorkingProperly === undefined) out.push("тормоза");
+      if (!c.notes && !c.testDriveNote) out.push("заметки");
+      break;
+    }
+    case "result": {
+      const c = d.resultStep ?? {};
+      if (!c.summaryInspectionNote) out.push("резюме");
+      if (!c.resultSpecialistNote) out.push("вердикт");
+      break;
+    }
+  }
+  return out;
+}
+
+
+
 /** Return list of optional fields that are NOT filled yet for this step.
  *  Used to suggest the user what else can be added. */
 export function missingOptionalFields(id: StepId, d: ReportDraft): string[] {
