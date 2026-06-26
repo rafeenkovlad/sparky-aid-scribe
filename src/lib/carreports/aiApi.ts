@@ -30,8 +30,9 @@ export async function chatCompletions(opts: {
 
   const url = `${AI_URL}&token=${encodeURIComponent(token)}`;
 
+  // Формат запроса — ровно как ожидает прокси (без поля `jsonrpc`):
+  // { id, method, params: { text, cliche, files?, model? } }.
   const body = {
-    jsonrpc: "2.0",
     id: opts.id,
     method: "AiQueue.ChatCompletions",
     params: {
