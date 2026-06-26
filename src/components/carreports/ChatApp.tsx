@@ -71,7 +71,7 @@ import {
   InspectionUploadPrompt,
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
-import type { UserTag } from "@/lib/carreports/inspectionTags";
+import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
@@ -787,6 +787,27 @@ export function ChatApp({ threadId }: Props) {
           };
           resultElementId = n.elementId;
         }
+        // Сразу создаём в каталоге теги, которых там ещё не было, чтобы
+        // не оставлять их в "pending" — пользователь должен видеть готовые теги.
+        const promotedSerious: number[] = [...r.seriousTagIds];
+        const promotedNonSerious: number[] = [...r.noSeriousTagIds];
+        const stillPending: PendingTagName[] = [];
+        for (const pp of r.pendingTags) {
+          const created = await addUserTag(sec, pp.name, pp.severity);
+          if (created && typeof created.id === "number") {
+            if (pp.severity === "serious") promotedSerious.push(created.id);
+            else promotedNonSerious.push(created.id);
+          } else {
+            stillPending.push(pp);
+          }
+        }
+        r = {
+          ...r,
+          seriousTagIds: promotedSerious,
+          noSeriousTagIds: promotedNonSerious,
+          pendingTags: stillPending,
+        };
+
         // Авто-применяем результат: заметка ИИ + теги + классификация.
         const sectionDef = getSection(sec);
         let elementLabelForSummary = "";
