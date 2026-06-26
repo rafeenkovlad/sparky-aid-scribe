@@ -747,6 +747,8 @@ export function ChatApp({ threadId }: Props) {
           dataUrl: prepared.dataUrl,
           blob: prepared.blob,
           filename: prepared.filename,
+          originalBlob: file,
+          originalFilename: file.name || prepared.filename,
         },
       ]);
     } catch (e) {
