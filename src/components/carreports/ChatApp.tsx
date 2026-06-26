@@ -753,14 +753,23 @@ export function ChatApp({ threadId }: Props) {
           };
           resultElementId = v.elementId;
         } else {
-          r = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
+          const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
+          r = {
+            noDamage: n.noDamage,
+            seriousTagIds: n.seriousTagIds,
+            noSeriousTagIds: n.noSeriousTagIds,
+            pendingTags: n.pendingTags,
+            note: n.note,
+          };
+          resultElementId = n.elementId;
         }
         // Авто-применяем результат: заметка ИИ + теги + классификация.
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
           const p = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
           if (!p) return;
-          if (!p.elementId && resultElementId) p.elementId = resultElementId;
+          // Элемент мог измениться по результату ИИ (если эксперт упомянул другой).
+          if (resultElementId) p.elementId = resultElementId;
           const elId = p.elementId ?? resultElementId ?? elIdInitial;
           if (!elId) return;
           upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {

@@ -1089,29 +1089,38 @@ export async function analyzeInspectionNote(
   sectionSnake: SectionSnake,
   elementId: string | null,
   noteText: string,
-): Promise<Omit<PhotoFindingDraft, "elementId">> {
+): Promise<PhotoFindingDraft> {
   const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
   const { CLICHE_INSPECTION_NOTE } = await import("./cliche");
+  const { elementHint } = await import("./inspectionElementHints");
   const tagCatalogue = await loadSectionTags(sectionSnake);
-  const elementLabel = elementId
-    ? section.elements.find((e) => e.id === elementId)?.label ?? null
-    : null;
   const id = aiChatIdFor(
     thread,
     `note:inspection:${sectionSnake}:${elementId ?? "any"}`,
   );
   const cliche = CLICHE_INSPECTION_NOTE(
     section.label,
-    elementLabel,
+    section.elements.map((el) => ({
+      id: el.id,
+      label: el.label,
+      hint: elementHint(sectionSnake, el.id),
+    })),
+    elementId,
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
   );
   const res = await chatCompletions({ id, text: noteText, cliche });
   const raw = parseJsonResponse<{
+    elementId?: string;
     noDamage?: boolean;
     seriousTags?: unknown;
     nonSeriousTags?: unknown;
     note?: string;
   }>(res.content) ?? {};
+  const elementIds = new Set(section.elements.map((e) => e.id));
+  const resolvedElementId =
+    typeof raw.elementId === "string" && elementIds.has(raw.elementId)
+      ? raw.elementId
+      : elementId ?? "generalCondition";
   const noDamage = raw.noDamage === true;
   const sNames = Array.isArray(raw.seriousTags)
     ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
@@ -1133,6 +1142,7 @@ export async function analyzeInspectionNote(
     else pending.push({ name, severity: "non_serious" });
   }
   return {
+    elementId: resolvedElementId,
     noDamage: noDamage && !seriousIds.size && !nsIds.size,
     seriousTagIds: [...seriousIds],
     noSeriousTagIds: [...nsIds],
@@ -1140,6 +1150,7 @@ export async function analyzeInspectionNote(
     note: typeof raw.note === "string" ? raw.note.trim() : "",
   };
 }
+
 
 /**
  * Определить, к какому разделу осмотра относится фото.
