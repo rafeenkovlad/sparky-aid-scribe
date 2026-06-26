@@ -1033,6 +1033,33 @@ export function ChatApp({ threadId }: Props) {
             </span>
           </button>
         )}
+        {currentStep === "docs" && (
+          <button
+            type="button"
+            onClick={() => {
+              const passportId = "passport-docs";
+              updateThread(thread.id, (t) => {
+                t.messages.docs = t.messages.docs.filter((m) => m.id !== passportId);
+                pushMsg(t, "docs", {
+                  id: passportId,
+                  role: "assistant",
+                  text: "",
+                  step: "docs",
+                  kind: "docsPassport",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
+            aria-label="Сверка документов"
+            title="Сверка документов"
+            className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
+          >
+            <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+            <span className="text-xs tabular-nums">
+              {countDocsPassport(thread.draft)}/4
+            </span>
+          </button>
+        )}
         <button
           onClick={() => {
             setAskMode((v) => !v);
