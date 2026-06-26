@@ -115,3 +115,32 @@ export async function addUserTag(
     return null;
   }
 }
+
+/** Rename an existing user tag. Returns true on success. */
+export async function updateUserTag(
+  section: SectionSnake,
+  id: number,
+  name: string,
+): Promise<boolean> {
+  try {
+    await rpc("Storage.UpdateUserTag", { id, name });
+    cache.delete(section);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Delete a user-owned tag. Returns true on success. */
+export async function deleteUserTag(
+  section: SectionSnake,
+  id: number,
+): Promise<boolean> {
+  try {
+    await rpc("Storage.DeleteUserTag", { id });
+    cache.delete(section);
+    return true;
+  } catch {
+    return false;
+  }
+}
