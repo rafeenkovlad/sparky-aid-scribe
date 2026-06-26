@@ -68,7 +68,7 @@ import {
   InspectionCollage,
   InspectionUploadPrompt,
 } from "./InspectionCollage";
-import { PhotoFocusView } from "./PhotoFocusView";
+import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
@@ -153,9 +153,7 @@ export function ChatApp({ threadId }: Props) {
   /** Идёт ли AI-анализ заметки к фото. */
   const [photoAiBusy, setPhotoAiBusy] = useState(false);
   /** Предложение по заметке: оригинал vs AI-переформулировка. */
-  const [noteProposal, setNoteProposal] = useState<
-    import("./PhotoFocusView").NoteProposal | null
-  >(null);
+  const [noteProposal, setNoteProposal] = useState<NoteProposalT | null>(null);
 
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
@@ -570,7 +568,6 @@ export function ChatApp({ threadId }: Props) {
     (idx: number) => {
       composerBackupRef.current = composer;
       setPhotoFocusIdx(idx);
-      // Префилл композера текущей заметкой к элементу этого фото.
       if (thread) {
         const p = thread.draft.inspectionStep.photos[idx];
         if (p) {
@@ -580,6 +577,26 @@ export function ChatApp({ threadId }: Props) {
           const f = thread.draft.inspectionStep.findings?.[findingKey(sec, elId)];
           setComposer(f?.note ?? "");
         }
+      }
+      // Append (or refresh) an inspectionElementFocus message in the inspection thread.
+      if (thread) {
+        updateThread(thread.id, (t) => {
+          const arr = t.messages.inspection;
+          const last = arr[arr.length - 1];
+          if (last && last.kind === "inspectionElementFocus") {
+            last.photoIdx = idx;
+            last.createdAt = Date.now();
+          } else {
+            pushMsg(t, "inspection", {
+              id: msgId(),
+              role: "assistant",
+              text: "",
+              kind: "inspectionElementFocus",
+              photoIdx: idx,
+              createdAt: Date.now(),
+            });
+          }
+        });
       }
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
@@ -678,7 +695,12 @@ export function ChatApp({ threadId }: Props) {
     exitPhotoFocus();
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
-  /** Сохранить текст композера как заметку к фото + запросить AI-переформулировку. */
+  /**
+   * Сохранить текст композера как заметку к фото. Параллельно ИИ:
+   * — формулирует чистую заметку специалиста (без рекомендаций);
+   * — подбирает релевантные теги из каталога раздела как ПРЕДЛОЖЕНИЯ
+   *   (применяются только по подтверждению пользователя).
+   */
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
     if (!text) return;
@@ -686,40 +708,46 @@ export function ChatApp({ threadId }: Props) {
       f.note = text;
     });
     setComposer("");
-    // Показать proposal с оригиналом, AI начинает грузиться.
     setNoteProposal({ original: text, ai: null, loading: true, picked: "original" });
-    // Запускаем AI-переформулировку.
     (async () => {
       try {
-        if (!thread) return;
+        if (!thread || !photoFocus?.url) {
+          setNoteProposal((prev) =>
+            prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
+          );
+          return;
+        }
         const fresh = getThread(thread.id);
         if (!fresh) return;
-        const { chatCompletions, aiChatIdFor } = await import("@/lib/carreports/aiApi");
-        const id = aiChatIdFor(fresh, "photo-note-rewrite");
-        const r = await chatCompletions({
-          id,
+        const r = await analyzeInspectionPhoto(
+          fresh,
+          photoFocus.section as SectionSnake,
+          photoFocus.url,
           text,
-          cliche:
-            "Переформулируй короткую заметку специалиста по осмотру авто в одно-два сухих предложения, без воды, на русском. Сохрани смысл и упомянутые дефекты. Только сам текст заметки.\n\nЗаметка: {text}",
-        });
+        );
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
         });
-        const ai = (r.content ?? "").trim();
         setNoteProposal((prev) =>
           prev && prev.original === text
-            ? { ...prev, ai, loading: false }
+            ? {
+                ...prev,
+                ai: r.note,
+                loading: false,
+                proposedSeriousIds: r.seriousTagIds,
+                proposedNonSeriousIds: r.noSeriousTagIds,
+                proposedPending: r.pendingTags,
+                proposedElementId: r.elementId,
+              }
             : prev,
         );
       } catch {
         setNoteProposal((prev) =>
-          prev && prev.original === text
-            ? { ...prev, ai: "", loading: false }
-            : prev,
+          prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
         );
       }
     })();
-  }, [composer, mutatePhotoFinding, thread]);
+  }, [composer, mutatePhotoFinding, thread, photoFocus]);
 
   const pickNoteOriginal = useCallback(() => {
     setNoteProposal((p) => (p ? { ...p, picked: "original" } : p));
@@ -1457,27 +1485,6 @@ export function ChatApp({ threadId }: Props) {
       </header>
 
       {/* Messages */}
-      {photoFocusIdx !== null ? (
-        <PhotoFocusView
-          ins={thread.draft.inspectionStep}
-          photoIdx={photoFocusIdx}
-          onChangePhotoIdx={(idx) => {
-            setNoteProposal(null);
-            setPhotoFocusIdx(idx);
-          }}
-          onChangeElement={photoChangeElement}
-          onSetVerdict={photoSetVerdict}
-          onToggleTag={photoToggleTag}
-          onAddPendingTag={photoAddPendingTag}
-          onTogglePendingTag={photoAddPendingTag}
-          onDeletePhoto={deletePhotoFocus}
-          onClose={exitPhotoFocus}
-          noteProposal={noteProposal}
-          onPickNoteOriginal={pickNoteOriginal}
-          onPickNoteAi={pickNoteAi}
-          onDismissNoteProposal={dismissNoteProposal}
-        />
-      ) : (
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {currentStepMessages.map((m) => (
           <MessageBubble
@@ -1530,6 +1537,20 @@ export function ChatApp({ threadId }: Props) {
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={enterPhotoFocus}
             onAssignPendingPhoto={assignPendingPhoto}
+            elementFocusPhotoIdx={photoFocusIdx}
+            onElementFocusChangePhoto={(idx) => {
+              setNoteProposal(null);
+              setPhotoFocusIdx(idx);
+            }}
+            onElementFocusChangeElement={photoChangeElement}
+            onElementFocusSetVerdict={photoSetVerdict}
+            onElementFocusToggleTag={photoToggleTag}
+            onElementFocusAddPendingTag={photoAddPendingTag}
+            onElementFocusDeletePhoto={deletePhotoFocus}
+            elementFocusNoteProposal={noteProposal}
+            onElementFocusPickNoteOriginal={pickNoteOriginal}
+            onElementFocusPickNoteAi={pickNoteAi}
+            onElementFocusDismissNoteProposal={dismissNoteProposal}
           />
 
         ))}
@@ -1545,13 +1566,12 @@ export function ChatApp({ threadId }: Props) {
 
         <div ref={messagesEndRef} />
       </main>
-      )}
+
 
 
 
 
       {/* Quick actions */}
-      {photoFocusIdx === null && (
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
         {currentStep === "result" && (
           <button
@@ -1697,7 +1717,7 @@ export function ChatApp({ threadId }: Props) {
           <HelpCircle className="h-4 w-4" />
         </button>
       </div>
-      )}
+
 
 
 
@@ -2046,6 +2066,18 @@ interface BubbleProps {
   onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
   onOpenAnnotator?: (photoIdx: number) => void;
   onAssignPendingPhoto?: (msgId: string, snake: SectionSnake) => void;
+  /** Element-focus card (живёт прямо в чате) */
+  elementFocusPhotoIdx?: number | null;
+  onElementFocusChangePhoto?: (idx: number) => void;
+  onElementFocusChangeElement?: (elementId: string) => void;
+  onElementFocusSetVerdict?: (v: "ok" | "minor" | "serious") => void;
+  onElementFocusToggleTag?: (t: UserTag) => void;
+  onElementFocusAddPendingTag?: (name: string, severity: "serious" | "non_serious") => void;
+  onElementFocusDeletePhoto?: () => void;
+  elementFocusNoteProposal?: NoteProposalT | null;
+  onElementFocusPickNoteOriginal?: () => void;
+  onElementFocusPickNoteAi?: () => void;
+  onElementFocusDismissNoteProposal?: () => void;
 }
 
 function MessageBubble({
@@ -2070,6 +2102,17 @@ function MessageBubble({
   onPickInspectionPhotos,
   onOpenAnnotator,
   onAssignPendingPhoto,
+  elementFocusPhotoIdx,
+  onElementFocusChangePhoto,
+  onElementFocusChangeElement,
+  onElementFocusSetVerdict,
+  onElementFocusToggleTag,
+  onElementFocusAddPendingTag,
+  onElementFocusDeletePhoto,
+  elementFocusNoteProposal,
+  onElementFocusPickNoteOriginal,
+  onElementFocusPickNoteAi,
+  onElementFocusDismissNoteProposal,
 }: BubbleProps) {
 
 
@@ -2195,6 +2238,30 @@ function MessageBubble({
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
           />
         )}
+        {msg.kind === "inspectionElementFocus" &&
+          inspectionDraft &&
+          typeof msg.photoIdx === "number" &&
+          inspectionDraft.photos[msg.photoIdx] && (
+            <ElementFocusCard
+              ins={inspectionDraft}
+              photoIdx={
+                elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                  ? elementFocusPhotoIdx
+                  : msg.photoIdx
+              }
+              onChangePhotoIdx={(idx) => onElementFocusChangePhoto?.(idx)}
+              onChangeElement={(elementId) => onElementFocusChangeElement?.(elementId)}
+              onSetVerdict={(v) => onElementFocusSetVerdict?.(v)}
+              onToggleTag={(t) => onElementFocusToggleTag?.(t)}
+              onAddPendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
+              onTogglePendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
+              onDeletePhoto={onElementFocusDeletePhoto}
+              noteProposal={elementFocusNoteProposal ?? null}
+              onPickNoteOriginal={onElementFocusPickNoteOriginal}
+              onPickNoteAi={onElementFocusPickNoteAi}
+              onDismissNoteProposal={onElementFocusDismissNoteProposal}
+            />
+          )}
         {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
             <div className="flex items-center gap-2">

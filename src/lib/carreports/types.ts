@@ -196,9 +196,12 @@ export interface ChatMessage {
     | "inspectionChips"
     | "inspectionUploadPrompt"
     | "inspectionCollage"
-    | "inspectionAttachAssign";
+    | "inspectionAttachAssign"
+    | "inspectionElementFocus";
   /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
   sectionSnake?: string;
+  /** индекс фото в inspectionStep.photos для kind=inspectionElementFocus */
+  photoIdx?: number;
   /** медиа, ожидающее ручного выбора раздела (kind=inspectionAttachAssign) */
   pendingPhoto?: {
     url: string;

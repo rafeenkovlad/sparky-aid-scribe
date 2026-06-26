@@ -1,13 +1,12 @@
-// «Чат с фотографией»: фото-шапка + быстрые действия в стиле шага осмотра
-// (элемент → вердикт → теги: серьёзные и мелкие как отдельные бакеты).
-// Заметка пишется через композер чата. После сохранения родитель может
-// передать AI-переформулировку — мы покажем выбор «оригинал/AI».
+// Inline-карточка фокуса на одном элементе осмотра: рендерится прямо в
+// ленте чата (не отдельным экраном). Фото + выбор элемента + вердикт +
+// теги (серьёзные/мелкие) + AI-предложения. Заметка пишется через общий
+// композер чата.
 //
 // Компонент чистый: все мутации идут через колбэки наверх.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -29,14 +28,20 @@ type Verdict = "ok" | "minor" | "serious";
 export interface NoteProposal {
   /** Что напечатал пользователь. */
   original: string;
-  /** AI-переформулировка; null пока грузится; "" если не удалось. */
+  /** AI-сформулированная заметка специалиста (без рекомендаций). */
   ai: string | null;
   loading: boolean;
   /** Чей вариант сейчас закреплён в finding.note. */
   picked?: "original" | "ai";
+  /** Предложения тегов от ИИ — пользователь подтверждает вручную. */
+  proposedSeriousIds?: number[];
+  proposedNonSeriousIds?: number[];
+  proposedPending?: PendingTagName[];
+  /** Предложение по элементу (если AI распознал другой). */
+  proposedElementId?: string;
 }
 
-export interface PhotoFocusViewProps {
+export interface ElementFocusCardProps {
   ins: InspectionStep;
   photoIdx: number;
   onChangePhotoIdx: (idx: number) => void;
@@ -45,16 +50,15 @@ export interface PhotoFocusViewProps {
   onToggleTag: (tag: UserTag) => void;
   onAddPendingTag: (name: string, severity: "serious" | "non_serious") => void;
   onTogglePendingTag: (name: string, severity: "serious" | "non_serious") => void;
-  onDeletePhoto: () => void;
-  onClose: () => void;
-  /** Активное предложение по заметке (оригинал vs AI). */
+  /** Удалить фото; кнопка показывается только если передан колбэк. */
+  onDeletePhoto?: () => void;
   noteProposal?: NoteProposal | null;
   onPickNoteOriginal?: () => void;
   onPickNoteAi?: () => void;
   onDismissNoteProposal?: () => void;
 }
 
-export function PhotoFocusView(props: PhotoFocusViewProps) {
+export function ElementFocusCard(props: ElementFocusCardProps) {
   const {
     ins,
     photoIdx,
@@ -65,7 +69,6 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
     onAddPendingTag,
     onTogglePendingTag,
     onDeletePhoto,
-    onClose,
     noteProposal,
     onPickNoteOriginal,
     onPickNoteAi,
@@ -205,11 +208,8 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
   if (!photo) {
     return (
-      <div className="flex-1 overflow-y-auto px-3 py-6 text-white/60 text-sm">
-        Фото не найдено.{" "}
-        <button onClick={onClose} className="underline">
-          Назад
-        </button>
+      <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-3 text-white/60 text-sm">
+        Фото не найдено.
       </div>
     );
   }
@@ -231,111 +231,96 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           ? "Без замечаний"
           : "Не оценено";
 
-
-
-
   return (
-    <div className="flex-1 overflow-y-auto bg-zinc-950">
-      {/* Минималистичная шапка */}
-      <div className="sticky top-0 z-20 backdrop-blur-xl bg-zinc-950/80 border-b border-white/[0.06] px-2 py-1.5 flex items-center gap-1">
-        <button
-          onClick={onClose}
-          aria-label="Назад"
-          className="h-8 w-8 rounded-full hover:bg-white/[0.06] flex items-center justify-center text-white/80 shrink-0 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <div className="min-w-0 flex-1 px-1">
-          <div className="text-[11px] uppercase tracking-[0.08em] text-white/40 truncate">
+    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 overflow-hidden">
+      {/* Компактная шапка карточки */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] uppercase tracking-[0.08em] text-white/40 truncate">
             {section?.label ?? sectionSnake}
-            {posInSection >= 0 && (
+            {posInSection >= 0 && siblings.length > 1 && (
               <span className="text-white/25"> · {posInSection + 1}/{siblings.length}</span>
             )}
           </div>
-          <div className="text-[14px] font-semibold truncate text-white leading-tight">
+          <div className="text-[13px] font-semibold truncate text-white leading-tight">
             {elementLabel}
           </div>
         </div>
-        <button
-          onClick={() => {
-            if (confirm("Удалить это фото?")) onDeletePhoto();
-          }}
-          aria-label="Удалить фото"
-          className="h-8 w-8 rounded-full hover:bg-rose-500/15 text-rose-300/80 hover:text-rose-300 flex items-center justify-center shrink-0 transition-colors"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {onDeletePhoto && (
+          <button
+            onClick={() => {
+              if (confirm("Удалить это фото?")) onDeletePhoto();
+            }}
+            aria-label="Удалить фото"
+            className="h-7 w-7 rounded-full hover:bg-rose-500/15 text-rose-300/70 hover:text-rose-300 flex items-center justify-center shrink-0 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
-      {/* Hero-фото: на всю ширину, с виньеткой и плавающим вердиктом */}
-      <div className="relative select-none bg-gradient-to-b from-black via-zinc-950 to-zinc-950">
+      {/* Hero-фото умеренной высоты, чтобы карточка вписывалась в ленту чата */}
+      <div className="relative select-none bg-black/40">
         {photo.dataUrl ? (
           <img
             src={photo.dataUrl}
             alt=""
-            className="block w-full max-h-[44dvh] object-contain"
+            className="block w-full max-h-[28dvh] object-contain"
           />
         ) : (
-          <div className="h-40 flex items-center justify-center text-white/30 text-sm">
+          <div className="h-32 flex items-center justify-center text-white/30 text-sm">
             нет превью
           </div>
         )}
-        {/* Виньетка снизу */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-950 to-transparent" />
 
-        {/* Floating verdict pill */}
         <div className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/15">
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictDot}`} />
           {verdictLabel}
         </div>
 
-        {/* Nav */}
         {siblings.length > 1 && (
           <>
             {posInSection > 0 && (
               <button
                 onClick={goPrev}
                 aria-label="Предыдущее"
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
             )}
             {posInSection < siblings.length - 1 && (
               <button
                 onClick={goNext}
                 aria-label="Следующее"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             )}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md ring-1 ring-white/10">
+              {siblings.map((s) => {
+                const sel = s.idx === photoIdx;
+                return (
+                  <button
+                    key={s.idx}
+                    onClick={() => onChangePhotoIdx(s.idx)}
+                    aria-label={`Фото ${siblings.indexOf(s) + 1}`}
+                    className={
+                      "h-1.5 rounded-full transition-all " +
+                      (sel ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70")
+                    }
+                  />
+                );
+              })}
+            </div>
           </>
-        )}
-
-        {/* Точки-индикаторы */}
-        {siblings.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md ring-1 ring-white/10">
-            {siblings.map((s) => {
-              const sel = s.idx === photoIdx;
-              return (
-                <button
-                  key={s.idx}
-                  onClick={() => onChangePhotoIdx(s.idx)}
-                  aria-label={`Фото ${siblings.indexOf(s) + 1}`}
-                  className={
-                    "h-1.5 rounded-full transition-all " +
-                    (sel ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70")
-                  }
-                />
-              );
-            })}
-          </div>
         )}
       </div>
 
       {/* Тело: плотный inline-слой без карточек */}
-      <div className="px-4 pt-4 pb-6 space-y-5">
+      <div className="px-3 pt-3 pb-3 space-y-4">
+
         {/* Элемент раздела — только если есть выбор */}
         {section && section.elements.length > 1 && (
           <Section label="Элемент">
