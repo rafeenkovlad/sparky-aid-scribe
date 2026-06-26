@@ -856,6 +856,18 @@ export function ChatApp({ threadId }: Props) {
             inspectionDateValue={thread.draft.carStep.dateInspection}
             onInspectionDateChange={setInspectionDate}
             draft={thread.draft}
+            onFillMissing={(template) => {
+              setComposer((prev) => (prev.trim() ? prev + "\n" + template : template));
+              setAskMode(false);
+              requestAnimationFrame(() => {
+                const ta = textareaRef.current;
+                if (ta) {
+                  ta.focus();
+                  ta.setSelectionRange(ta.value.length, ta.value.length);
+                  ta.scrollTop = ta.scrollHeight;
+                }
+              });
+            }}
           />
         ))}
 
