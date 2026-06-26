@@ -17,31 +17,49 @@ export interface UserTag {
 const cache = new Map<SectionSnake, UserTag[]>();
 const inflight = new Map<SectionSnake, Promise<UserTag[]>>();
 
-export async function loadSectionTags(section: SectionSnake): Promise<UserTag[]> {
-  const hit = cache.get(section);
-  if (hit) return hit;
-  const running = inflight.get(section);
-  if (running) return running;
+/**
+ * Загрузить теги раздела.
+ * Если переданы `selectedTagIds`, сервер вернёт релевантно отсортированный
+ * список (по co-occurrence), исключив уже выбранные. Такой запрос идёт
+ * мимо кэша — каждый набор выбранных тегов даёт свою сортировку, и
+ * результат не кэшируется (чтобы не «отравить» базовый список).
+ */
+export async function loadSectionTags(
+  section: SectionSnake,
+  selectedTagIds?: number[],
+): Promise<UserTag[]> {
+  const useSelected = !!(selectedTagIds && selectedTagIds.length > 0);
+  if (!useSelected) {
+    const hit = cache.get(section);
+    if (hit) return hit;
+    const running = inflight.get(section);
+    if (running) return running;
+  }
 
-  const p = (async () => {
+  const fetcher = (async () => {
     try {
-      const r = await rpc<{ result?: UserTag[] } | UserTag[]>("Storage.GetUserTags", {
+      const params: Record<string, unknown> = {
         step: "inspection",
         section,
-      });
-      const list = ((r as { result?: UserTag[] }).result ?? (r as UserTag[])) || [];
-      cache.set(section, list);
+      };
+      if (useSelected) params.selectedTagIds = selectedTagIds;
+      const r = await rpc<{ result?: UserTag[] } | UserTag[]>(
+        "Storage.GetUserTags",
+        params,
+      );
+      const list =
+        ((r as { result?: UserTag[] }).result ?? (r as UserTag[])) || [];
+      if (!useSelected) cache.set(section, list);
       return list;
     } catch {
-      // gracefully degrade: empty catalogue ⇒ everything becomes pendingTagNames.
-      cache.set(section, []);
+      if (!useSelected) cache.set(section, []);
       return [];
     } finally {
-      inflight.delete(section);
+      if (!useSelected) inflight.delete(section);
     }
   })();
-  inflight.set(section, p);
-  return p;
+  if (!useSelected) inflight.set(section, fetcher);
+  return fetcher;
 }
 
 function norm(s: string): string {
