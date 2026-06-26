@@ -498,6 +498,38 @@ export function ChatApp({ threadId }: Props) {
     [thread, ensureSectionMessages],
   );
 
+  /** Закрепить ожидающее фото из чата за выбранным разделом. */
+  const assignPendingPhoto = useCallback(
+    (messageId: string, sectionSnake: SectionSnake) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const m = t.messages[key].find((x) => x.id === messageId);
+          if (!m || !m.pendingPhoto || m.pendingPhoto.assignedSection) continue;
+          const photo = m.pendingPhoto;
+          t.draft.inspectionStep.photos.push({
+            section: sectionSnake,
+            filename: photo.filename,
+            dataUrl: photo.dataUrl,
+            url: photo.url,
+            remote: photo.remote === true,
+            addedAt: Date.now(),
+          });
+          t.draft.inspectionStep.touched = true;
+          const label =
+            INSPECTION_SECTIONS.find((s) => s.snake === sectionSnake)?.label ??
+            sectionSnake;
+          m.pendingPhoto = { ...photo, assignedSection: sectionSnake };
+          m.text = `📌 Закреплено в разделе «${label}»`;
+          ensureSectionMessages(sectionSnake);
+          break;
+        }
+      });
+    },
+    [thread, ensureSectionMessages],
+  );
+
+
   const annotatorPhoto =
     annotatorPhotoIdx !== null && thread
       ? thread.draft.inspectionStep.photos[annotatorPhotoIdx] ?? null
