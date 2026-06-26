@@ -665,6 +665,27 @@ export async function extractForStep(
       const pendingHint = thread.draft.characteristicsStep.pendingGenerationHint || undefined;
       if (!generationHint && pendingHint) generationHint = pendingHint;
 
+      // Уточняющий шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
+      // марка не извлечена. Делаем follow-up запрос к нейронке.
+      if (!merged.brandName && merged.modelCarName) {
+        try {
+          const { inferBrandFromModelName } = await import("./carCatalog");
+          const inferred = await inferBrandFromModelName(
+            merged.modelCarName,
+            text,
+            thread,
+          );
+          if (inferred?.brandName) {
+            merged.brandName = inferred.brandName;
+            if (inferred.modelCarName) merged.modelCarName = inferred.modelCarName;
+            c.brandName = merged.brandName;
+            c.modelCarName = merged.modelCarName;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
       // Случай: пользователь назвал поколение/рестайлинг, но марка/модель неизвестны.
       // Сохраняем hint в pending и просим уточнить модель.
       if (mentionsGen && (!merged.brandName || !merged.modelCarName)) {
