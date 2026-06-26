@@ -717,9 +717,25 @@ export function ChatApp({ threadId }: Props) {
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
     if (!text) return;
+    // Перед перезаписью — запомним прежнюю заметку, чтобы передать её ИИ
+    // и попросить слить старое и новое (а не затирать).
+    let previousNote = "";
+    if (thread && photoFocus && photoFocusIdx !== null) {
+      const fresh0 = getThread(thread.id);
+      const p0 = fresh0?.draft.inspectionStep.photos[photoFocusIdx];
+      const elId0 = p0?.elementId ?? photoFocus.elementId ?? null;
+      if (p0 && elId0) {
+        const key = findingKey(p0.section as SectionSnake, elId0);
+        previousNote = (fresh0!.draft.inspectionStep.findings?.[key]?.note ?? "").trim();
+      }
+    }
     // Пишем оригинал сразу — пользователь видит свой текст, пока ИИ думает.
+    // Если уже была заметка — показываем объединённый черновик "старое + новое".
+    const draftCombined = previousNote && previousNote !== text
+      ? `${previousNote}\n${text}`
+      : text;
     mutatePhotoFinding((f) => {
-      f.note = text;
+      f.note = draftCombined;
     });
     setComposer("");
     setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
@@ -787,6 +803,7 @@ export function ChatApp({ threadId }: Props) {
             sec,
             usableUrl ?? photoFocus.url!,
             text,
+            previousNote || undefined,
           );
           r = {
             noDamage: v.noDamage,
@@ -798,7 +815,7 @@ export function ChatApp({ threadId }: Props) {
           resultElementId = v.elementId;
         } else {
           // Элемент уже известен (или фото нет) — работаем только по тексту.
-          const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
+          const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text, previousNote || undefined);
           r = {
             noDamage: n.noDamage,
             seriousTagIds: n.seriousTagIds,
