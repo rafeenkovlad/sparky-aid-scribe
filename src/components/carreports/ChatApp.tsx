@@ -493,6 +493,8 @@ export function ChatApp({ threadId }: Props) {
           });
         }
       }
+      // После загрузки апгрейдим upload-prompt в коллаж.
+      ensureSectionMessages(sectionSnake);
     },
     [thread, ensureSectionMessages],
   );
