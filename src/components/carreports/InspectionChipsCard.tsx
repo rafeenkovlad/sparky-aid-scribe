@@ -306,6 +306,15 @@ function ElementBlock({
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
+  const [activeTab, setActiveTab] = useState<"minor" | "serious">(
+    verdict === "serious" ? "serious" : "minor",
+  );
+
+  // When element/section changes, reset tab to match the derived verdict.
+  useEffect(() => {
+    setActiveTab(verdict === "serious" ? "serious" : "minor");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionSnake, elementLabel]);
 
   useEffect(() => {
     let alive = true;
@@ -334,9 +343,9 @@ function ElementBlock({
     return { serious: s, minor: m };
   }, [tags]);
 
-  // Decide which bucket the active verdict expects new tags to go into.
+  // Decide which bucket the active tab expects new tags to go into.
   const activeBucket: "serious" | "non_serious" =
-    verdict === "serious" ? "serious" : "non_serious";
+    activeTab === "serious" ? "serious" : "non_serious";
 
   return (
     <div className="rounded-xl bg-white/[0.03] border border-white/10 p-2.5 space-y-2.5">
@@ -358,10 +367,11 @@ function ElementBlock({
         )}
       </div>
 
-      {/* Verdict segment */}
+      {/* Verdict segment — Minor/Serious act as tabs that filter visible tags */}
       <div className="flex gap-1.5">
         {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-          const sel = verdict === v;
+          const sel =
+            v === "ok" ? verdict === "ok" : activeTab === v;
           const cls =
             v === "ok"
               ? sel
@@ -378,7 +388,14 @@ function ElementBlock({
             <button
               key={v}
               disabled={!interactive}
-              onClick={() => onSetVerdict(v)}
+              onClick={() => {
+                if (v === "ok") {
+                  onSetVerdict("ok");
+                } else {
+                  setActiveTab(v);
+                  onSetVerdict(v);
+                }
+              }}
               className={
                 "flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors " +
                 (interactive ? cls : "border-white/10 text-white/40 cursor-default")
@@ -398,7 +415,7 @@ function ElementBlock({
       {verdict !== "ok" && (
         <TagsArea
           loading={loading}
-          verdict={verdict}
+          activeTab={activeTab}
           serious={serious}
           minor={minor}
           selectedSerious={selectedSerious}
@@ -436,7 +453,7 @@ function ElementBlock({
 
 interface TagsAreaProps {
   loading: boolean;
-  verdict: Verdict | null;
+  activeTab: "minor" | "serious";
   serious: UserTag[];
   minor: UserTag[];
   selectedSerious: Set<number>;
@@ -456,7 +473,7 @@ type PendingTagName = { name: string; severity?: "serious" | "non_serious" };
 
 function TagsArea({
   loading,
-  verdict,
+  activeTab,
   serious,
   minor,
   selectedSerious,
@@ -471,8 +488,8 @@ function TagsArea({
   onToggleTag,
   onAddPendingTag,
 }: TagsAreaProps) {
-  // Show only the bucket matching the active verdict — no cross-severity reveal.
-  const primaryIsSerious = verdict === "serious";
+  // Show only the bucket matching the active tab — independent of stored verdict.
+  const primaryIsSerious = activeTab === "serious";
   const primary = primaryIsSerious ? serious : minor;
   const primarySelected = primaryIsSerious ? selectedSerious : selectedMinor;
   const primaryPending = pending.filter((p) =>
