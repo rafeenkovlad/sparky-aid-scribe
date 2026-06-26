@@ -306,6 +306,15 @@ function ElementBlock({
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
+  const [activeTab, setActiveTab] = useState<"minor" | "serious">(
+    verdict === "serious" ? "serious" : "minor",
+  );
+
+  // When element/section changes, reset tab to match the derived verdict.
+  useEffect(() => {
+    setActiveTab(verdict === "serious" ? "serious" : "minor");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionSnake, elementLabel]);
 
   useEffect(() => {
     let alive = true;
