@@ -107,19 +107,29 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
   // Базовый каталог тегов раздела (кэшируется).
   const [tags, setTags] = useState<UserTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
+  const [tagsError, setTagsError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     setTagsLoading(true);
-    void loadSectionTags(sectionSnake).then((list) => {
-      if (alive) {
+    setTagsError(null);
+    loadSectionTags(sectionSnake)
+      .then((list) => {
+        if (!alive) return;
         setTags(list);
         setTagsLoading(false);
-      }
-    });
+      })
+      .catch((e: unknown) => {
+        if (!alive) return;
+        const msg = e instanceof Error ? e.message : String(e);
+        setTagsError(/unauthorized/i.test(msg) ? "Сессия истекла — обновите токен в меню" : msg);
+        setTags([]);
+        setTagsLoading(false);
+      });
     return () => {
       alive = false;
     };
   }, [sectionSnake]);
+
 
   const sIds = new Set(finding?.seriousDamageTagIds ?? []);
   const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
@@ -419,6 +429,12 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
               </div>
             )}
+            {!tagsLoading && tagsError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+                {tagsError}
+              </div>
+            )}
+
 
             {!tagsLoading && (
               <>

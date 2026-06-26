@@ -51,9 +51,6 @@ export async function loadSectionTags(
         ((r as { result?: UserTag[] }).result ?? (r as UserTag[])) || [];
       if (!useSelected) cache.set(section, list);
       return list;
-    } catch {
-      if (!useSelected) cache.set(section, []);
-      return [];
     } finally {
       if (!useSelected) inflight.delete(section);
     }
