@@ -1628,6 +1628,7 @@ export function ChatApp({ threadId }: Props) {
           <HelpCircle className="h-4 w-4" />
         </button>
       </div>
+      )}
 
 
 
