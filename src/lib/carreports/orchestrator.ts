@@ -446,6 +446,7 @@ export async function extractForStep(
             charPatch.modelCarName,
             text,
             thread,
+            opts?.onClarify,
           );
           if (inferred?.brandName) {
             charPatch.brandName = inferred.brandName;
