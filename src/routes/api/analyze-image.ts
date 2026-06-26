@@ -90,7 +90,7 @@ export const Route = createFileRoute("/api/analyze-image")({
                 role: "user",
                 content: [
                   { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } },
+                  { type: "image_url", image_url: { url: imageDataUrl } },
                 ],
               },
             ],
