@@ -38,11 +38,11 @@ export function CarChecklist({ draft }: Props) {
     },
     { label: "Город осмотра", filled: !!c.cityInspection, value: c.cityInspection },
     { label: "Дата осмотра", filled: !!c.dateInspection, value: c.dateInspection },
-    { label: "Год", filled: !!ch.year, value: ch.year ? String(ch.year) : undefined },
-    { label: "Двигатель", filled: !!ch.engineType, value: ch.engineType },
-    { label: "КПП", filled: !!ch.transmission, value: ch.transmission },
-    { label: "Привод", filled: !!ch.driveType, value: ch.driveType },
-    { label: "Цвет", filled: !!ch.color, value: ch.color },
+    { label: "Год выпуска", filled: !!ch.year, value: ch.year ? String(ch.year) : undefined },
+    { label: "Тип двигателя", filled: !!ch.engineType, value: ch.engineType },
+    { label: "Коробка передач", filled: !!ch.transmission, value: ch.transmission },
+    { label: "Тип привода", filled: !!ch.driveType, value: ch.driveType },
+    { label: "Цвет кузова", filled: !!ch.color, value: ch.color },
   ];
 
   const optional: Item[] = [
