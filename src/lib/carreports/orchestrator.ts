@@ -468,16 +468,21 @@ export async function extractForStep(
             ? prevChar.modelCarId
             : undefined;
 
+        // Правило: СНАЧАЛА определяем марку+модель, и только в следующий
+        // шаг — поколение/рестайлинг. Если марка/модель меняются в этом
+        // сообщении, hint поколения откладываем как pending.
+        const deferGeneration = brandModelChanged;
+        const resolveHint = deferGeneration ? undefined : generationHint;
+        const resolveYear = deferGeneration ? undefined : charPatch.year;
+
         let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
-        if (mentionsGen && knownModelCarId) {
-          // Модель уже подобрана раньше — не гоняем AI по бренду/модели,
-          // сразу спрашиваем Storage.GetModelGeneration по modelCarId.
+        if (!deferGeneration && mentionsGen && knownModelCarId) {
           const { resolveGenerationByModelId } = await import("./carCatalog");
           resolved = await resolveGenerationByModelId(knownModelCarId, {
             thread,
             userText: text,
-            generationHint,
-            year: charPatch.year,
+            generationHint: resolveHint,
+            year: resolveYear,
             brandName: charPatch.brandName,
             modelCarName: charPatch.modelCarName,
           });
@@ -486,8 +491,8 @@ export async function extractForStep(
           resolved = await resolveCar(
             charPatch.brandName,
             charPatch.modelCarName,
-            charPatch.year,
-            { thread, userText: text, generationHint },
+            resolveYear,
+            { thread, userText: text, generationHint: resolveHint },
           );
         }
         if (resolved.modelCarId) {
@@ -527,6 +532,25 @@ export async function extractForStep(
           }
         }
 
+        // Если только что подобрали модель — приложим коллаж поколений.
+        if (deferGeneration && resolved.modelCarId) {
+          const { listGenerationChipsForModel } = await import("./carCatalog");
+          const genChips = await listGenerationChipsForModel(resolved.modelCarId);
+          for (const s of genChips) {
+            chips.push({
+              label: s.label,
+              value: s.value,
+              group: s.group,
+              single: true,
+              ...(s.image ? { image: s.image } : {}),
+              ...(s.description ? { description: s.description } : {}),
+            });
+          }
+          if (generationHint || pendingHint) {
+            charPatch.pendingGenerationHint = generationHint ?? pendingHint;
+          }
+        }
+
         const last = resolved.trace[resolved.trace.length - 1];
         const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
         const webHint = resolved.trace.some((t) => t.needsWeb);
@@ -546,6 +570,10 @@ export async function extractForStep(
           catalogNote =
             `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
             `\n❌ Указанное поколение/рестайлинг не найдено. Выберите подходящий вариант ниже:`;
+        } else if (resolved.modelCarId && deferGeneration) {
+          catalogNote =
+            `\n🔎 Марка и модель: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+            `\n👉 Теперь выберите поколение/рестайлинг ниже${generationHint ? " (я запомнила вашу подсказку и применю при выборе)" : ""}:`;
         } else if (resolved.modelCarId) {
           catalogNote =
             `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
@@ -555,7 +583,7 @@ export async function extractForStep(
         }
 
         // Если pendingHint был применён — очищаем.
-        if (pendingHint) charPatch.pendingGenerationHint = null;
+        if (!deferGeneration && pendingHint) charPatch.pendingGenerationHint = null;
       }
 
       const mergedCar = { ...thread.draft.carStep, ...carStep };
