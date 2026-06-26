@@ -739,7 +739,7 @@ export function ChatApp({ threadId }: Props) {
           noDamage: boolean;
           seriousTagIds: number[];
           noSeriousTagIds: number[];
-          pendingTags: typeof noteProposal extends infer _ ? import("@/lib/carreports/types").PendingTagName[] : never;
+          pendingTags: PendingTagName[];
           note: string;
         };
         if (photoFocus.url) {
