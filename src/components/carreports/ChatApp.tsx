@@ -115,6 +115,7 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
+  const [passportOpen, setPassportOpen] = useState(false);
   const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
