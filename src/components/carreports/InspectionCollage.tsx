@@ -201,6 +201,6 @@ export function InspectionCollage(props: {
   );
 }
 
-// Photo annotator was removed — see PhotoFocusView for the chat-with-photo
+// Photo annotator was removed — см. ElementFocusCard — теперь это inline-карточка
 // experience that replaced it.
 
