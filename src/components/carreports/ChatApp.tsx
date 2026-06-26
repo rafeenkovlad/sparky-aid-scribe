@@ -992,18 +992,14 @@ export function ChatApp({ threadId }: Props) {
             type="button"
             onClick={() => {
               const passportId = "passport-car";
-              const intro = STEP_INTROS.car;
               updateThread(thread.id, (t) => {
                 t.messages.car = t.messages.car.filter((m) => m.id !== passportId);
                 pushMsg(t, "car", {
                   id: passportId,
                   role: "assistant",
-                  text: optionalHintSentence("car", t.draft),
+                  text: "",
                   step: "car",
                   kind: "passport",
-                  chips: intro.chips,
-                  optionsStep: "car",
-                  selectedChipValues: [],
                   createdAt: Date.now(),
                 });
               });
