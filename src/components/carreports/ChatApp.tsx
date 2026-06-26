@@ -1245,9 +1245,10 @@ export function ChatApp({ threadId }: Props) {
                     role: "assistant",
                     text: "",
                     step: "inspection",
-                    kind: "inspectionChips",
+                    kind: "inspectionSectionPicker",
                     createdAt: Date.now(),
                   });
+
                   return;
                 }
                 const intro = STEP_INTROS[currentStep];
