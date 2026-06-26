@@ -245,7 +245,6 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const selectSection = useCallback(
     (snake: SectionSnake) => {
