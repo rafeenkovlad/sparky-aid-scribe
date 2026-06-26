@@ -70,7 +70,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onAddPendingTag,
     onTogglePendingTag,
     onDeletePhoto,
-    onClose,
     noteProposal,
     onPickNoteOriginal,
     onPickNoteAi,
