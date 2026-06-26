@@ -963,39 +963,21 @@ export function ChatApp({ threadId }: Props) {
               setAskMode(false);
               const intro = STEP_INTROS[currentStep];
               updateThread(thread.id, (t) => {
-                if (currentStep === "car") {
-                  // Для шага "автомобиль" вместо текстового рекапа отправляем
-                  // карточку "паспорт авто" с подсказкой по необязательным полям.
-                  const passportId = "passport-car";
-                  t.messages.car = t.messages.car.filter((m) => m.id !== passportId);
-                  pushMsg(t, "car", {
-                    id: passportId,
-                    role: "assistant",
-                    text: optionalHintSentence("car", t.draft),
-                    step: "car",
-                    kind: "passport",
-                    chips: intro.chips,
-                    optionsStep: "car",
-                    selectedChipValues: [],
-                    createdAt: Date.now(),
-                  });
-                } else {
-                  const recap = summarizeStepDraft(currentStep, t.draft);
-                  const recapId = `recap-${currentStep}`;
-                  t.messages[currentStep] = t.messages[currentStep].filter(
-                    (m) => m.id !== recapId,
-                  );
-                  pushMsg(t, currentStep, {
-                    id: recapId,
-                    role: "assistant",
-                    text: recap || "Текущие значения шага:",
-                    step: currentStep,
-                    chips: intro.chips,
-                    optionsStep: currentStep,
-                    selectedChipValues: [],
-                    createdAt: Date.now(),
-                  });
-                }
+                const recap = summarizeStepDraft(currentStep, t.draft);
+                const recapId = `recap-${currentStep}`;
+                t.messages[currentStep] = t.messages[currentStep].filter(
+                  (m) => m.id !== recapId,
+                );
+                pushMsg(t, currentStep, {
+                  id: recapId,
+                  role: "assistant",
+                  text: recap || "Текущие значения шага:",
+                  step: currentStep,
+                  chips: intro.chips,
+                  optionsStep: currentStep,
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
               });
               textareaRef.current?.focus();
             }}
