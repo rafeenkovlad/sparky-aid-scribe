@@ -1164,8 +1164,28 @@ function MessageBubble({
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
-          {msg.text}
+        <div className="max-w-[85%] space-y-1">
+          {msg.attachments && msg.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-end">
+              {msg.attachments.map((a) => (
+                <a
+                  key={a.url}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block h-20 w-20 rounded-lg overflow-hidden border border-orange-500/40"
+                  title={a.label}
+                >
+                  <img src={a.url} alt={a.label ?? ""} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+          {msg.text && (
+            <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+              {msg.text}
+            </div>
+          )}
         </div>
       </div>
     );
