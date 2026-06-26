@@ -1031,17 +1031,8 @@ export async function analyzeInspectionPhoto(
   );
   const text = hint?.trim() || "Опиши, что видно на фото.";
 
-  // Пробуем qwen3.7-max; если прокси отдаёт 5xx / "не поддерживается" —
-  // молча повторяем без model, чтобы взять дефолтную модель прокси.
-  let res;
-  try {
-    res = await chatCompletions({ id, text, cliche, fileUrls: [photoUrl], model: "qwen3.7-max" });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const transient = /HTTP 5\d\d|Server error|unavailable|unsupported|unknown model|not found/i.test(msg);
-    if (!transient) throw e;
-    res = await chatCompletions({ id, text, cliche, fileUrls: [photoUrl] });
-  }
+  const res = await chatCompletions({ id, text, cliche, fileUrls: [photoUrl], model: "gpt-5.4" });
+
 
 
   const raw = parseJsonResponse<{
