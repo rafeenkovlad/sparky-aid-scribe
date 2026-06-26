@@ -473,6 +473,8 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
             </AssistantBubble>
           </>
         )}
+      </div>
+    </div>
   );
 }
 
