@@ -164,11 +164,15 @@ export function ChatApp({ threadId }: Props) {
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
 
-  // Auto-scroll on new messages in the current step (also when last message changes identity).
-  const lastMsgId = currentStepMessages[currentStepMessages.length - 1]?.id ?? null;
+  // Auto-scroll on new messages in the current step. Также реагируем на
+  // обновление createdAt последнего сообщения — карандаш/паспорт переносят
+  // существующее сообщение в конец, и тогда меняется только timestamp.
+  const lastMsg = currentStepMessages[currentStepMessages.length - 1];
+  const lastMsgId = lastMsg?.id ?? null;
+  const lastMsgStamp = lastMsg?.createdAt ?? 0;
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [currentStepMessages.length, currentStep, lastMsgId]);
+  }, [currentStepMessages.length, currentStep, lastMsgId, lastMsgStamp]);
 
   const lastOptionsMsgId = useMemo(() => {
     for (let i = currentStepMessages.length - 1; i >= 0; i--) {
