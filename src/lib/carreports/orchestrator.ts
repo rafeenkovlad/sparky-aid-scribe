@@ -271,6 +271,7 @@ export async function extractForStep(
       return {
         patch: { testDriveStep: merged },
         reply: summarizeTestDrive(merged),
+        chips: testDriveChips(),
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
@@ -278,11 +279,13 @@ export async function extractForStep(
       return {
         patch: { testDriveStep: { ...prev, notDone, notes } },
         reply: notDone
-          ? "Отметил: тест-драйв не проводился. Можно идти к итогу."
-          : "Записал заметки по тест-драйву. Дополните, либо «Всё верно, далее».",
+          ? "Отметил: тест-драйв не проводился."
+          : "Записал заметки по тест-драйву.",
+        chips: testDriveChips(),
       };
     }
   }
+
 
   // Result: AI splits text into summary vs verdict.
   if (step === "result") {
