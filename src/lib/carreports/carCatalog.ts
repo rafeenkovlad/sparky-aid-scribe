@@ -524,6 +524,30 @@ export async function resolveCar(
     let modelWebUsed = false;
     let modelReason: string | undefined;
 
+    // Подсказка модели часто приходит «загрязнённой» соседними словами:
+    // «tiguan 2 дизель второе поколение 1 рестайлинг». Чистим, чтобы LLM
+    // не путался и сначала пробуем детерминированный точный матч.
+    const cleanModelHint = (s: string): string => {
+      let t = ` ${s.toLowerCase().replace(/ё/g, "е")} `;
+      t = t.replace(
+        /\b(поколени[еяюйя]?|рестайлинг[а-я]*|дизель|бензин|гибрид|электро|газ|акпп|мкпп|робот|вариатор|передний|задний|полный|седан|универсал|хэтчбек|купе|кроссовер|внедорожник|fl|mqb|b\d(?:\.\d)?|i{1,3}|iv|v|vi{0,3})\b/gi,
+        " ",
+      );
+      // убираем одиночные цифры/года и пунктуацию
+      t = t.replace(/\b\d{1,4}\b/g, " ").replace(/[^a-zа-я0-9\s-]/gi, " ");
+      return t.replace(/\s+/g, " ").trim();
+    };
+    const hintClean = modelHintOrName ? cleanModelHint(modelHintOrName) : "";
+    const hintNorm = hintClean ? norm(hintClean) : "";
+    if (hintNorm) {
+      const exact = models.find((m) => norm(m.name ?? "") === hintNorm);
+      if (exact) {
+        model = exact;
+        modelConf = 1;
+        modelReason = `Точное совпадение по нормализованному имени «${hintClean}»`;
+      }
+    }
+
     const pickModel = async (webContext?: string) =>
       aiPick<{
         modelCarId: number | null;
@@ -533,7 +557,7 @@ export async function resolveCar(
       }>(
         thread,
         "resolveCar:model",
-        CLICHE_PICK_MODEL(userText, brand!.name, modelHintOrName, models, webContext),
+        CLICHE_PICK_MODEL(userText, brand!.name, hintClean || modelHintOrName, models, webContext),
         userText,
         (raw) => {
           const r = raw as {
@@ -552,7 +576,7 @@ export async function resolveCar(
         },
       );
 
-    let modelPick = await pickModel();
+    let modelPick = model ? null : await pickModel();
     if (modelPick?.modelCarId) {
       model = models.find((m) => m.id === modelPick!.modelCarId);
       modelConf = modelPick.confidence;
