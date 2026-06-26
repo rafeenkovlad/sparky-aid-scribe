@@ -143,8 +143,12 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
-  /** Открытый аннотатор: индекс фото в `inspectionStep.photos`. */
-  const [annotatorPhotoIdx, setAnnotatorPhotoIdx] = useState<number | null>(null);
+  /** Открытый «чат с фотографией»: индекс фото в `inspectionStep.photos`. */
+  const [photoFocusIdx, setPhotoFocusIdx] = useState<number | null>(null);
+  /** Сохранённое значение композера до входа в режим фото — восстановим на выходе. */
+  const composerBackupRef = useRef<string | null>(null);
+  /** Идёт ли AI-анализ заметки к фото. */
+  const [photoAiBusy, setPhotoAiBusy] = useState(false);
 
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
