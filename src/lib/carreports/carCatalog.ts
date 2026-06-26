@@ -748,26 +748,33 @@ async function pickGenerationForModel(
   }
 
   let notFound = false;
+  let restylingChoiceGroup:
+    | { number?: number; name: string; items: GenerationFrameCandidate[] }
+    | undefined;
   if (genOrd != null) {
     let group = genGroups.find((g) => g.number === genOrd);
     if (!group) group = genGroups[genOrd - 1];
     if (!group) {
       notFound = true;
-    } else {
-      let picked: GenerationFrameCandidate | undefined;
-      if (restOrd != null) {
-        picked = group.items.find((f) => f.restylingNumber === restOrd);
-        if (!picked) picked = group.items[restOrd];
-        if (!picked) notFound = true;
-      } else {
-        picked =
-          group.items.find((f) => f.restylingNumber === 0) ?? group.items[0];
-      }
-      if (picked) {
+    } else if (restOrd != null) {
+      let picked: GenerationFrameCandidate | undefined =
+        group.items.find((f) => f.restylingNumber === restOrd);
+      if (!picked) picked = group.items[restOrd];
+      if (!picked) notFound = true;
+      else {
         frame = picked;
         frameConf = 0.95;
-        frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (базовый)"}`;
+        frameReason = `Поколение #${genOrd}, рестайлинг #${restOrd}`;
       }
+    } else if (group.items.length === 1) {
+      // У поколения один frame — выбирать нечего.
+      frame = group.items[0];
+      frameConf = 0.95;
+      frameReason = `Поколение #${genOrd} (единственный вариант)`;
+    } else {
+      // Несколько рестайлингов — НЕ выбираем сами. Просим пользователя выбрать.
+      restylingChoiceGroup = group;
+      frameReason = `Поколение #${genOrd} — нужен выбор рестайлинга`;
     }
   }
 
