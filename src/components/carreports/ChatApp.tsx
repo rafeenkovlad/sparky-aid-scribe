@@ -1634,6 +1634,7 @@ interface BubbleProps {
   onNextElement?: () => void;
   onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
   onOpenAnnotator?: (photoIdx: number) => void;
+  onAssignPendingPhoto?: (msgId: string, snake: SectionSnake) => void;
 }
 
 function MessageBubble({
