@@ -1665,7 +1665,7 @@ function MessageBubble({
         {msg.kind === "inspectionUploadPrompt" && msg.sectionSnake && inspectionDraft && (
           <InspectionUploadPrompt
             sectionSnake={msg.sectionSnake as SectionSnake}
-            interactive={interactive}
+            interactive
             onPick={(files) =>
               onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
             }
@@ -1675,13 +1675,14 @@ function MessageBubble({
           <InspectionCollage
             ins={inspectionDraft}
             sectionSnake={msg.sectionSnake as SectionSnake}
-            interactive={interactive}
+            interactive
             onPick={(files) =>
               onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
             }
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
           />
         )}
+
 
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
