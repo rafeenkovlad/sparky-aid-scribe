@@ -1313,7 +1313,29 @@ function MessageBubble({
             </div>
           );
         })()}
-        {interactive && msg.step === "car" && <CarChecklist draft={draft} />}
+        {interactive && msg.step === "car" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors"
+              >
+                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-400" />
+                Паспорт авто
+                <span className="tabular-nums text-white/55">
+                  {carPassportFilled(draft)}/10
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="start"
+              className="w-[320px] max-w-[88vw] p-0 bg-zinc-950 border-white/10 text-white"
+            >
+              <CarChecklist draft={draft} />
+            </PopoverContent>
+          </Popover>
+        )}
         {msg.chips && msg.chips.length > 0 && (() => {
           // Group chips by groupLabel (chips without a label fall into "").
           const groups: Array<{ label: string; items: ChatChip[] }> = [];
