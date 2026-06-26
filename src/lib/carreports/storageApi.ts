@@ -43,22 +43,39 @@ export async function rpc<T = unknown>(
   }
   const json = (await res.json()) as {
     error?: { code: number; message: string };
-    errors?: { message?: string; code?: number } | string;
+    errors?: { message?: string; code?: number } | string | unknown[] | null;
     response?: string;
     result?: T;
   };
   if (json.error) {
     throw new ApiError(`Storage ${method}: ${json.error.message}`, undefined, json.error.code);
   }
-  // CarReports backend variant: { response: "error", errors: { message } }.
-  if (json.response === "error" || json.errors) {
-    const msg =
-      typeof json.errors === "string"
-        ? json.errors
-        : (json.errors?.message ?? "Unknown error");
+  // CarReports backend variант: { response: "error", errors: {...} | "..." }.
+  // ВАЖНО: на успехе сервер часто отдаёт errors: [] (пустой массив, truthy в JS),
+  // поэтому ориентируемся прежде всего на response === "error".
+  const errs = json.errors;
+  const hasErrorPayload =
+    typeof errs === "string"
+      ? errs.length > 0
+      : Array.isArray(errs)
+        ? errs.length > 0
+        : errs != null && typeof errs === "object" && Object.keys(errs).length > 0;
+  if (json.response === "error" || hasErrorPayload) {
+    let msg = "Unknown error";
+    let code: number | undefined;
+    if (typeof errs === "string") msg = errs;
+    else if (Array.isArray(errs)) {
+      const first = errs[0] as { message?: string; code?: number } | string | undefined;
+      if (typeof first === "string") msg = first;
+      else if (first && typeof first === "object") {
+        msg = first.message ?? msg;
+        code = first.code;
+      }
+    } else if (errs && typeof errs === "object") {
+      msg = (errs as { message?: string }).message ?? msg;
+      code = (errs as { code?: number }).code;
+    }
     const status = /unauthorized/i.test(msg) ? 401 : undefined;
-    const code =
-      json.errors && typeof json.errors === "object" ? json.errors.code : undefined;
     throw new ApiError(`Storage ${method}: ${msg}`, status, code);
   }
   // Some methods return {result: ...}, others wrap as { result: { result: ... } }.
