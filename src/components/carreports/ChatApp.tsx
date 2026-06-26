@@ -1853,8 +1853,8 @@ export function ChatApp({ threadId }: Props) {
                           : STEP_PLACEHOLDERS[currentStep]
                   }
                   className={
-                    "resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
-                    (isExpanded ? "min-h-[44px] max-h-40" : "min-h-[32px] max-h-[32px] py-1 text-sm") +
+                    "border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
+                    (isExpanded ? "min-h-[44px] max-h-[60vh] resize-y" : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
                     (askMode ? " placeholder:text-sky-300/60" : "")
                   }
                 />
