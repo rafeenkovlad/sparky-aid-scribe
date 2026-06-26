@@ -231,10 +231,8 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     },
   ) => {
     const hasFile = opts.hasFile === true;
-    return {
+    const base: Record<string, unknown> = {
       file: null,
-      paintworkThicknessFrom: 80,
-      paintworkThicknessTo: 200,
       noDamage: hasFile ? (opts.noDamage ?? true) : true,
       seriousDamageTags: hasFile ? (opts.seriousDamageTags ?? []) : [],
       noSeriousDamageTags: hasFile ? (opts.noSeriousDamageTags ?? []) : [],
@@ -243,6 +241,12 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
       sectionType,
       elementType: camelToSnake(elementId),
     };
+    // paintworkThickness* — только у элементов кузова (BodyElement*DTO).
+    if (sectionType === "body") {
+      base.paintworkThicknessFrom = 80;
+      base.paintworkThicknessTo = 200;
+    }
+    return base;
   };
 
   // 1) Structured findings → exact element collection.
