@@ -1160,9 +1160,14 @@ export async function inferBrandFromModelName(
   modelHint: string,
   userText: string,
   thread?: Thread,
+  onTrace?: (entry: ClarifyTraceEntry) => void,
 ): Promise<InferBrandResult | null> {
   if (!thread || !modelHint.trim()) return null;
   const trace: ClarifyTraceEntry[] = [];
+  const emit = (e: ClarifyTraceEntry) => {
+    trace.push(e);
+    try { onTrace?.(e); } catch { /* ignore */ }
+  };
   const ask = async (webCtx?: string) =>
     aiPick<{
       brandName: string | null;
@@ -1192,13 +1197,13 @@ export async function inferBrandFromModelName(
       },
     );
 
-  trace.push({
+  emit({
     kind: "ai",
     label: `Определяю марку по модели «${modelHint}»`,
   });
   let pick = await ask();
   if (!pick?.brandName || pick.confidence < LOW_CONF || pick.needsWeb) {
-    trace.push({
+    emit({
       kind: "web",
       label: `Уточняю в вебе: «какая марка ${modelHint}»`,
     });
@@ -1207,7 +1212,7 @@ export async function inferBrandFromModelName(
       5,
     );
     if (ctx) {
-      trace.push({
+      emit({
         kind: "ai",
         label: `Повторно спрашиваю модель марки с веб-контекстом`,
       });
@@ -1218,7 +1223,7 @@ export async function inferBrandFromModelName(
     }
   }
   if (!pick?.brandName) return null;
-  trace.push({
+  emit({
     kind: "ai",
     label: `Марка определена: ${pick.brandName} (модель: ${pick.modelCarName || modelHint})`,
   });
