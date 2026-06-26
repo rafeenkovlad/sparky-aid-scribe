@@ -315,6 +315,7 @@ export const CLICHE_INSPECTION_NOTE = (
   elements: Array<{ id: string; label: string; hint?: string }>,
   currentElementId: string | null,
   knownTags: Array<{ name: string; type?: string | null }>,
+  existingNote?: string,
 ) => {
   const elList = elements
     .map((el) => {
