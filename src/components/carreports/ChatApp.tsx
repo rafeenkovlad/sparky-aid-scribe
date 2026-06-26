@@ -1784,6 +1784,46 @@ function MessageBubble({
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
           />
         )}
+        {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <img
+                src={msg.pendingPhoto.dataUrl || msg.pendingPhoto.url}
+                alt={msg.pendingPhoto.filename}
+                className="h-12 w-12 rounded-lg object-cover border border-white/10"
+              />
+              <div className="text-[12px] text-white/70 leading-tight truncate">
+                {msg.pendingPhoto.assignedSection
+                  ? `Закреплено в разделе «${
+                      INSPECTION_SECTIONS.find(
+                        (s) => s.snake === msg.pendingPhoto!.assignedSection,
+                      )?.label ?? msg.pendingPhoto.assignedSection
+                    }»`
+                  : "Выберите раздел, к которому относится фото:"}
+              </div>
+            </div>
+            {!msg.pendingPhoto.assignedSection && (
+              <div className="flex flex-wrap gap-1.5">
+                {INSPECTION_SECTIONS.map((s) => (
+                  <button
+                    key={s.snake}
+                    disabled={!interactive}
+                    onClick={() => onAssignPendingPhoto?.(msg.id, s.snake)}
+                    className={
+                      "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
+                      (interactive
+                        ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                        : "border-white/10 text-white/40 cursor-default")
+                    }
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
 
 
         {msg.attachments && msg.attachments.length > 0 && (() => {
