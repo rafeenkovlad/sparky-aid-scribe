@@ -1797,12 +1797,7 @@ export function ChatApp({ threadId }: Props) {
             voice.state === "recording" ||
             voice.state === "transcribing";
           return (
-            <div
-              className={
-                "mx-auto transition-[width] duration-300 ease-out " +
-                (isExpanded ? "w-full" : "w-[260px] max-w-full")
-              }
-            >
+            <div className="w-full">
               <div
                 className={
                   "flex items-end gap-2 rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
