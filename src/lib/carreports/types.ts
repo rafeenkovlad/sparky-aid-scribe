@@ -69,10 +69,13 @@ export interface InspectionPhoto {
   filename: string;
   /** local preview (data: URL). May be absent for server-only photos. */
   dataUrl?: string;
+  /** presigned view URL (для отправки в AI vision). */
+  url?: string;
   /** true if uploaded to remote storage via presigned PUT. */
   remote?: boolean;
   addedAt?: number;
 }
+
 
 export interface PendingTagName {
   name: string;
