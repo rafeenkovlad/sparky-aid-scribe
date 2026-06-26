@@ -1033,7 +1033,7 @@ export function ChatApp({ threadId }: Props) {
           <input
             ref={attachInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             multiple
             className="hidden"
             onChange={(e) => {
@@ -1055,7 +1055,7 @@ export function ChatApp({ threadId }: Props) {
               <input
                 ref={photoInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 capture="environment"
                 className="hidden"
                 onChange={(e) => {

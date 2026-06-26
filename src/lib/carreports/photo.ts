@@ -27,7 +27,8 @@ export async function preparePhoto(
   opts: { maxBytes?: number } = {},
 ): Promise<PreparedPhoto> {
   const maxBytes = opts.maxBytes ?? MAX_BYTES;
-  const bitmap = await readImage(file);
+  const decoded = await ensureDecodable(file);
+  const bitmap = await readImage(decoded);
 
   // Iteratively reduce quality, then dimensions, until under maxBytes.
   let edge = DEFAULT_MAX_EDGE;
@@ -76,7 +77,33 @@ async function encodeJpeg(
   });
 }
 
-async function readImage(file: File): Promise<HTMLImageElement | ImageBitmap> {
+/**
+ * HEIC/HEIF не декодируется браузером напрямую — конвертируем в JPEG
+ * через heic2any (lazy import, чтобы не тянуть пакет в основной бандл).
+ */
+async function ensureDecodable(file: File): Promise<File> {
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+  const isHeic =
+    type === "image/heic" ||
+    type === "image/heif" ||
+    type === "image/heic-sequence" ||
+    type === "image/heif-sequence" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif");
+  if (!isHeic) return file;
+  const mod = (await import("heic2any")).default as (opts: {
+    blob: Blob;
+    toType?: string;
+    quality?: number;
+  }) => Promise<Blob | Blob[]>;
+  const out = await mod({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const blob = Array.isArray(out) ? out[0] : out;
+  const base = (file.name.replace(/\.[^.]+$/, "") || "photo");
+  return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
+}
+
+async function readImage(file: Blob): Promise<HTMLImageElement | ImageBitmap> {
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(file);
