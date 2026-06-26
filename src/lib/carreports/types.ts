@@ -174,7 +174,7 @@ export interface ChatMessage {
   /** image attachments (brand/model/generation pictures, etc.) */
   attachments?: MessageAttachment[];
   /** custom message variants rendered with a domain-specific card */
-  kind?: "passport";
+  kind?: "passport" | "docsPassport";
   createdAt: number;
 }
 

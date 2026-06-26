@@ -34,6 +34,7 @@ import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
 import { LexChips } from "./LexChips";
 import { CarChecklist } from "./CarChecklist";
+import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
@@ -868,6 +869,23 @@ export function ChatApp({ threadId }: Props) {
                 }
               });
             }}
+            onDocsAllMatch={() => {
+              updateThread(thread.id, (t) => {
+                t.draft.documentReconciliationStep = {
+                  ...t.draft.documentReconciliationStep,
+                  ownerFullNameMatchWithPTSOrSTS: true,
+                  vinOnBodyMatchWithPTSOrSTS: true,
+                  engineModelMatchWithPTSOrSTS: true,
+                };
+                pushMsg(t, "docs", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "✅ Отмечено: VIN на кузове, № двигателя и собственник совпадают с ПТС/СТС.",
+                  step: "docs",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
           />
         ))}
 
@@ -1029,6 +1047,33 @@ export function ChatApp({ threadId }: Props) {
             <ClipboardCheck className="h-4 w-4 text-emerald-400" />
             <span className="text-xs tabular-nums">
               {countCarPassport(thread.draft)}/10
+            </span>
+          </button>
+        )}
+        {currentStep === "docs" && (
+          <button
+            type="button"
+            onClick={() => {
+              const passportId = "passport-docs";
+              updateThread(thread.id, (t) => {
+                t.messages.docs = t.messages.docs.filter((m) => m.id !== passportId);
+                pushMsg(t, "docs", {
+                  id: passportId,
+                  role: "assistant",
+                  text: "",
+                  step: "docs",
+                  kind: "docsPassport",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
+            aria-label="Сверка документов"
+            title="Сверка документов"
+            className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
+          >
+            <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+            <span className="text-xs tabular-nums">
+              {countDocsPassport(thread.draft)}/4
             </span>
           </button>
         )}
@@ -1247,6 +1292,7 @@ interface BubbleProps {
   onInspectionDateChange: (iso: string) => void;
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
+  onDocsAllMatch?: () => void;
 }
 
 function MessageBubble({
@@ -1257,6 +1303,7 @@ function MessageBubble({
   onInspectionDateChange,
   draft,
   onFillMissing,
+  onDocsAllMatch,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1309,6 +1356,19 @@ function MessageBubble({
         {msg.kind === "passport" && draft ? (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
             <CarChecklist draft={draft} onFillMissing={onFillMissing} />
+            {msg.text && (
+              <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+            )}
+          </div>
+        ) : msg.kind === "docsPassport" && draft ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
+            <DocsChecklist
+              draft={draft}
+              onFillMissing={onFillMissing}
+              onAllMatch={onDocsAllMatch}
+            />
             {msg.text && (
               <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
                 {msg.text}
