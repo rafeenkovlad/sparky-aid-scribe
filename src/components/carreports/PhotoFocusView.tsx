@@ -5,7 +5,7 @@
 //
 // Компонент чистый: все мутации идут через колбэки наверх.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -20,7 +20,7 @@ import {
 import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSections";
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
-import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
@@ -416,22 +416,26 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <TagRow
                   tone="serious"
                   label="Серьёзные"
+                  section={sectionSnake}
                   tags={serious}
                   selected={sIds}
                   pending={pending.filter((p) => p.severity === "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "serious")}
                   onAdd={(name) => onAddPendingTag(name, "serious")}
+                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
                 />
                 <TagRow
                   tone="minor"
                   label="Мелкие"
+                  section={sectionSnake}
                   tags={minor}
                   selected={nsIds}
                   pending={pending.filter((p) => p.severity !== "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
                   onAdd={(name) => onAddPendingTag(name, "non_serious")}
+                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
                 />
               </>
             )}
@@ -458,14 +462,19 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 function TagRow(props: {
   tone: "serious" | "minor";
   label: string;
+  section: SectionSnake;
   tags: UserTag[];
   selected: Set<number>;
   pending: PendingTagName[];
   onTap: (t: UserTag) => void;
   onTogglePending: (name: string) => void;
   onAdd: (name: string) => void;
+  onCatalogChanged: () => void;
 }) {
-  const { tone, label, tags, selected, pending, onTap, onTogglePending, onAdd } = props;
+  const {
+    tone, label, section, tags, selected, pending,
+    onTap, onTogglePending, onAdd, onCatalogChanged,
+  } = props;
   const sorted = useMemo(() => {
     const sel: UserTag[] = [];
     const rest: UserTag[] = [];
@@ -474,18 +483,84 @@ function TagRow(props: {
   }, [tags, selected]);
   const count = selected.size + pending.length;
   const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
-  const [adding, setAdding] = useState(false);
+
+  // Меню «по долгому нажатию»: либо для выбранного тега (edit/delete + add),
+  // либо просто «добавить» (mode === "addOnly").
+  type MenuState =
+    | { kind: "tag"; tag: UserTag }
+    | { kind: "addOnly" }
+    | null;
+  const [menu, setMenu] = useState<MenuState>(null);
+  const [mode, setMode] = useState<"none" | "add" | "edit">("none");
+  const [editingTag, setEditingTag] = useState<UserTag | null>(null);
   const [draft, setDraft] = useState("");
-  const submitAdd = () => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Long-press: запоминаем pointerdown и срабатываем через 450мс,
+  // если палец/мышь не сдвинулись и не отпустились раньше.
+  const pressTimer = useRef<number | null>(null);
+  const longFired = useRef(false);
+  const clearPress = () => {
+    if (pressTimer.current) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const startPress = (t: UserTag) => {
+    longFired.current = false;
+    clearPress();
+    pressTimer.current = window.setTimeout(() => {
+      longFired.current = true;
+      setMenu({ kind: "tag", tag: t });
+    }, 450);
+  };
+
+  const closeMenu = () => {
+    setMenu(null);
+    setMode("none");
+    setEditingTag(null);
+    setDraft("");
+    setError(null);
+  };
+
+  const submitDraft = async () => {
     const n = draft.trim();
     if (!n) {
-      setAdding(false);
+      closeMenu();
       return;
     }
-    onAdd(n);
-    setDraft("");
-    setAdding(false);
+    if (mode === "add") {
+      onAdd(n);
+      closeMenu();
+      return;
+    }
+    if (mode === "edit" && editingTag) {
+      setBusy(true);
+      const ok = await updateUserTag(section, editingTag.id, n);
+      setBusy(false);
+      if (!ok) {
+        setError("Не удалось переименовать");
+        return;
+      }
+      onCatalogChanged();
+      closeMenu();
+    }
   };
+
+  const doDelete = async (t: UserTag) => {
+    if (!confirm(`Удалить тег «${t.name}»?`)) return;
+    setBusy(true);
+    const ok = await deleteUserTag(section, t.id);
+    setBusy(false);
+    if (!ok) {
+      setError("Не удалось удалить");
+      return;
+    }
+    onCatalogChanged();
+    closeMenu();
+  };
+
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wide text-white/45">
@@ -504,7 +579,22 @@ function TagRow(props: {
             return (
               <button
                 key={t.id}
-                onClick={() => onTap(t)}
+                onClick={() => {
+                  if (longFired.current) {
+                    longFired.current = false;
+                    return;
+                  }
+                  onTap(t);
+                }}
+                onPointerDown={() => startPress(t)}
+                onPointerUp={clearPress}
+                onPointerLeave={clearPress}
+                onPointerCancel={clearPress}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  longFired.current = true;
+                  setMenu({ kind: "tag", tag: t });
+                }}
                 className={tagChip(tone, sel)}
               >
                 {sel && <Check className="h-3 w-3 -ml-0.5" />}
@@ -523,39 +613,13 @@ function TagRow(props: {
               <X className="h-3 w-3 opacity-70" />
             </button>
           ))}
-          {sorted.length === 0 && pending.length === 0 && !adding && (
-            <span className="text-[11px] text-white/35 italic pr-1">
-              Каталог пуст — добавьте свой
-            </span>
-          )}
-          {adding ? (
-            <form
-              className="inline-flex items-center gap-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitAdd();
-              }}
-            >
-              <input
-                autoFocus
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={submitAdd}
-                placeholder={
-                  tone === "serious" ? "новый серьёзный" : "новый мелкий"
-                }
-                className={
-                  "rounded-full border bg-white/[0.06] px-2.5 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none w-36 " +
-                  (tone === "serious"
-                    ? "border-rose-400/50 focus:border-rose-400"
-                    : "border-amber-400/50 focus:border-amber-400")
-                }
-              />
-            </form>
-          ) : (
+          {sorted.length === 0 && pending.length === 0 && (
             <button
               type="button"
-              onClick={() => setAdding(true)}
+              onClick={() => {
+                setMenu({ kind: "addOnly" });
+                setMode("add");
+              }}
               className={
                 "inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
                 (tone === "serious"
@@ -563,11 +627,129 @@ function TagRow(props: {
                   : "border-amber-400/40 text-amber-100/80 hover:bg-amber-500/10")
               }
             >
-              <Plus className="h-3 w-3" /> свой
+              <Plus className="h-3 w-3" /> добавить тег
             </button>
           )}
         </div>
       </div>
+
+      {menu && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={closeMenu}
+        >
+          <div
+            className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-white/10 bg-zinc-900 p-3 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {menu.kind === "tag" && (
+              <div className="flex items-center gap-2 px-1 pb-1 text-[12px] text-white/70">
+                <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
+                <span className="truncate">{menu.tag.name}</span>
+                {menu.tag.userId == null && (
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-white/35">
+                    системный
+                  </span>
+                )}
+              </div>
+            )}
+
+            {mode === "none" && (
+              <div className="grid gap-1.5">
+                {menu.kind === "tag" && menu.tag.userId != null && (
+                  <>
+                    <button
+                      type="button"
+                      className="w-full text-left rounded-lg px-3 py-2.5 text-[13px] text-white hover:bg-white/10"
+                      onClick={() => {
+                        setEditingTag(menu.tag);
+                        setDraft(menu.tag.name);
+                        setMode("edit");
+                      }}
+                    >
+                      ✏️ Редактировать
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="w-full text-left rounded-lg px-3 py-2.5 text-[13px] text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
+                      onClick={() => doDelete(menu.tag)}
+                    >
+                      🗑 Удалить
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="w-full text-left rounded-lg px-3 py-2.5 text-[13px] text-white hover:bg-white/10"
+                  onClick={() => {
+                    setDraft("");
+                    setMode("add");
+                  }}
+                >
+                  ➕ Добавить новый тег
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg px-3 py-2 text-[12px] text-white/55 hover:bg-white/5"
+                  onClick={closeMenu}
+                >
+                  Отмена
+                </button>
+              </div>
+            )}
+
+            {(mode === "add" || mode === "edit") && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void submitDraft();
+                }}
+                className="space-y-2"
+              >
+                <input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={
+                    mode === "add"
+                      ? (tone === "serious" ? "новый серьёзный" : "новый мелкий")
+                      : "название тега"
+                  }
+                  className={
+                    "w-full rounded-lg border bg-white/[0.06] px-3 py-2 text-[13px] text-white placeholder:text-white/40 focus:outline-none " +
+                    (tone === "serious"
+                      ? "border-rose-400/50 focus:border-rose-400"
+                      : "border-amber-400/50 focus:border-amber-400")
+                  }
+                />
+                {error && (
+                  <div className="text-[11px] text-rose-300">{error}</div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={closeMenu}
+                    className="flex-1 rounded-lg px-3 py-2 text-[12px] text-white/70 hover:bg-white/10"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={busy || !draft.trim()}
+                    className={
+                      "flex-1 rounded-lg px-3 py-2 text-[12px] font-medium text-white disabled:opacity-50 " +
+                      (tone === "serious" ? "bg-rose-500 hover:bg-rose-600" : "bg-amber-500 hover:bg-amber-600")
+                    }
+                  >
+                    {busy ? "…" : mode === "add" ? "Добавить" : "Сохранить"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
