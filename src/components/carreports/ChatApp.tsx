@@ -552,81 +552,191 @@ export function ChatApp({ threadId }: Props) {
   );
 
 
-  const annotatorPhoto =
-    annotatorPhotoIdx !== null && thread
-      ? thread.draft.inspectionStep.photos[annotatorPhotoIdx] ?? null
+  // ─── Photo focus mode (chat-with-photo) ──────────────────────────────────
+
+  const photoFocus =
+    photoFocusIdx !== null && thread
+      ? thread.draft.inspectionStep.photos[photoFocusIdx] ?? null
       : null;
-  const annotatorSection =
-    (annotatorPhoto?.section as SectionSnake | undefined) ??
-    (cursor?.section.snake ?? "body");
 
-  const applyAnnotator = useCallback(
-    (patch: {
-      elementId: string;
-      verdict: "ok" | "minor" | "serious";
-      seriousTagIds: number[];
-      noSeriousTagIds: number[];
-      pendingTags: import("@/lib/carreports/types").PendingTagName[];
-      note: string;
-    }) => {
-      if (annotatorPhotoIdx === null || !thread || !annotatorPhoto) return;
-      const sectionSnake = annotatorPhoto.section as SectionSnake;
-      const prevElementId = annotatorPhoto.elementId;
-      const idx = annotatorPhotoIdx;
-      updateThread(thread.id, (t) => {
-        // Перепривязка фото к новому элементу.
-        const p = t.draft.inspectionStep.photos[idx];
-        if (p) p.elementId = patch.elementId;
-
-        // Если был привязан к другому элементу — снимем у того finding наш note?
-        // Решаем просто: finding принадлежит элементу, не фото. Поэтому
-        // переписываем finding для текущего элемента патчем.
-        const key = findingKey(sectionSnake, patch.elementId);
-        const findings = t.draft.inspectionStep.findings ?? (t.draft.inspectionStep.findings = {});
-        const existing = findings[key] ?? { section: sectionSnake, elementId: patch.elementId };
-        const next: typeof existing = {
-          section: sectionSnake,
-          elementId: patch.elementId,
-          noDamage: patch.verdict === "ok",
-          ...(patch.seriousTagIds.length ? { seriousDamageTagIds: patch.seriousTagIds } : {}),
-          ...(patch.noSeriousTagIds.length ? { noSeriousDamageTagIds: patch.noSeriousTagIds } : {}),
-          ...(patch.pendingTags.length ? { pendingTagNames: patch.pendingTags } : {}),
-          ...(patch.note ? { note: patch.note } : {}),
-          ...(existing.audioNotes?.length ? { audioNotes: existing.audioNotes } : {}),
-        };
-        findings[key] = next;
-        t.draft.inspectionStep.touched = true;
-        void prevElementId;
-      });
+  const enterPhotoFocus = useCallback(
+    (idx: number) => {
+      composerBackupRef.current = composer;
+      setPhotoFocusIdx(idx);
+      // Префилл композера текущей заметкой к элементу этого фото.
+      if (thread) {
+        const p = thread.draft.inspectionStep.photos[idx];
+        if (p) {
+          const sec = p.section as SectionSnake;
+          const elId =
+            p.elementId ?? (INSPECTION_SECTIONS.find((s) => s.snake === sec)?.elements[0]?.id ?? "generalCondition");
+          const f = thread.draft.inspectionStep.findings?.[findingKey(sec, elId)];
+          setComposer(f?.note ?? "");
+        }
+      }
+      requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [annotatorPhotoIdx, thread, annotatorPhoto],
+    [composer, thread],
   );
 
-  const deleteAnnotatorPhoto = useCallback(() => {
-    if (annotatorPhotoIdx === null || !thread) return;
-    const idx = annotatorPhotoIdx;
+  const exitPhotoFocus = useCallback(() => {
+    setPhotoFocusIdx(null);
+    if (composerBackupRef.current !== null) {
+      setComposer(composerBackupRef.current);
+      composerBackupRef.current = null;
+    } else {
+      setComposer("");
+    }
+  }, []);
+
+  /** Мутация finding текущего фото в фокус-режиме. */
+  const mutatePhotoFinding = useCallback(
+    (mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void) => {
+      if (photoFocusIdx === null || !thread) return;
+      const idx = photoFocusIdx;
+      updateThread(thread.id, (t) => {
+        const p = t.draft.inspectionStep.photos[idx];
+        if (!p) return;
+        const sec = p.section as SectionSnake;
+        const elId =
+          p.elementId ?? (INSPECTION_SECTIONS.find((s) => s.snake === sec)?.elements[0]?.id ?? "generalCondition");
+        upsertFinding(t.draft.inspectionStep, sec, elId, mutate);
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [photoFocusIdx, thread],
+  );
+
+  const photoChangeElement = useCallback(
+    (elementId: string) => {
+      if (photoFocusIdx === null || !thread) return;
+      const idx = photoFocusIdx;
+      updateThread(thread.id, (t) => {
+        const p = t.draft.inspectionStep.photos[idx];
+        if (p) p.elementId = elementId;
+        t.draft.inspectionStep.touched = true;
+      });
+      // После смены элемента — подтянуть его заметку в композер.
+      const fresh = getThread(thread.id);
+      const p = fresh?.draft.inspectionStep.photos[idx];
+      if (p) {
+        const f = fresh!.draft.inspectionStep.findings?.[
+          findingKey(p.section as SectionSnake, elementId)
+        ];
+        setComposer(f?.note ?? "");
+      }
+    },
+    [photoFocusIdx, thread],
+  );
+
+  const photoSetVerdict = useCallback(
+    (v: "ok" | "minor" | "serious") => {
+      mutatePhotoFinding((f) => {
+        if (v === "ok") {
+          f.noDamage = true;
+          f.seriousDamageTagIds = [];
+          f.noSeriousDamageTagIds = [];
+          f.pendingTagNames = [];
+        } else {
+          f.noDamage = false;
+        }
+      });
+    },
+    [mutatePhotoFinding],
+  );
+
+  const photoToggleTag = useCallback(
+    (tag: UserTag) => {
+      const bucket: "serious" | "non_serious" =
+        tag.type === "serious" ? "serious" : "non_serious";
+      mutatePhotoFinding((f) => toggleFindingTag(f, bucket, tag.id));
+    },
+    [mutatePhotoFinding],
+  );
+
+  const photoAddPendingTag = useCallback(
+    (name: string, severity: "serious" | "non_serious") => {
+      mutatePhotoFinding((f) => togglePendingTag(f, name, severity));
+    },
+    [mutatePhotoFinding],
+  );
+
+  const deletePhotoFocus = useCallback(() => {
+    if (photoFocusIdx === null || !thread) return;
+    const idx = photoFocusIdx;
     updateThread(thread.id, (t) => {
       t.draft.inspectionStep.photos.splice(idx, 1);
     });
-  }, [annotatorPhotoIdx, thread]);
+    exitPhotoFocus();
+  }, [photoFocusIdx, thread, exitPhotoFocus]);
 
-  const runAnnotatorAi = useCallback(async () => {
-    if (!thread || !annotatorPhoto?.url) {
-      throw new Error("Фото ещё не загружено на сервер — повторите через секунду.");
-    }
-    const fresh = getThread(thread.id);
-    if (!fresh) throw new Error("Поток не найден");
-    const r = await analyzeInspectionPhoto(
-      fresh,
-      annotatorPhoto.section as SectionSnake,
-      annotatorPhoto.url,
-    );
-    // Сохраняем aiChatIds, который мог обновиться внутри analyze.
-    updateThread(thread.id, (t) => {
-      t.aiChatIds = fresh.aiChatIds;
+  /** Сохранить текст композера как заметку к фото. */
+  const savePhotoNote = useCallback(() => {
+    const text = composer.trim();
+    mutatePhotoFinding((f) => {
+      f.note = text;
     });
-    return r;
-  }, [thread, annotatorPhoto]);
+  }, [composer, mutatePhotoFinding]);
+
+  /** Распознать тег / описание по заметке через ИИ. */
+  const runPhotoAi = useCallback(async () => {
+    if (photoFocusIdx === null || !thread || !photoFocus?.url || photoAiBusy) return;
+    setPhotoAiBusy(true);
+    try {
+      const fresh = getThread(thread.id);
+      if (!fresh) return;
+      const hint = composer.trim();
+      const r = await analyzeInspectionPhoto(
+        fresh,
+        photoFocus.section as SectionSnake,
+        photoFocus.url,
+        hint || undefined,
+      );
+      updateThread(thread.id, (t) => {
+        t.aiChatIds = fresh.aiChatIds;
+        const p = t.draft.inspectionStep.photos[photoFocusIdx];
+        if (!p) return;
+        // Если фото ещё не привязано к элементу — берём из AI.
+        if (!p.elementId && r.elementId) p.elementId = r.elementId;
+        const sec = p.section as SectionSnake;
+        const elId = p.elementId ?? r.elementId;
+        upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
+          const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
+          const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
+          f.seriousDamageTagIds = [...sSet];
+          f.noSeriousDamageTagIds = [...nsSet];
+          // Слияние pending по имени.
+          const existing = f.pendingTagNames ?? [];
+          const have = new Set(existing.map((p) => p.name.toLowerCase()));
+          for (const p of r.pendingTags) {
+            if (!have.has(p.name.toLowerCase())) existing.push(p);
+          }
+          f.pendingTagNames = existing;
+          // Не перезаписываем note пользователя — добавляем AI-фразу только если своей нет.
+          if (!f.note && r.note) f.note = r.note;
+          if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
+            f.noDamage = false;
+          }
+        });
+        t.draft.inspectionStep.touched = true;
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Ошибка ИИ";
+      if (thread) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, "inspection", {
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${m}`,
+            createdAt: Date.now(),
+          });
+        });
+      }
+    } finally {
+      setPhotoAiBusy(false);
+    }
+  }, [photoFocusIdx, thread, photoFocus, photoAiBusy, composer]);
+
 
 
 
