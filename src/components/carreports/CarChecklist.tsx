@@ -86,27 +86,29 @@ export function CarChecklist({ draft }: Props) {
 
 function Row({ item, muted }: { item: Item; muted?: boolean }) {
   return (
-    <li className="flex items-baseline gap-2 min-w-0">
+    <li className="flex items-start gap-2 min-w-0 py-0.5">
       {item.filled ? (
-        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+        <Check className="h-3 w-3 shrink-0 translate-y-1 text-emerald-400/80" />
       ) : (
-        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+        <span className="h-3 w-3 shrink-0 translate-y-1 rounded-full border border-white/15" />
       )}
-      <span className={muted ? "text-white/40" : "text-white/55"}>{item.label}</span>
-      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
-      <span
-        className={
-          "text-right tabular-nums " +
-          (item.filled
-            ? muted
-              ? "text-white/65"
-              : "text-white/85"
-            : "text-white/30")
-        }
-        title={item.value ?? ""}
-      >
-        {item.value ?? "—"}
-      </span>
+      <div className="flex-1 min-w-0">
+        <div className={"text-[11px] " + (muted ? "text-white/40" : "text-white/55")}>
+          {item.label}
+        </div>
+        <div
+          className={
+            "text-[13px] break-words " +
+            (item.filled
+              ? muted
+                ? "text-white/65"
+                : "text-white/90"
+              : "text-white/30")
+          }
+        >
+          {item.value ?? "—"}
+        </div>
+      </div>
     </li>
   );
 }
