@@ -1013,6 +1013,7 @@ export async function analyzeInspectionPhoto(
   sectionSnake: SectionSnake,
   photoUrl: string,
   hint?: string,
+  existingNote?: string,
 ): Promise<PhotoFindingDraft> {
   const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
   const { CLICHE_INSPECTION_PHOTO } = await import("./cliche");
@@ -1028,6 +1029,7 @@ export async function analyzeInspectionPhoto(
       hint: elementHint(sectionSnake, el.id),
     })),
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+    existingNote,
   );
   const text = hint?.trim() || "Опиши, что видно на фото.";
 
