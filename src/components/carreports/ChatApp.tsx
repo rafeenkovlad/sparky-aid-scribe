@@ -460,6 +460,7 @@ export function ChatApp({ threadId }: Props) {
   const submit = useCallback(async () => {
     if (!thread || busy) return;
     const typed = composer.trim();
+    const atts = pendingAttachments;
 
     // Gather selected chip values from the last interactive options message
     // (per-step chips) or the inspection chip selection state.
@@ -472,24 +473,30 @@ export function ChatApp({ threadId }: Props) {
     }
 
     const combined = [typed, ...selectedFromChips].filter(Boolean).join("\n");
-    if (!combined) return;
+    if (!combined && !atts.length) return;
 
-    // Confirm-advance shortcut (only when no chips, typed-only).
-    if (!askMode && !selectedFromChips.length && isConfirmAdvance(typed)) {
+    // Confirm-advance shortcut (only when no chips/attachments, typed-only).
+    if (!askMode && !selectedFromChips.length && !atts.length && isConfirmAdvance(typed)) {
       setComposer("");
       advanceStep();
       return;
     }
 
     setBusy(true);
-    const displayText = askMode ? `❓ ${combined}` : combined;
-    // 1) push user message
+    const userAttachments = atts.map((a) => ({
+      url: a.dataUrl,
+      label: a.filename,
+    }));
+    // 1) push user message (with thumbnails if any)
+    const baseText = combined || (atts.length ? `📎 Прикреплено фото: ${atts.length}` : "");
+    const displayText = askMode ? `❓ ${baseText}` : baseText;
     updateThread(thread.id, (t) => {
       pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
         text: displayText,
         step: currentStep,
+        ...(userAttachments.length ? { attachments: userAttachments } : {}),
         createdAt: Date.now(),
       });
       // Clear chip selections on the last options message
@@ -501,7 +508,38 @@ export function ChatApp({ threadId }: Props) {
       }
     });
     setComposer("");
+    setPendingAttachments([]);
     if (currentStep === "inspection") setSelectedInspectionChips(new Set());
+
+    // 1b) If photos attached — recognize them via vision and append to text.
+    let textForAI = combined;
+    if (atts.length) {
+      setAnalyzing(true);
+      updateThread(thread.id, (t) => {
+        pushMsg(t, currentStep, {
+          id: msgId(),
+          role: "assistant",
+          text: `🔍 Распознаю фото (${atts.length})…`,
+          step: currentStep,
+          createdAt: Date.now(),
+        });
+      });
+      const recognized = await analyzeAttachments(atts, currentStep, combined);
+      setAnalyzing(false);
+      if (recognized) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, currentStep, {
+            id: msgId(),
+            role: "assistant",
+            text: `📄 Распознано с фото:\n${recognized}`,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        });
+        textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+      }
+    }
+
 
     // Q&A mode: free-form question, no draft mutation.
     if (askMode) {
