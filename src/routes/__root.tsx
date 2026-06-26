@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "AI CARREP" },
+      { name: "description", content: "AI-powered app generates comprehensive technical car reports." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "AI CARREP" },
+      { property: "og:description", content: "AI-powered app generates comprehensive technical car reports." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "AI CARREP" },
+      { name: "twitter:description", content: "AI-powered app generates comprehensive technical car reports." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/84f3f70a-cc72-41fb-916a-e8c717065fa5/id-preview-fd774eb0--c1a6e2b2-8859-4731-a1a9-6621e6865be6.lovable.app-1782463659924.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/84f3f70a-cc72-41fb-916a-e8c717065fa5/id-preview-fd774eb0--c1a6e2b2-8859-4731-a1a9-6621e6865be6.lovable.app-1782463659924.png" },
     ],
     links: [
       {
