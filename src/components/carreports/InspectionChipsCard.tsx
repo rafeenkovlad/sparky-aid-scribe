@@ -12,6 +12,7 @@ import {
   elementStatus,
   getFinding,
   photosFor,
+  photosForSection,
   sectionProgress,
   type InspectionCursor,
 } from "@/lib/carreports/inspectionState";
