@@ -439,12 +439,23 @@ export function ChatApp({ threadId }: Props) {
       if (!atts.length) return "";
       const parts: string[] = [];
       for (const a of atts) {
-        const form = new FormData();
-        form.append("file", a.blob, a.filename);
-        form.append("step", step);
-        if (userText) form.append("prompt", userText);
         try {
-          const r = await fetch("/api/analyze-image", { method: "POST", body: form });
+          // 1) Загружаем фото во временное объектное хранилище.
+          const up = await uploadTemporary({
+            filename: a.filename,
+            blob: a.blob,
+            dataUrl: "",
+          });
+          // 2) Просим AI распознать по публичному URL.
+          const r = await fetch("/api/analyze-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: up.url,
+              step,
+              prompt: userText,
+            }),
+          });
           const j = (await r.json()) as { text?: string; error?: string };
           if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
           if (j.text) parts.push(j.text.trim());
