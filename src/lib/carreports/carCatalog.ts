@@ -903,7 +903,14 @@ async function pickGenerationForModel(
       const gNum = restylingChoiceGroup.number;
       const genLabel =
         gNum != null ? `Поколение ${gNum}` : (restylingChoiceGroup.name || "Поколение");
-      const restylingChips: CatalogSuggestion[] = restylingChoiceGroup.items.map((f) => {
+      // Дедуп по restylingNumber|restylingName — внутри одной пары могут быть
+      // несколько frames (разные кузова), они выглядят как дубликаты на чипах.
+      const uniqByRest = new Map<string, GenerationFrameCandidate>();
+      for (const f of restylingChoiceGroup.items) {
+        const k = `${f.restylingNumber ?? f.restylingName ?? "_"}`;
+        if (!uniqByRest.has(k)) uniqByRest.set(k, f);
+      }
+      const restylingChips: CatalogSuggestion[] = Array.from(uniqByRest.values()).map((f) => {
         const years =
           f.yearStart || f.yearEnd
             ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
