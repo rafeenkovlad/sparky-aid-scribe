@@ -1536,6 +1536,15 @@ export function ChatApp({ threadId }: Props) {
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={enterPhotoFocus}
+            onDeleteInspectionPhoto={(idx) => {
+              if (!thread) return;
+              updateThread(thread.id, (t) => {
+                t.draft.inspectionStep.photos.splice(idx, 1);
+              });
+              if (photoFocusIdx === idx) exitPhotoFocus();
+              else if (photoFocusIdx !== null && photoFocusIdx > idx)
+                setPhotoFocusIdx(photoFocusIdx - 1);
+            }}
             onAssignPendingPhoto={assignPendingPhoto}
             elementFocusPhotoIdx={photoFocusIdx}
             onElementFocusChangePhoto={(idx) => {
