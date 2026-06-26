@@ -146,7 +146,15 @@ export function ChatApp({ threadId }: Props) {
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
-    Array<{ id: string; dataUrl: string; blob: Blob; filename: string }>
+    Array<{
+      id: string;
+      dataUrl: string;
+      blob: Blob;
+      filename: string;
+      /** Оригинальный файл — без сжатия; используется для постоянной загрузки. */
+      originalBlob: Blob;
+      originalFilename: string;
+    }>
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
