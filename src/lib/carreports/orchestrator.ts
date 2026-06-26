@@ -538,6 +538,11 @@ export async function extractForStep(
           catalogNote = `\n🔎 По каталогу: ${label}`;
           if (lowConf || webHint)
             catalogNote += "\n⚠️ Уверенность подбора низкая — выберите вариант ниже или уточните.";
+        } else if (resolved.modelCarId && resolved.restylingChoiceRequired) {
+          const genLabel = resolved.pendingGenerationLabel ?? "Поколение";
+          catalogNote =
+            `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")} · ${genLabel}` +
+            `\n👉 У этого поколения несколько рестайлингов. Выберите рестайлинг ниже:`;
         } else if (resolved.modelCarId && resolved.generationNotFound) {
           catalogNote =
             `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
@@ -549,6 +554,9 @@ export async function extractForStep(
         } else if (last) {
           catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
+
+        // Если pendingHint был применён — очищаем.
+        if (pendingHint) charPatch.pendingGenerationHint = null;
       }
 
       const mergedCar = { ...thread.draft.carStep, ...carStep };
