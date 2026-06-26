@@ -190,7 +190,7 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
         finding={finding ?? null}
         interactive={interactive}
         photosCount={elementPhotos}
-        onSetVerdict={onSetVerdict}
+        onSetVerdict={handleSetVerdict}
         onToggleTag={onToggleTag}
         onAddPendingTag={onAddPendingTag}
         onClearElement={onClearElement}
