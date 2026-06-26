@@ -115,51 +115,72 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 /**
- * Best-effort presigned PUT. We try a few likely method names and gracefully
- * fall back if the backend doesn't expose them yet — the local data URL keeps
- * preview/draft working either way.
+ * Загружает фото во временное объектное хранилище через
+ * `ObjectStorage.GetTemporaryUploadPostUrl` (S3-совместимый presigned POST).
+ * Возвращает публичный URL загруженного файла (для передачи в AI).
+ */
+export async function uploadTemporary(photo: PreparedPhoto): Promise<{
+  filename: string;
+  url: string;
+  key?: string;
+}> {
+  type PresignResult = {
+    url?: string;
+    uploadUrl?: string;
+    postUrl?: string;
+    fields?: Record<string, string>;
+    formData?: Record<string, string>;
+    key?: string;
+    filename?: string;
+    downloadUrl?: string;
+    publicUrl?: string;
+    getUrl?: string;
+    fileUrl?: string;
+  };
+  const r = await rpc<PresignResult>("ObjectStorage.GetTemporaryUploadPostUrl", {
+    filename: photo.filename,
+    contentType: "image/jpeg",
+  });
+  const uploadUrl = r.url ?? r.uploadUrl ?? r.postUrl;
+  if (!uploadUrl) {
+    throw new ApiError("ObjectStorage.GetTemporaryUploadPostUrl: пустой url", 500);
+  }
+  const fields = r.fields ?? r.formData ?? {};
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  // S3 presigned POST требует поле `file` последним.
+  form.append("file", photo.blob, photo.filename);
+  const res = await fetch(uploadUrl, { method: "POST", body: form });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(`Upload POST ${res.status} ${body.slice(0, 200)}`, res.status);
+  }
+  const key = r.key ?? r.filename ?? fields.key;
+  const publicUrl =
+    r.downloadUrl ?? r.publicUrl ?? r.getUrl ?? r.fileUrl ??
+    (key ? new URL(key, uploadUrl).toString() : uploadUrl);
+  return { filename: key ?? photo.filename, url: publicUrl, key };
+}
+
+/**
+ * Обёртка для совместимости со старым кодом: пытается загрузить во временное
+ * хранилище; при ошибке возвращает локальный fallback с note.
  */
 export async function uploadPhoto(photo: PreparedPhoto): Promise<{
   filename: string;
   remote: boolean;
+  url?: string;
   note?: string;
 }> {
-  const candidates = [
-    "Storage.RequestUploadUrl",
-    "Storage.GetUploadUrl",
-    "Storage.CreateUpload",
-  ];
-  let lastErr: unknown = null;
-  for (const method of candidates) {
-    try {
-      const r = await rpc<{ url?: string; filename?: string; key?: string }>(method, {
-        filename: photo.filename,
-        contentType: "image/jpeg",
-      });
-      const url = (r as { url?: string }).url;
-      const key = (r as { filename?: string; key?: string }).filename ?? (r as { key?: string }).key;
-      if (!url) {
-        lastErr = new Error(`${method}: no url`);
-        continue;
-      }
-      const put = await fetch(url, {
-        method: "PUT",
-        headers: { "Content-Type": "image/jpeg" },
-        body: photo.blob,
-      });
-      if (!put.ok) {
-        lastErr = new Error(`PUT ${put.status}`);
-        continue;
-      }
-      return { filename: key ?? photo.filename, remote: true };
-    } catch (e) {
-      lastErr = e;
-      if (e instanceof ApiError && e.status && e.status >= 500) break;
-    }
+  try {
+    const r = await uploadTemporary(photo);
+    return { filename: r.filename, remote: true, url: r.url };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "ошибка загрузки";
+    return {
+      filename: photo.filename,
+      remote: false,
+      note: `Загрузка на сервер не удалась (${msg}). Фото сохранено локально в черновике.`,
+    };
   }
-  const note =
-    lastErr instanceof Error
-      ? `Загрузка на сервер пока недоступна (${lastErr.message}). Фото сохранено локально в черновике.`
-      : "Загрузка на сервер пока недоступна. Фото сохранено локально в черновике.";
-  return { filename: photo.filename, remote: false, note };
 }
