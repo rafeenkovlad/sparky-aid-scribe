@@ -63,13 +63,12 @@ import {
   toggleTag as toggleFindingTag,
   upsertFinding,
 } from "@/lib/carreports/inspectionState";
-import { InspectionChipsCard } from "./InspectionChipsCard";
+import { InspectionChipsCard, SectionPickerCard } from "./InspectionChipsCard";
 import {
   InspectionCollage,
   InspectionUploadPrompt,
   PhotoAnnotator,
 } from "./InspectionCollage";
-import { SectionPickerButton } from "./SectionPickerButton";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
 
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
@@ -120,7 +119,7 @@ function makeIntroMessage(step: StepId): ChatMessage {
     chips: intro.chips,
     optionsStep: step,
     selectedChipValues: [],
-    ...(step === "inspection" ? { kind: "inspectionChips" as const } : {}),
+    ...(step === "inspection" ? { kind: "inspectionSectionPicker" as const } : {}),
     createdAt: Date.now(),
   };
 }
@@ -256,44 +255,35 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  /** Гарантирует наличие upload-prompt + collage сообщений для раздела. */
+  /** Идемпотентно показывает в чате одну карточку для раздела:
+   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем. */
   const ensureSectionMessages = useCallback(
     (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
         const promptId = `insp-prompt-${snake}`;
         const collageId = `insp-collage-${snake}`;
-        // Сохраняем существующие, иначе создаём; в любом случае поднимаем в конец.
+        const hasPhotos = t.draft.inspectionStep.photos.some(
+          (p) => p.section === snake,
+        );
+        const keepId = hasPhotos ? collageId : promptId;
         const list = t.messages.inspection;
-        const existingPrompt = list.find((m) => m.id === promptId);
-        const existingCollage = list.find((m) => m.id === collageId);
+        const existing = list.find((m) => m.id === keepId);
         t.messages.inspection = list.filter(
           (m) => m.id !== promptId && m.id !== collageId,
         );
         const now = Date.now();
         pushMsg(t, "inspection", {
-          ...(existingPrompt ?? {
-            id: promptId,
+          ...(existing ?? {
+            id: keepId,
             role: "assistant",
             text: "",
             step: "inspection",
-            kind: "inspectionUploadPrompt",
+            kind: hasPhotos ? "inspectionCollage" : "inspectionUploadPrompt",
             sectionSnake: snake,
             createdAt: now,
           }),
           createdAt: now,
-        });
-        pushMsg(t, "inspection", {
-          ...(existingCollage ?? {
-            id: collageId,
-            role: "assistant",
-            text: "",
-            step: "inspection",
-            kind: "inspectionCollage",
-            sectionSnake: snake,
-            createdAt: now + 1,
-          }),
-          createdAt: now + 1,
         });
       });
     },
@@ -502,6 +492,8 @@ export function ChatApp({ threadId }: Props) {
           });
         }
       }
+      // После загрузки апгрейдим upload-prompt в коллаж.
+      ensureSectionMessages(sectionSnake);
     },
     [thread, ensureSectionMessages],
   );
@@ -1238,8 +1230,24 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              const intro = STEP_INTROS[currentStep];
               updateThread(thread.id, (t) => {
+                if (currentStep === "inspection") {
+                  // Полноценная панель редактирования: раздел → элемент → теги.
+                  const editId = "inspection-edit";
+                  t.messages.inspection = t.messages.inspection.filter(
+                    (m) => m.id !== editId,
+                  );
+                  pushMsg(t, "inspection", {
+                    id: editId,
+                    role: "assistant",
+                    text: "",
+                    step: "inspection",
+                    kind: "inspectionChips",
+                    createdAt: Date.now(),
+                  });
+                  return;
+                }
+                const intro = STEP_INTROS[currentStep];
                 const recapId = `recap-${currentStep}`;
                 t.messages[currentStep] = t.messages[currentStep].filter(
                   (m) => m.id !== recapId,
@@ -1333,14 +1341,8 @@ export function ChatApp({ threadId }: Props) {
         >
           <HelpCircle className="h-4 w-4" />
         </button>
-        {currentStep === "inspection" && cursor && (
-          <SectionPickerButton
-            ins={thread.draft.inspectionStep}
-            currentSection={cursor.section.snake}
-            onPick={selectSection}
-          />
-        )}
       </div>
+
 
 
 
@@ -1646,6 +1648,14 @@ function MessageBubble({
               <CopyButton text={msg.text} />
             </>
           )
+        )}
+        {msg.kind === "inspectionSectionPicker" && inspectionDraft && (
+          <SectionPickerCard
+            ins={inspectionDraft}
+            currentSection={inspectionCursor?.section.snake}
+            interactive={interactive}
+            onPick={onSelectSection ?? (() => {})}
+          />
         )}
         {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
           <InspectionChipsCard
