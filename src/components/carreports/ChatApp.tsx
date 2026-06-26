@@ -854,21 +854,104 @@ export function ChatApp({ threadId }: Props) {
           createdAt: Date.now(),
         });
       });
-      const recognized = await analyzeAttachments(atts, currentStep, combined);
-      setAnalyzing(false);
-      if (recognized) {
-        updateThread(thread.id, (t) => {
-          pushMsg(t, currentStep, {
-            id: msgId(),
-            role: "assistant",
-            text: `📄 Распознано с фото:\n${recognized}`,
-            step: currentStep,
-            createdAt: Date.now(),
+
+      if (currentStep === "inspection") {
+        // Для шага «Осмотр»: загружаем фото в постоянное хранилище и просим AI
+        // определить раздел. Найденные — сразу закрепляем за разделом. Не
+        // определённые — выводим чипы выбора раздела в чат.
+        const { classifyInspectionPhotoSection } = await import(
+          "@/lib/carreports/orchestrator"
+        );
+        for (const a of atts) {
+          let up: { url: string; filename: string; remote: boolean } | null = null;
+          try {
+            up = await uploadPhoto({
+              filename: a.filename,
+              blob: a.blob,
+              dataUrl: a.dataUrl,
+            });
+          } catch (e) {
+            updateThread(thread.id, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `⚠️ Не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}`,
+                createdAt: Date.now(),
+              });
+            });
+            continue;
+          }
+
+          const fresh = getThread(thread.id);
+          const section = fresh
+            ? await classifyInspectionPhotoSection(fresh, up.url)
+            : null;
+          if (fresh) {
+            updateThread(thread.id, (t) => {
+              t.aiChatIds = fresh.aiChatIds;
+            });
+          }
+
+          if (section) {
+            const sectionLabel =
+              INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ?? section;
+            updateThread(thread.id, (t) => {
+              t.draft.inspectionStep.photos.push({
+                section,
+                filename: up!.filename,
+                dataUrl: a.dataUrl,
+                url: up!.url,
+                remote: up!.remote,
+                addedAt: Date.now(),
+              });
+              t.draft.inspectionStep.touched = true;
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `📌 Закреплено в разделе «${sectionLabel}»`,
+                step: "inspection",
+                attachments: [{ url: up!.url, label: a.filename }],
+                createdAt: Date.now(),
+              });
+            });
+          } else {
+            updateThread(thread.id, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: "Не смог определить раздел — выберите вручную:",
+                step: "inspection",
+                kind: "inspectionAttachAssign",
+                pendingPhoto: {
+                  url: up!.url,
+                  dataUrl: a.dataUrl,
+                  filename: up!.filename,
+                  remote: up!.remote,
+                },
+                createdAt: Date.now(),
+              });
+            });
+          }
+        }
+        setAnalyzing(false);
+      } else {
+        const recognized = await analyzeAttachments(atts, currentStep, combined);
+        setAnalyzing(false);
+        if (recognized) {
+          updateThread(thread.id, (t) => {
+            pushMsg(t, currentStep, {
+              id: msgId(),
+              role: "assistant",
+              text: `📄 Распознано с фото:\n${recognized}`,
+              step: currentStep,
+              createdAt: Date.now(),
+            });
           });
-        });
-        textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+          textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+        }
       }
     }
+
 
 
     // Q&A mode: free-form question, no draft mutation.
