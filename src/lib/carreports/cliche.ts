@@ -248,10 +248,17 @@ elementId="generalCondition" и noDamage=true.
 /** Клише для распознавания одного фото осмотра. */
 export const CLICHE_INSPECTION_PHOTO = (
   sectionLabel: string,
-  elements: Array<{ id: string; label: string }>,
+  elements: Array<{ id: string; label: string; hint?: string }>,
   knownTags: Array<{ name: string; type?: string | null }>,
 ) => {
-  const elList = elements.map((el) => `  • ${el.id} — ${el.label}`).join("\n");
+  const elList = elements
+    .map((el) => {
+      const h = el.hint?.trim();
+      return h
+        ? `  • ${el.id} — ${el.label}\n      ↳ ${h}`
+        : `  • ${el.id} — ${el.label}`;
+    })
+    .join("\n");
   const tagList = knownTags.length
     ? knownTags
         .slice(0, 60)
@@ -264,7 +271,12 @@ export const CLICHE_INSPECTION_PHOTO = (
   return `${COMMON}
 
 На фото — элемент автомобиля из раздела «${sectionLabel}». Определи:
-1) Какой именно элемент из списка изображён (один elementId).
+1) Какой именно элемент из списка изображён (один elementId). Используй
+   подсказки-референсы под каждым id — они описывают характерные признаки
+   (расположение, форма, что вокруг). Сопоставь видимое на фото с этими
+   признаками и выбери НАИБОЛЕЕ подходящий id. Если фото общее (несколько
+   элементов сразу) или не удаётся однозначно определить — используй
+   "generalCondition".
 2) Видны ли дефекты. Серьёзные: коррозия сквозная, перекрас, замена силового
    элемента, следы ДТП, треснутый элемент. Не серьёзные: сколы, царапины,
    локальные подкрасы, потёртости, грязь.
@@ -272,7 +284,7 @@ export const CLICHE_INSPECTION_PHOTO = (
    подходящего тега нет — придумай короткое имя (1–3 слова).
 4) Сформулируй заметку 1–2 предложения по делу: что видно, где, насколько критично.
 
-Элементы раздела (используй ИМЕННО эти id):
+Элементы раздела (используй ИМЕННО эти id; референс — после стрелки ↳):
 ${elList}
 
 Каталог тегов раздела:
