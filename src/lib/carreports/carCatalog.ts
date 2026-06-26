@@ -1193,3 +1193,31 @@ export function formatClarifyTrace(entries: ClarifyTraceEntry[]): string {
   return `\n🔁 Уточняющие запросы нейросети:\n${lines.join("\n")}`;
 }
 
+/** Trace builder из ResolvedCar.trace (steps brand/model/generation). */
+export function resolvedTraceToClarify(
+  resolved: ResolvedCar,
+): ClarifyTraceEntry[] {
+  const out: ClarifyTraceEntry[] = [];
+  const stepLabel: Record<string, string> = {
+    brand: "марку",
+    model: "модель",
+    generation: "поколение/рестайлинг",
+  };
+  for (const t of resolved.trace) {
+    const conf = Math.round(t.confidence * 100);
+    out.push({
+      kind: "ai",
+      label: `Подбираю ${stepLabel[t.step] ?? t.step} из каталога (${t.candidates} вариантов, уверенность ${conf}%)`,
+      ...(t.reason ? { detail: t.reason } : {}),
+    });
+    if (t.needsWeb) {
+      out.push({
+        kind: "web",
+        label: `Веб-фолбэк: уточняю ${stepLabel[t.step] ?? t.step} поиском`,
+      });
+    }
+  }
+  return out;
+}
+
+
