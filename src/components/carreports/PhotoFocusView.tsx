@@ -484,7 +484,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
 // ─── Подкомпоненты ────────────────────────────────────────────────────────
 
-function TagBucket(props: {
+function TagRow(props: {
   tone: "serious" | "minor";
   label: string;
   tags: UserTag[];
@@ -501,59 +501,56 @@ function TagBucket(props: {
     return [...sel, ...rest];
   }, [tags, selected]);
   const count = selected.size + pending.length;
+  const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-[10px] uppercase tracking-wide text-white/45 flex items-center gap-1.5">
-          <span
-            className={
-              "inline-block h-1.5 w-1.5 rounded-full " +
-              (tone === "serious" ? "bg-rose-400" : "bg-amber-400")
-            }
-          />
-          {label}
-        </div>
+    <div>
+      <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wide text-white/45">
+        <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
+        {label}
         {count > 0 && (
-          <span className="text-[10px] text-white/45 tabular-nums">
-            выбрано {count}
+          <span className="text-white/35 normal-case tracking-normal">
+            · выбрано {count}
           </span>
         )}
       </div>
       {sorted.length === 0 && pending.length === 0 ? (
         <div className="text-[11px] text-white/35 italic">
-          Каталог пуст. Добавьте свой тег ниже — он создастся при отправке.
+          Каталог пуст. Добавьте свой тег ниже.
         </div>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {sorted.map((t) => {
-            const sel = selected.has(t.id);
-            return (
+        <div className="-mx-3 px-3 overflow-x-auto">
+          <div className="flex gap-1.5 w-max pb-0.5">
+            {sorted.map((t) => {
+              const sel = selected.has(t.id);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => onTap(t)}
+                  className={tagChip(tone, sel)}
+                >
+                  {sel && <Check className="h-3 w-3 -ml-0.5" />}
+                  {t.name}
+                </button>
+              );
+            })}
+            {pending.map((p) => (
               <button
-                key={t.id}
-                onClick={() => onTap(t)}
-                className={tagChip(tone, sel)}
+                key={`pending:${p.name}`}
+                onClick={() => onTogglePending(p.name)}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs text-violet-100 whitespace-nowrap hover:bg-violet-500/25"
+                title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
               >
-                {sel && <Check className="h-3 w-3 -ml-0.5" />}
-                {t.name}
+                ✨ {p.name}
+                <X className="h-3 w-3 opacity-70" />
               </button>
-            );
-          })}
-          {pending.map((p) => (
-            <button
-              key={`pending:${p.name}`}
-              onClick={() => onTogglePending(p.name)}
-              className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs text-violet-100 hover:bg-violet-500/25"
-              title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
-            >
-              ✨ {p.name}
-              <X className="h-3 w-3 opacity-70" />
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
 
 function tagChip(tone: "serious" | "minor", selected: boolean): string {
   const base =
