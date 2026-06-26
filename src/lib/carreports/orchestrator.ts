@@ -1020,21 +1020,29 @@ export async function analyzeInspectionPhoto(
   const tagCatalogue = await loadSectionTags(sectionSnake);
 
   const id = aiChatIdFor(thread, `vision:inspection:${sectionSnake}:${photoUrl.slice(-12)}`);
-  const res = await chatCompletions({
-    id,
-    text: hint?.trim() || "Опиши, что видно на фото.",
-    cliche: CLICHE_INSPECTION_PHOTO(
-      section.label,
-      section.elements.map((el) => ({
-        id: el.id,
-        label: el.label,
-        hint: elementHint(sectionSnake, el.id),
-      })),
-      tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
-    ),
-    fileUrls: [photoUrl],
-    model: "qwen3.7-max",
-  });
+  const cliche = CLICHE_INSPECTION_PHOTO(
+    section.label,
+    section.elements.map((el) => ({
+      id: el.id,
+      label: el.label,
+      hint: elementHint(sectionSnake, el.id),
+    })),
+    tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+  );
+  const text = hint?.trim() || "Опиши, что видно на фото.";
+
+  // Пробуем qwen3.7-max; если прокси отдаёт 5xx / "не поддерживается" —
+  // молча повторяем без model, чтобы взять дефолтную модель прокси.
+  let res;
+  try {
+    res = await chatCompletions({ id, text, cliche, fileUrls: [photoUrl], model: "qwen3.7-max" });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const transient = /HTTP 5\d\d|Server error|unavailable|unsupported|unknown model|not found/i.test(msg);
+    if (!transient) throw e;
+    res = await chatCompletions({ id, text, cliche, fileUrls: [photoUrl] });
+  }
+
 
   const raw = parseJsonResponse<{
     elementId?: string;
