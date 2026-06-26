@@ -1950,7 +1950,14 @@ export function ChatApp({ threadId }: Props) {
                       <div className="flex items-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
+                          onClick={() => {
+                            if (voice.state === "recording") {
+                              voice.stop();
+                            } else {
+                              voiceBaseRef.current = composer.trim();
+                              void voice.start();
+                            }
+                          }}
                           onMouseDown={(e) => e.preventDefault()}
                           disabled={voice.state === "transcribing"}
                           className={
