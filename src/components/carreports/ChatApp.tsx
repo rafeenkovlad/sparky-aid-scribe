@@ -991,7 +991,54 @@ export function ChatApp({ threadId }: Props) {
             </div>
           );
         })()}
+        {pendingAttachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {pendingAttachments.map((a) => (
+              <div
+                key={a.id}
+                className="relative h-16 w-16 rounded-lg overflow-hidden border border-white/15 bg-white/[0.04]"
+                title={a.filename}
+              >
+                <img src={a.dataUrl} alt={a.filename} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label="Убрать фото"
+                  className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {analyzing && (
+              <div className="h-16 px-2 flex items-center gap-1.5 text-xs text-white/70">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> распознаю…
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          {/* Универсальная кнопка вложения — для всех шагов. */}
+          <input
+            ref={attachInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              for (const f of files) void addAttachment(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => attachInputRef.current?.click()}
+            className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
+            aria-label="Прикрепить фото для распознавания"
+            title="Прикрепить фото (≤2MB, распознаем текст и характеристики)"
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
           {currentStep === "inspection" && (
             <>
               <input
