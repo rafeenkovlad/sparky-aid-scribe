@@ -142,6 +142,8 @@ export function ChatApp({ threadId }: Props) {
   const [fullReportOpen, setFullReportOpen] = useState(false);
   const [composer, setComposer] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
+  const [composerHeight, setComposerHeight] = useState<number | null>(null);
+  const composerDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
   /** Открытый «чат с фотографией»: индекс фото в `inspectionStep.photos`. */
@@ -1800,12 +1802,47 @@ export function ChatApp({ threadId }: Props) {
             <div className="w-full">
               <div
                 className={
-                  "flex items-end gap-2 rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
-                  (isExpanded
-                    ? "border-white/15 p-2"
-                    : "border-white/10 p-1.5")
+                  "rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
+                  (isExpanded ? "border-white/15" : "border-white/10")
                 }
               >
+                {isExpanded && (
+                  <div
+                    role="separator"
+                    aria-label="Потяните, чтобы изменить высоту"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+                      const cur = composerHeight ?? (textareaRef.current?.offsetHeight ?? 44);
+                      composerDragRef.current = { startY: e.clientY, startH: cur };
+                    }}
+                    onPointerMove={(e) => {
+                      const d = composerDragRef.current;
+                      if (!d) return;
+                      const next = Math.min(
+                        Math.max(44, d.startH + (d.startY - e.clientY)),
+                        window.innerHeight - 80,
+                      );
+                      setComposerHeight(next);
+                    }}
+                    onPointerUp={(e) => {
+                      composerDragRef.current = null;
+                      try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+                    }}
+                    onPointerCancel={() => { composerDragRef.current = null; }}
+                    onDoubleClick={() => setComposerHeight(null)}
+                    className="flex items-center justify-center cursor-ns-resize touch-none py-1.5 -mb-1 select-none"
+                    title="Перетащите, чтобы изменить высоту. Двойной клик — сброс"
+                  >
+                    <span className="h-1 w-10 rounded-full bg-white/25" />
+                  </div>
+                )}
+                <div
+                  className={
+                    "flex items-end gap-2 transition-all duration-300 " +
+                    (isExpanded ? "p-2" : "p-1.5")
+                  }
+                >
                 {/* Универсальная кнопка вложения — скрыта в свёрнутом состоянии. */}
                 <input
                   ref={attachInputRef}
@@ -1852,9 +1889,16 @@ export function ChatApp({ threadId }: Props) {
                           ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
                           : STEP_PLACEHOLDERS[currentStep]
                   }
+                  style={
+                    isExpanded && composerHeight != null
+                      ? { height: composerHeight, minHeight: composerHeight, maxHeight: composerHeight }
+                      : undefined
+                  }
                   className={
                     "border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
-                    (isExpanded ? "min-h-[44px] max-h-[60vh] resize-y" : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
+                    (isExpanded
+                      ? (composerHeight != null ? "resize-none" : "min-h-[44px] max-h-[60vh] resize-y")
+                      : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
                     (askMode ? " placeholder:text-sky-300/60" : "")
                   }
                 />
@@ -1925,6 +1969,7 @@ export function ChatApp({ threadId }: Props) {
                 >
                   <ArrowUp className={isExpanded ? "h-5 w-5" : "h-4 w-4"} />
                 </button>
+                </div>
               </div>
             </div>
           );
