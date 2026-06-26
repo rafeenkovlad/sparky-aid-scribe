@@ -1275,6 +1275,7 @@ interface BubbleProps {
   onInspectionDateChange: (iso: string) => void;
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
+  onDocsAllMatch?: () => void;
 }
 
 function MessageBubble({
@@ -1285,6 +1286,7 @@ function MessageBubble({
   onInspectionDateChange,
   draft,
   onFillMissing,
+  onDocsAllMatch,
 }: BubbleProps) {
 
   if (msg.role === "user") {
