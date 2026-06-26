@@ -1099,12 +1099,26 @@ export async function resolveModelCarId(
  * низкая — добавляем веб-контекст и переспрашиваем. Возвращаем нормализованные
  * имена бренда и модели (или null).
  */
+export interface InferBrandResult {
+  brandName: string;
+  modelCarName: string;
+  /** debug-trace of clarifying AI/web calls */
+  trace: ClarifyTraceEntry[];
+}
+
+export interface ClarifyTraceEntry {
+  kind: "ai" | "web";
+  label: string;
+  detail?: string;
+}
+
 export async function inferBrandFromModelName(
   modelHint: string,
   userText: string,
   thread?: Thread,
-): Promise<{ brandName: string; modelCarName: string } | null> {
+): Promise<InferBrandResult | null> {
   if (!thread || !modelHint.trim()) return null;
+  const trace: ClarifyTraceEntry[] = [];
   const ask = async (webCtx?: string) =>
     aiPick<{
       brandName: string | null;
@@ -1134,13 +1148,25 @@ export async function inferBrandFromModelName(
       },
     );
 
+  trace.push({
+    kind: "ai",
+    label: `Определяю марку по модели «${modelHint}»`,
+  });
   let pick = await ask();
   if (!pick?.brandName || pick.confidence < LOW_CONF || pick.needsWeb) {
+    trace.push({
+      kind: "web",
+      label: `Уточняю в вебе: «какая марка ${modelHint}»`,
+    });
     const ctx = await webSearchContext(
       `какая марка автомобиля ${modelHint} производитель`,
       5,
     );
     if (ctx) {
+      trace.push({
+        kind: "ai",
+        label: `Повторно спрашиваю модель марки с веб-контекстом`,
+      });
       const retry = await ask(ctx);
       if (retry?.brandName && retry.confidence >= (pick?.confidence ?? 0)) {
         pick = retry;
@@ -1148,8 +1174,22 @@ export async function inferBrandFromModelName(
     }
   }
   if (!pick?.brandName) return null;
+  trace.push({
+    kind: "ai",
+    label: `Марка определена: ${pick.brandName} (модель: ${pick.modelCarName || modelHint})`,
+  });
   return {
     brandName: pick.brandName,
     modelCarName: pick.modelCarName || modelHint,
+    trace,
   };
 }
+
+/** Human-readable formatter for trace entries — для показа в чате. */
+export function formatClarifyTrace(entries: ClarifyTraceEntry[]): string {
+  if (!entries.length) return "";
+  const icon = (k: ClarifyTraceEntry["kind"]) => (k === "web" ? "🌐" : "🧠");
+  const lines = entries.map((e) => `  ${icon(e.kind)} ${e.label}`);
+  return `\n🔁 Уточняющие запросы нейросети:\n${lines.join("\n")}`;
+}
+
