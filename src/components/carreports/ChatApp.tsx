@@ -1117,7 +1117,9 @@ export function ChatApp({ threadId }: Props) {
             onClick={() => void submit()}
             disabled={
               busy ||
+              analyzing ||
               (!composer.trim() &&
+                pendingAttachments.length === 0 &&
                 (currentStep === "inspection"
                   ? selectedInspectionChips.size === 0
                   : !(lastOptionsMsgId &&
