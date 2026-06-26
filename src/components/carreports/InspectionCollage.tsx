@@ -3,7 +3,7 @@
 // upload-приглашения kind="inspectionUploadPrompt".
 
 import { useMemo, useRef } from "react";
-import { Camera, Image as ImageIcon, Plus } from "lucide-react";
+import { Camera, Image as ImageIcon, Plus, X } from "lucide-react";
 import {
   getSection,
   type SectionSnake,
@@ -87,8 +87,9 @@ export function InspectionCollage(props: {
   interactive: boolean;
   onPick: (files: File[]) => void;
   onOpenPhoto: (photoIdx: number) => void;
+  onDeletePhoto?: (photoIdx: number) => void;
 }) {
-  const { ins, sectionSnake, interactive, onPick, onOpenPhoto } = props;
+  const { ins, sectionSnake, interactive, onPick, onOpenPhoto, onDeletePhoto } = props;
   const section = getSection(sectionSnake);
   const list = useMemo(() => photosForSection(ins, sectionSnake), [ins, sectionSnake]);
   const moreRef = useRef<HTMLInputElement>(null);
@@ -134,41 +135,59 @@ export function InspectionCollage(props: {
                       ? "bg-sky-500"
                       : "bg-white/30";
             return (
-              <button
+              <div
                 key={`${idx}:${photo.filename}`}
-                disabled={!interactive}
-                onClick={() => onOpenPhoto(idx)}
                 className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-white/5 group"
-                title={elLabel ?? "Без элемента"}
               >
-                {photo.dataUrl ? (
-                  <img
-                    src={photo.dataUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-white/40 text-xs">
-                    нет превью
-                  </div>
-                )}
-                <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/80 to-transparent">
-                  <div className="flex items-center gap-1">
-                    <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
-                    <span className="text-[10px] text-white truncate">
-                      {elLabel ?? "—"}
-                    </span>
-                    {tagCount > 0 && (
-                      <span className="ml-auto text-[10px] text-white/85">
-                        🏷{tagCount}
+                <button
+                  type="button"
+                  disabled={!interactive}
+                  onClick={() => onOpenPhoto(idx)}
+                  className="absolute inset-0 w-full h-full"
+                  title={elLabel ?? "Без элемента"}
+                >
+                  {photo.dataUrl ? (
+                    <img
+                      src={photo.dataUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-white/40 text-xs">
+                      нет превью
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/80 to-transparent">
+                    <div className="flex items-center gap-1">
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
+                      <span className="text-[10px] text-white truncate">
+                        {elLabel ?? "—"}
                       </span>
-                    )}
-                    {finding?.note && (
-                      <span className="text-[10px] text-white/85">📝</span>
-                    )}
+                      {tagCount > 0 && (
+                        <span className="ml-auto text-[10px] text-white/85">
+                          🏷{tagCount}
+                        </span>
+                      )}
+                      {finding?.note && (
+                        <span className="text-[10px] text-white/85">📝</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                {interactive && onDeletePhoto && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm("Удалить это фото?")) onDeletePhoto(idx);
+                    }}
+                    aria-label="Удалить фото"
+                    className="absolute top-1 right-1 z-10 h-6 w-6 rounded-full bg-black/55 hover:bg-rose-500/80 text-white flex items-center justify-center ring-1 ring-white/15 backdrop-blur-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             );
           })}
 

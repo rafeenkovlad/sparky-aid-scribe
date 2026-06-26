@@ -1536,6 +1536,15 @@ export function ChatApp({ threadId }: Props) {
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={enterPhotoFocus}
+            onDeleteInspectionPhoto={(idx: number) => {
+              if (!thread) return;
+              updateThread(thread.id, (t) => {
+                t.draft.inspectionStep.photos.splice(idx, 1);
+              });
+              if (photoFocusIdx === idx) exitPhotoFocus();
+              else if (photoFocusIdx !== null && photoFocusIdx > idx)
+                setPhotoFocusIdx(photoFocusIdx - 1);
+            }}
             onAssignPendingPhoto={assignPendingPhoto}
             elementFocusPhotoIdx={photoFocusIdx}
             onElementFocusChangePhoto={(idx) => {
@@ -2065,6 +2074,7 @@ interface BubbleProps {
   onNextElement?: () => void;
   onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
   onOpenAnnotator?: (photoIdx: number) => void;
+  onDeleteInspectionPhoto?: (photoIdx: number) => void;
   onAssignPendingPhoto?: (msgId: string, snake: SectionSnake) => void;
   /** Element-focus card (живёт прямо в чате) */
   elementFocusPhotoIdx?: number | null;
@@ -2101,6 +2111,7 @@ function MessageBubble({
   onNextElement,
   onPickInspectionPhotos,
   onOpenAnnotator,
+  onDeleteInspectionPhoto,
   onAssignPendingPhoto,
   elementFocusPhotoIdx,
   onElementFocusChangePhoto,
@@ -2236,6 +2247,7 @@ function MessageBubble({
               onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
             }
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
+            onDeletePhoto={(idx) => onDeleteInspectionPhoto?.(idx)}
           />
         )}
         {msg.kind === "inspectionElementFocus" &&
