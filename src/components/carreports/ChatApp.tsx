@@ -548,7 +548,21 @@ export function ChatApp({ threadId }: Props) {
     const idx = FLOW_STEPS.findIndex((s) => s.id === step);
     if (idx < 0) return;
     updateThread(thread.id, (t) => {
+      const changed = t.stepIndex !== idx;
       t.stepIndex = idx;
+      if (changed) {
+        pushMsg(t, step, makeIntroMessage(step));
+        const ask = nextMissingPrompt(step, t.draft);
+        if (ask) {
+          pushMsg(t, step, {
+            id: msgId(),
+            role: "assistant",
+            text: `➡️ ${ask}`,
+            step,
+            createdAt: Date.now(),
+          });
+        }
+      }
     });
     setDraftOpen(false);
   }
