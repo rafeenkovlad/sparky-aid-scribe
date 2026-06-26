@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import logo from "@/assets/cr-logo.png";
+import assistantAvatar from "@/assets/cr-assistant-vindiesel.jpg";
 import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
@@ -2241,8 +2242,8 @@ function MessageBubble({
 
   return (
     <div className="flex gap-2 items-start">
-      <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
-        <img src={logo} alt="" className="h-4 w-4 invert" />
+      <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden border border-white/15 bg-zinc-900">
+        <img src={assistantAvatar} alt="ИИ-ассистент" loading="lazy" width={32} height={32} className="h-full w-full object-cover" />
       </div>
       <div className={`max-w-[85%] ${msg.kind === "inspectionCollage" ? "w-full" : ""} space-y-2`}>
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
