@@ -190,14 +190,29 @@ export async function extractForStep(
       lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
     }
     if (zoneFindings.length === 0) lines.push(cleaned);
-    lines.push(
-      hasIssues
-        ? "\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
-        : "",
-    );
-    lines.push(
-      "Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».",
-    );
+    if (hasIssues)
+      lines.push("\n* — теги добавятся локально и поедут при отправке как pendingTagNames.");
+
+    // Чипы: элементы зоны + теги повреждений (готовые фразы для инпута).
+    const chips: ChatChip[] = [];
+    for (const el of section.elements) {
+      chips.push({
+        label: el.label,
+        value: `${el.label}: без замечаний`,
+        group: "inspection-element",
+        single: true,
+      });
+    }
+    // Берём топ-12 тегов, чтобы не раздувать карточку.
+    for (const t of tagCatalogue.slice(0, 12)) {
+      const prefix = t.type === "serious" ? "❗" : "";
+      chips.push({
+        label: `${prefix}${t.name}`,
+        value: t.name,
+        group: "inspection-tag",
+        single: true,
+      });
+    }
 
     return {
       patch: {
@@ -210,8 +225,10 @@ export async function extractForStep(
         },
       },
       reply: lines.filter(Boolean).join("\n"),
+      chips,
     };
   }
+
 
   // Test-drive: AI extracts per-system flags + tags + note.
   if (step === "testDrive") {
@@ -254,6 +271,7 @@ export async function extractForStep(
       return {
         patch: { testDriveStep: merged },
         reply: summarizeTestDrive(merged),
+        chips: testDriveChips(),
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
@@ -261,11 +279,13 @@ export async function extractForStep(
       return {
         patch: { testDriveStep: { ...prev, notDone, notes } },
         reply: notDone
-          ? "Отметил: тест-драйв не проводился. Можно идти к итогу."
-          : "Записал заметки по тест-драйву. Дополните, либо «Всё верно, далее».",
+          ? "Отметил: тест-драйв не проводился."
+          : "Записал заметки по тест-драйву.",
+        chips: testDriveChips(),
       };
     }
   }
+
 
   // Result: AI splits text into summary vs verdict.
   if (step === "result") {
@@ -293,18 +313,19 @@ export async function extractForStep(
       if (raw.resultSpecialistNote) bits.push(`✅ Вердикт:\n${raw.resultSpecialistNote.trim()}`);
       return {
         patch: { resultStep: merged },
-        reply: bits.length
-          ? `${bits.join("\n\n")}\n\nДополните или нажмите «Всё верно, далее».`
-          : "Зафиксировал. Дополните или нажмите «Всё верно, далее».",
+        reply: bits.length ? bits.join("\n\n") : "Зафиксировал.",
+        chips: resultChips(),
       };
     } catch {
       const isRec = /рекоменд/i.test(text);
       const merged = isRec
         ? { ...prev, resultSpecialistNote: prev.resultSpecialistNote ? `${prev.resultSpecialistNote}\n${text}` : text }
         : { ...prev, summaryInspectionNote: prev.summaryInspectionNote ? `${prev.summaryInspectionNote}\n${text}` : text };
-      return { patch: { resultStep: merged }, reply: "Зафиксировал. Дополните или нажмите «Всё верно, далее»." };
+      return { patch: { resultStep: merged }, reply: "Зафиксировал.", chips: resultChips() };
     }
   }
+
+
 
 
 
@@ -1181,3 +1202,71 @@ export async function askQuestion(
   }
 }
 
+
+function testDriveChips(): ChatChip[] {
+  const systems = [
+    ["Двигатель", "engine"],
+    ["КПП", "transmission"],
+    ["Руль", "steering"],
+    ["Подвеска", "suspension"],
+    ["Тормоза", "brakes"],
+  ] as const;
+  const out: ChatChip[] = [
+    {
+      label: "Тест-драйв не проводился",
+      value: "Тест-драйв не проводился.",
+      group: "testDrive-system",
+      single: true,
+    },
+  ];
+  for (const [label] of systems) {
+    out.push({
+      label: `${label} — ок`,
+      value: `${label}: работает корректно.`,
+      group: "testDrive-system",
+      single: true,
+    });
+    out.push({
+      label: `${label} — есть замечания`,
+      value: `${label}: есть замечания — `,
+      group: "testDrive-system",
+      single: true,
+    });
+  }
+  return out;
+}
+
+function resultChips(): ChatChip[] {
+  return [
+    {
+      label: "✅ Рекомендую к покупке",
+      value: "Рекомендую к покупке.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "⚠️ Покупать с торгом",
+      value: "Можно покупать, но с торгом по выявленным замечаниям.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "❌ Не рекомендую",
+      value: "Не рекомендую к покупке.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "📝 Резюме осмотра",
+      value: "Резюме осмотра: ",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "🔧 Работы перед покупкой",
+      value: "Перед покупкой рекомендуется выполнить: ",
+      group: "result-template",
+      single: true,
+    },
+  ];
+}
