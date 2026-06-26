@@ -257,7 +257,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     const sectionType = SECTION_DOC_TO_TYPE[section.doc] ?? section.snake;
     arr.push(
       makeElement(sectionType, el.id, {
-        hasFile: false,
+        hasFile: true,
         noDamage: f.noDamage,
         seriousDamageTags: f.seriousDamageTagIds,
         noSeriousDamageTags: f.noSeriousDamageTagIds,

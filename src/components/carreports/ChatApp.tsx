@@ -50,6 +50,20 @@ import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/typ
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+import {
+  INSPECTION_SECTIONS,
+  type SectionSnake,
+} from "@/lib/carreports/inspectionSections";
+import {
+  clearFinding,
+  getCursor,
+  nextEmptyLocation,
+  togglePendingTag,
+  toggleTag as toggleFindingTag,
+  upsertFinding,
+} from "@/lib/carreports/inspectionState";
+import { InspectionChipsCard } from "./InspectionChipsCard";
+import type { UserTag } from "@/lib/carreports/inspectionTags";
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
@@ -224,36 +238,158 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
-  // Inspection: current zone (defaults to first when entering the step)
-  const currentZoneId = thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
-  const currentZone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
+  // Inspection: current section/element (new DTO-based cursor).
+  const cursor = useMemo(
+    () => (thread ? getCursor(thread.draft) : null),
+    [thread],
+  );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const selectZone = useCallback(
-    (zoneId: string) => {
+
+  const selectSection = useCallback(
+    (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
-        t.draft.inspectionStep.currentZone = zoneId;
-        // Clear chip selections on the inspection intro message when switching zone.
-        for (const m of t.messages.inspection) {
-          if (m.kind === "inspectionChips") m.selectedChipValues = [];
-        }
+        t.draft.inspectionStep.currentSection = snake;
+        const sec = INSPECTION_SECTIONS.find((s) => s.snake === snake);
+        t.draft.inspectionStep.currentElementId = sec?.elements[0].id;
       });
       textareaRef.current?.focus();
     },
     [thread],
   );
 
+  const selectElement = useCallback(
+    (elementId: string) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        t.draft.inspectionStep.currentElementId = elementId;
+      });
+      textareaRef.current?.focus();
+    },
+    [thread],
+  );
+
+  const setVerdict = useCallback(
+    (v: "ok" | "minor" | "serious") => {
+      if (!thread || !cursor) return;
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => {
+            if (v === "ok") {
+              f.noDamage = true;
+              f.seriousDamageTagIds = [];
+              f.noSeriousDamageTagIds = [];
+              f.pendingTagNames = [];
+            } else {
+              f.noDamage = false;
+              // Don't wipe tags when switching between minor/serious so the user
+              // can re-classify without losing input.
+            }
+          },
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const toggleTagOnFinding = useCallback(
+    (tag: UserTag) => {
+      if (!thread || !cursor) return;
+      const bucket: "serious" | "non_serious" =
+        tag.type === "serious" ? "serious" : "non_serious";
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => toggleFindingTag(f, bucket, tag.id),
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const addPendingTagOnFinding = useCallback(
+    (name: string, severity: "serious" | "non_serious") => {
+      if (!thread || !cursor) return;
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => togglePendingTag(f, name, severity),
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const clearCurrentElement = useCallback(() => {
+    if (!thread || !cursor) return;
+    updateThread(thread.id, (t) => {
+      clearFinding(
+        t.draft.inspectionStep,
+        cursor.section.snake,
+        cursor.element.id,
+      );
+    });
+  }, [thread, cursor]);
+
+  const markSectionAllOk = useCallback(() => {
+    if (!thread || !cursor) return;
+    updateThread(thread.id, (t) => {
+      for (const el of cursor.section.elements) {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          el.id,
+          (f) => {
+            if (!f.noDamage && !(f.seriousDamageTagIds?.length) && !(f.noSeriousDamageTagIds?.length)) {
+              f.noDamage = true;
+            }
+          },
+        );
+      }
+      t.draft.inspectionStep.touched = true;
+    });
+  }, [thread, cursor]);
+
+  const goNextElement = useCallback(() => {
+    if (!thread || !cursor) return;
+    const next = nextEmptyLocation(
+      thread.draft.inspectionStep,
+      cursor.section.snake,
+      cursor.element.id,
+    );
+    if (!next) return;
+    updateThread(thread.id, (t) => {
+      t.draft.inspectionStep.currentSection = next.section.snake;
+      t.draft.inspectionStep.currentElementId = next.element.id;
+    });
+    textareaRef.current?.focus();
+  }, [thread, cursor]);
+
   const onPickPhoto = useCallback(
     async (file: File) => {
-      if (!thread) return;
-      const zoneId = thread.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+      if (!thread || !cursor) return;
+      const sectionSnake = cursor.section.snake;
+      const elementId = cursor.element.id;
+      const sectionLabel = cursor.section.label;
+      const elementLabel = cursor.element.label;
       try {
         const prepared = await preparePhoto(file);
         const up = await uploadPhoto(prepared);
         updateThread(thread.id, (t) => {
           t.draft.inspectionStep.photos.push({
-            section: zoneId,
+            section: sectionSnake,
+            elementId,
             filename: up.filename,
             dataUrl: prepared.dataUrl,
             remote: up.remote,
@@ -264,8 +400,8 @@ export function ChatApp({ threadId }: Props) {
             id: msgId(),
             role: "assistant",
             text: up.remote
-              ? `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» (загружено: ${up.filename}).`
-              : `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» локально. ${up.note ?? ""}`,
+              ? `📷 Фото добавлено к «${elementLabel}» (раздел «${sectionLabel}»).`
+              : `📷 Фото добавлено локально к «${elementLabel}» (раздел «${sectionLabel}»). ${up.note ?? ""}`,
             createdAt: Date.now(),
           });
         });
@@ -877,19 +1013,16 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
-            currentZoneId={currentZoneId}
-            onZoneSelect={selectZone}
-            zoneStats={(() => {
-              const ins = thread.draft.inspectionStep;
-              const stats: Record<string, { hasNote: boolean; photos: number }> = {};
-              for (const z of INSPECTION_ZONES) {
-                stats[z.id] = {
-                  hasNote: !!ins.sectionNotes[z.id],
-                  photos: ins.photos.filter((p) => p.section === z.id).length,
-                };
-              }
-              return stats;
-            })()}
+            inspectionDraft={thread.draft.inspectionStep}
+            inspectionCursor={cursor ?? undefined}
+            onSelectSection={selectSection}
+            onSelectElement={selectElement}
+            onSetVerdict={setVerdict}
+            onToggleTag={toggleTagOnFinding}
+            onAddPendingTag={addPendingTagOnFinding}
+            onClearElement={clearCurrentElement}
+            onAllNoDamage={markSectionAllOk}
+            onNextElement={goNextElement}
           />
         ))}
 
@@ -1155,8 +1288,8 @@ export function ChatApp({ threadId }: Props) {
             placeholder={
               askMode
                 ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
-                : currentStep === "inspection"
-                  ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                : currentStep === "inspection" && cursor
+                  ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
                   : STEP_PLACEHOLDERS[currentStep]
             }
             className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
@@ -1232,12 +1365,17 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
-  /** Активная зона осмотра (для рендера блока inspectionChips). */
-  currentZoneId?: string;
-  /** Переключение зоны осмотра. */
-  onZoneSelect?: (zoneId: string) => void;
-  /** Счётчики заметок/фото по зонам. */
-  zoneStats?: Record<string, { hasNote: boolean; photos: number }>;
+  /** Inspection chat card data + handlers. */
+  inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
+  inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
+  onSelectSection?: (snake: SectionSnake) => void;
+  onSelectElement?: (elementId: string) => void;
+  onSetVerdict?: (v: "ok" | "minor" | "serious") => void;
+  onToggleTag?: (t: UserTag) => void;
+  onAddPendingTag?: (name: string, severity: "serious" | "non_serious") => void;
+  onClearElement?: () => void;
+  onAllNoDamage?: () => void;
+  onNextElement?: () => void;
 }
 
 function MessageBubble({
@@ -1249,9 +1387,16 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
-  currentZoneId,
-  onZoneSelect,
-  zoneStats,
+  inspectionDraft,
+  inspectionCursor,
+  onSelectSection,
+  onSelectElement,
+  onSetVerdict,
+  onToggleTag,
+  onAddPendingTag,
+  onClearElement,
+  onAllNoDamage,
+  onNextElement,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1333,14 +1478,19 @@ function MessageBubble({
             </>
           )
         )}
-        {msg.kind === "inspectionChips" && (
-          <InspectionChipsBlock
-            currentZoneId={currentZoneId ?? INSPECTION_ZONES[0].id}
+        {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
+          <InspectionChipsCard
+            ins={inspectionDraft}
+            cursor={inspectionCursor}
             interactive={interactive}
-            selectedValues={new Set(msg.selectedChipValues ?? [])}
-            onZoneSelect={onZoneSelect}
-            onChipTap={onChipTap}
-            zoneStats={zoneStats ?? {}}
+            onSelectSection={onSelectSection ?? (() => {})}
+            onSelectElement={onSelectElement ?? (() => {})}
+            onSetVerdict={onSetVerdict ?? (() => {})}
+            onToggleTag={onToggleTag ?? (() => {})}
+            onAddPendingTag={onAddPendingTag ?? (() => {})}
+            onClearElement={onClearElement ?? (() => {})}
+            onAllNoDamage={onAllNoDamage ?? (() => {})}
+            onNextElement={onNextElement ?? (() => {})}
           />
         )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
@@ -1573,89 +1723,6 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function InspectionChipsBlock({
-  currentZoneId,
-  interactive,
-  selectedValues,
-  onZoneSelect,
-  onChipTap,
-  zoneStats,
-}: {
-  currentZoneId: string;
-  interactive: boolean;
-  selectedValues: Set<string>;
-  onZoneSelect?: (zoneId: string) => void;
-  onChipTap: (chip: ChatChip) => void;
-  zoneStats: Record<string, { hasNote: boolean; photos: number }>;
-}) {
-  const zone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
-  return (
-    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2.5">
-      <div>
-        <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1">
-          Зона осмотра
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {INSPECTION_ZONES.map((z) => {
-            const sel = z.id === currentZoneId;
-            const st = zoneStats[z.id];
-            const has = st && (st.hasNote || st.photos > 0);
-            return (
-              <button
-                key={z.id}
-                disabled={!interactive}
-                onClick={() => onZoneSelect?.(z.id)}
-                className={
-                  "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
-                  (sel
-                    ? "bg-orange-500 text-white border-orange-500"
-                    : interactive
-                      ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
-                      : "border-white/10 text-white/40 cursor-default")
-                }
-              >
-                <span className="mr-1">{z.emoji}</span>
-                {z.label}
-                {has && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] opacity-80">
-                    {st!.hasNote && <span>✓</span>}
-                    {st!.photos > 0 && <span>📷{st!.photos}</span>}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div>
-        <div className="text-[11px] text-white/55 mb-1">{zone.intro}</div>
-        <div className="flex flex-wrap gap-1.5">
-          {zone.chips.map((c) => {
-            const isSel = selectedValues.has(c.value);
-            return (
-              <button
-                key={c.label}
-                disabled={!interactive}
-                onClick={() => onChipTap(c)}
-                className={
-                  "rounded-full border px-2.5 py-1 text-xs transition-colors " +
-                  (isSel
-                    ? "bg-orange-500 text-white border-orange-500"
-                    : interactive
-                      ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
-                      : "border-white/10 text-white/40 cursor-default")
-                }
-              >
-                {isSel ? "✓ " : ""}
-                {c.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function countCarPassport(draft: import("@/lib/carreports/types").ReportDraft): number {
   const c = draft.carStep ?? {};
