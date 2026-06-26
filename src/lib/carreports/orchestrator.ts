@@ -554,7 +554,9 @@ export async function extractForStep(
       c.driveType = pickEnum(data.driveType, DRIVE_TYPES) ?? thread.draft.characteristicsStep.driveType;
       if (typeof data.color === "string") c.color = data.color;
       if (typeof data.equipment === "string") c.equipment = data.equipment;
-      const generationHint = typeof data.generationHint === "string" ? data.generationHint : undefined;
+      let generationHint = typeof data.generationHint === "string" ? data.generationHint : undefined;
+      const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      if (mentionsGen && !generationHint) generationHint = text;
       const merged: CharacteristicsStep = { ...thread.draft.characteristicsStep, ...c };
 
       // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId
@@ -567,7 +569,11 @@ export async function extractForStep(
         const brandModelChanged =
           prev.brandName !== merged.brandName || prev.modelCarName !== merged.modelCarName;
         const needsResolve =
-          brandModelChanged || !merged.modelCarId || (merged.year && !merged.modelGenerationRestylingFrameId);
+          brandModelChanged ||
+          !merged.modelCarId ||
+          (merged.year && !merged.modelGenerationRestylingFrameId) ||
+          mentionsGen;
+
         if (needsResolve) {
           const resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
             thread,
