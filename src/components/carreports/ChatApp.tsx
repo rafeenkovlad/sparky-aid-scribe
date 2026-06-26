@@ -803,6 +803,7 @@ export function ChatApp({ threadId }: Props) {
             sec,
             usableUrl ?? photoFocus.url!,
             text,
+            previousNote || undefined,
           );
           r = {
             noDamage: v.noDamage,
