@@ -36,7 +36,7 @@ export interface NoteProposal {
   picked?: "original" | "ai";
 }
 
-export interface PhotoFocusViewProps {
+export interface ElementFocusCardProps {
   ins: InspectionStep;
   photoIdx: number;
   onChangePhotoIdx: (idx: number) => void;
