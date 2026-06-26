@@ -181,34 +181,29 @@ function camelToSnake(s: string): string {
 /** Section.doc → sectionType used by element DTOs (e.g. bodySection → body). */
 const SECTION_DOC_TO_TYPE: Record<string, string> = {
   bodySection: "body",
-  bodyReinforcementElementsSection: "body_reinforcement",
+  bodyReinforcementElementsSection: "bodyReinforcement",
   glassSection: "glass",
   interiorSection: "interior",
   underHoodSpaceSection: "under_hood",
-  wheelsAndBrakesSection: "wheels_and_brakes",
+  wheelsAndBrakesSection: "wheelsAndBrakes",
   lightningSection: "lightning",
-  computerDiagnosticsSection: "computer_diagnostics",
+  computerDiagnosticsSection: "computerDiagnostics",
 };
 
-/**
- * Build the inspectionStep payload from structured findings (preferred) plus
- * a legacy fallback: any zone note that did not yield findings is dropped as
- * a single element into the section's generalCondition collection so nothing
- * is lost. Each element conforms to BodyElement*DTO (sectionType, elementType,
- * paintworkThicknessFrom/To, noDamage, seriousDamageTags, noSeriousDamageTags,
- * note, audioNotes, file). HasDamageTagsValidation: note/tags/audioNotes/
- * noDamage=false are allowed only when a file is attached, so on file-less
- * elements we send safe defaults and skip note/tags.
- */
+/** Sections whose elements carry paintworkThickness* fields. */
+const PAINTWORK_SECTION_TYPES = new Set(["body", "bodyReinforcement"]);
+/** Sections whose section-level DTO requires paintworkThicknessFrom/To. */
+const PAINTWORK_SECTION_DOCS = new Set([
+  "bodySection",
+  "bodyReinforcementElementsSection",
+]);
+
 function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
-  // Pre-populate every section with all required collection keys (empty arrays)
-  // so DTO validation does not reject missing properties.
   const out: Record<string, Record<string, unknown>> = {};
   for (const s of INSPECTION_SECTIONS) {
     const section: Record<string, unknown> = {};
     for (const el of s.elements) section[el.collection] = [];
-    // BodySectionDTO additionally requires section-level paintwork range.
-    if (s.doc === "bodySection") {
+    if (PAINTWORK_SECTION_DOCS.has(s.doc)) {
       section.paintworkThicknessFrom = 80;
       section.paintworkThicknessTo = 200;
     }
@@ -217,6 +212,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
 
   const findings = draft.inspectionStep.findings ?? {};
   const zonesCovered = new Set<string>();
+
 
   const makeElement = (
     sectionType: string,
