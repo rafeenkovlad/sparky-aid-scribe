@@ -16,7 +16,10 @@ import {
   Trash2,
   X,
   PanelRightOpen,
+  ClipboardCheck,
 } from "lucide-react";
+
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1310,7 +1313,29 @@ function MessageBubble({
             </div>
           );
         })()}
-        {interactive && msg.step === "car" && <CarChecklist draft={draft} />}
+        {interactive && msg.step === "car" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors"
+              >
+                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-400" />
+                Паспорт авто
+                <span className="tabular-nums text-white/55">
+                  {countCarPassport(draft)}/10
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="start"
+              className="w-[320px] max-w-[88vw] p-0 bg-zinc-950 border-white/10 text-white"
+            >
+              <CarChecklist draft={draft} />
+            </PopoverContent>
+          </Popover>
+        )}
         {msg.chips && msg.chips.length > 0 && (() => {
           // Group chips by groupLabel (chips without a label fall into "").
           const groups: Array<{ label: string; items: ChatChip[] }> = [];
@@ -1405,4 +1430,22 @@ function MessageBubble({
       </div>
     </div>
   );
+}
+
+function countCarPassport(draft: import("@/lib/carreports/types").ReportDraft): number {
+  const c = draft.carStep ?? {};
+  const ch = draft.characteristicsStep ?? {};
+  const checks: boolean[] = [
+    !!c.vin && c.vin.length >= 11,
+    !!(ch.brandName && ch.modelCarName),
+    !!c.mileage,
+    !!c.cityInspection,
+    !!c.dateInspection,
+    !!ch.year,
+    !!ch.engineType,
+    !!ch.transmission,
+    !!ch.driveType,
+    !!ch.color,
+  ];
+  return checks.filter(Boolean).length;
 }
