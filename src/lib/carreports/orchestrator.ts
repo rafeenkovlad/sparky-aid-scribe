@@ -38,7 +38,7 @@ import type {
   TestDriveStep,
   Thread,
 } from "./types";
-import { optionalHintSentence } from "./progress";
+import { optionalHintSentence, remainingFieldLabels, nextMissingPrompt } from "./progress";
 
 function todayIso(): string {
   const d = new Date();
@@ -1033,7 +1033,7 @@ export async function analyzeInspectionPhoto(
       tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
     ),
     fileUrls: [photoUrl],
-    model: "qwen3.6-plus",
+    model: "qwen3.7-max",
   });
 
   const raw = parseJsonResponse<{
@@ -1270,7 +1270,14 @@ export async function askQuestion(
   const text = question.trim();
   if (!text) return "Задайте вопрос.";
   try {
-    const draftContext = summarizeStepDraft(step, thread.draft);
+    const filled = summarizeStepDraft(step, thread.draft) || "(на этом шаге пока пусто)";
+    const remaining = remainingFieldLabels(step, thread.draft);
+    const nextHint = nextMissingPrompt(step, thread.draft);
+    const remainingStr = remaining.length
+      ? `Ещё не заполнено: ${remaining.join(", ")}.`
+      : "Все обязательные поля шага заполнены.";
+    const hintStr = nextHint ? `Подсказка по следующему полю: ${nextHint}` : "";
+    const draftContext = [filled, remainingStr, hintStr].filter(Boolean).join("\n\n");
     const cliche = CLICHE_ASK(stepLabel, draftContext);
     const id = aiChatIdFor(thread, `ask:${step}`);
     const res = await chatCompletions({ id, text, cliche });
