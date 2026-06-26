@@ -195,9 +195,19 @@ export interface ChatMessage {
     | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
-    | "inspectionCollage";
+    | "inspectionCollage"
+    | "inspectionAttachAssign";
   /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
   sectionSnake?: string;
+  /** медиа, ожидающее ручного выбора раздела (kind=inspectionAttachAssign) */
+  pendingPhoto?: {
+    url: string;
+    dataUrl: string;
+    filename: string;
+    remote?: boolean;
+    /** если уже закреплено — сюда пишем snake-раздел, чтобы скрыть чипы */
+    assignedSection?: string;
+  };
   createdAt: number;
 
 }
