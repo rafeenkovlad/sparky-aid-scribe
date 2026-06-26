@@ -409,14 +409,13 @@ export async function extractForStep(
         typeof data.generationHint === "string" ? data.generationHint : undefined;
 
       // Если пользователь явно говорит про поколение/рестайлинг («выбери поколение 2»,
-      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение по уже
-      // выбранной машине. Подхватываем brand/model/year из текущего черновика и
-      // форсим пересчёт через resolveCar, иначе charTouched остаётся false и
-      // генерация никогда не обновится.
+      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение.
       const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      const prevChar = thread.draft.characteristicsStep;
+      // Подхватываем ранее сохранённый pending hint, если он есть.
+      const pendingHint = prevChar.pendingGenerationHint || undefined;
       if (mentionsGen) {
         if (!generationHint) generationHint = text;
-        const prevChar = thread.draft.characteristicsStep;
         if (!charPatch.brandName && prevChar.brandName) {
           charPatch.brandName = prevChar.brandName;
           charTouched = true;
@@ -431,6 +430,30 @@ export async function extractForStep(
         }
         if (charPatch.brandName && charPatch.modelCarName) charTouched = true;
       }
+      if (!generationHint && pendingHint) generationHint = pendingHint;
+
+      // Случай: пользователь назвал поколение/рестайлинг, но марка/модель
+      // не известны ни сейчас, ни в черновике. Сохраняем hint, просим модель.
+      if (
+        mentionsGen &&
+        (!charPatch.brandName || !charPatch.modelCarName)
+      ) {
+        const mergedCarEarly = { ...thread.draft.carStep, ...carStep };
+        return {
+          patch: {
+            carStep: mergedCarEarly,
+            characteristicsStep: {
+              ...charPatch,
+              pendingGenerationHint: generationHint ?? text,
+            },
+          },
+          reply:
+            "Поняла, нужно выбрать поколение/рестайлинг — но сначала укажите марку и модель автомобиля " +
+            "(например «Volkswagen Tiguan» или «BMW X5»). Я сохранила ваш выбор и применю его, как только " +
+            "появится модель.",
+        };
+      }
+
 
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
