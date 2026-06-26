@@ -230,3 +230,46 @@ export async function uploadPhoto(photo: PreparedPhoto): Promise<{
     };
   }
 }
+
+/**
+ * Проверяет, доступна ли картинка по URL (HEAD/Range), и если нет — повторно
+ * загружает её во временное хранилище из локального dataUrl и возвращает
+ * новый presigned GET URL. Если URL рабочий — возвращает его без изменений.
+ *
+ * Если ни URL, ни dataUrl недоступны — возвращает `null`.
+ */
+export async function ensurePhotoAccessible(opts: {
+  url?: string;
+  dataUrl?: string;
+  filename?: string;
+}): Promise<string | null> {
+  const { url, dataUrl, filename } = opts;
+
+  // 1) Попробуем подтвердить доступ к URL.
+  if (url) {
+    try {
+      // HEAD не всегда поддерживается S3 presigned GET — пробуем оба варианта.
+      let res = await fetch(url, { method: "HEAD" }).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(url, {
+          method: "GET",
+          headers: { Range: "bytes=0-0" },
+        }).catch(() => null);
+      }
+      if (res && (res.ok || res.status === 206)) return url;
+    } catch {
+      // ignore, попробуем перезалить
+    }
+  }
+
+  // 2) Если не доступно — перезаливаем из локального превью.
+  if (!dataUrl) return url ?? null;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const name = filename ?? `photo-${Date.now()}.jpg`;
+    const r = await uploadTemporary({ filename: name, blob, dataUrl });
+    return r.url;
+  } catch {
+    return url ?? null;
+  }
+}
