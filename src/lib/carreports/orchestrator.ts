@@ -1270,7 +1270,14 @@ export async function askQuestion(
   const text = question.trim();
   if (!text) return "Задайте вопрос.";
   try {
-    const draftContext = summarizeStepDraft(step, thread.draft);
+    const filled = summarizeStepDraft(step, thread.draft) || "(на этом шаге пока пусто)";
+    const remaining = remainingFieldLabels(step, thread.draft);
+    const nextHint = nextMissingPrompt(step, thread.draft);
+    const remainingStr = remaining.length
+      ? `Ещё не заполнено: ${remaining.join(", ")}.`
+      : "Все обязательные поля шага заполнены.";
+    const hintStr = nextHint ? `Подсказка по следующему полю: ${nextHint}` : "";
+    const draftContext = [filled, remainingStr, hintStr].filter(Boolean).join("\n\n");
     const cliche = CLICHE_ASK(stepLabel, draftContext);
     const id = aiChatIdFor(thread, `ask:${step}`);
     const res = await chatCompletions({ id, text, cliche });
