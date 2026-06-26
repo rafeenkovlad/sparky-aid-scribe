@@ -1752,21 +1752,39 @@ export function ChatApp({ threadId }: Props) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void submit();
+                if (photoFocusIdx !== null) savePhotoNote();
+                else void submit();
               }
             }}
             placeholder={
-              askMode
-                ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
-                : currentStep === "inspection" && cursor
-                  ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
-                  : STEP_PLACEHOLDERS[currentStep]
+              photoFocusIdx !== null
+                ? "Заметка к фото… Enter — сохранить, ✨ — добавить тег"
+                : askMode
+                  ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
+                  : currentStep === "inspection" && cursor
+                    ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
+                    : STEP_PLACEHOLDERS[currentStep]
             }
             className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
               askMode ? "placeholder:text-sky-300/60" : ""
             }`}
 
           />
+          {photoFocusIdx !== null && (
+            <button
+              onClick={() => void runPhotoAi()}
+              disabled={photoAiBusy || !photoFocus?.url}
+              className="h-10 w-10 shrink-0 rounded-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white"
+              aria-label="Распознать тег по заметке"
+              title={photoFocus?.url ? "Распознать ИИ (учитывает заметку)" : "Фото ещё не загружено"}
+            >
+              {photoAiBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <button
             onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
             disabled={voice.state === "transcribing"}
@@ -1796,20 +1814,26 @@ export function ChatApp({ threadId }: Props) {
             )}
           </button>
           <button
-            onClick={() => void submit()}
+            onClick={() => {
+              if (photoFocusIdx !== null) savePhotoNote();
+              else void submit();
+            }}
             disabled={
-              !composer.trim() &&
-              pendingAttachments.length === 0 &&
-              !(lastOptionsMsgId &&
-                (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
-                  ?.selectedChipValues?.length ?? 0) > 0)
+              photoFocusIdx !== null
+                ? false
+                : !composer.trim() &&
+                  pendingAttachments.length === 0 &&
+                  !(lastOptionsMsgId &&
+                    (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                      ?.selectedChipValues?.length ?? 0) > 0)
             }
 
             className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
-            aria-label="Отправить и перейти дальше"
+            aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
           >
             <ArrowUp className="h-5 w-5" />
           </button>
+
         </div>
       </div>
 
