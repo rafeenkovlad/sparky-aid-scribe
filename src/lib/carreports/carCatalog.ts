@@ -743,9 +743,10 @@ async function pickGenerationForModel(
     year?: number;
     thread?: Thread;
     trace: ResolvedCar["trace"];
+    onTrace?: (entry: ClarifyTraceEntry) => void;
   },
 ): Promise<ResolvedCar> {
-  const { userText, generationHint, year, thread, trace } = opts;
+  const { userText, generationHint, year, thread, trace, onTrace } = opts;
 
   // Optional: skip entirely if we have nothing to go on (called only from
   // resolveCar's normal path — by-id fast-path always supplies a hint/year).
