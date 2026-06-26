@@ -1266,9 +1266,14 @@ function MessageBubble({
             </div>
           )}
           {msg.text && (
-            <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
-              {msg.text}
-            </div>
+            <>
+              <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+              <div className="flex justify-end">
+                <CopyButton text={msg.text} />
+              </div>
+            </>
           )}
         </div>
       </div>
