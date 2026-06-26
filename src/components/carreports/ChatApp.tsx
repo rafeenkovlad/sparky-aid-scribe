@@ -149,6 +149,10 @@ export function ChatApp({ threadId }: Props) {
   const composerBackupRef = useRef<string | null>(null);
   /** Идёт ли AI-анализ заметки к фото. */
   const [photoAiBusy, setPhotoAiBusy] = useState(false);
+  /** Предложение по заметке: оригинал vs AI-переформулировка. */
+  const [noteProposal, setNoteProposal] = useState<
+    import("./PhotoFocusView").NoteProposal | null
+  >(null);
 
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
