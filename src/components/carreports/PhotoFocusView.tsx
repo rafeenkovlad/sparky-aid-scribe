@@ -378,52 +378,26 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           </div>
         </div>
 
-        {/* Вердикт — быстрый набор чипов как в шагах чата */}
+        {/* Состояние: только «Без повреждений». Если выбран — теги скрыты.
+            Если не выбран — пользователь свободно отмечает серьёзные и мелкие. */}
         <div>
           <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5">
             Состояние
           </div>
-          <div className="-mx-3 px-3 overflow-x-auto">
-            <div className="flex gap-1.5 w-max pb-0.5">
-              {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-                const sel =
-                  v === "ok" ? derivedVerdict === "ok" : activeTab === v && derivedVerdict === v;
-                const tone =
-                  v === "ok"
-                    ? sel
-                      ? "bg-emerald-500 text-white border-emerald-500"
-                      : "border-emerald-500/30 text-emerald-200/85 hover:bg-emerald-500/10"
-                    : v === "minor"
-                      ? sel
-                        ? "bg-amber-500 text-white border-amber-500"
-                        : "border-amber-500/30 text-amber-200/85 hover:bg-amber-500/10"
-                      : sel
-                        ? "bg-rose-500 text-white border-rose-500"
-                        : "border-rose-500/30 text-rose-200/85 hover:bg-rose-500/10";
-                return (
-                  <button
-                    key={v}
-                    onClick={() => {
-                      if (v === "ok") onSetVerdict("ok");
-                      else {
-                        setActiveTab(v);
-                        onSetVerdict(v);
-                      }
-                    }}
-                    className={
-                      "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
-                      tone
-                    }
-                  >
-                    {v === "ok" ? "Без замечаний" : v === "minor" ? "Мелкие" : "Серьёзные"}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            onClick={() => onSetVerdict("ok")}
+            className={
+              "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
+              (derivedVerdict === "ok"
+                ? "bg-emerald-500 text-white border-emerald-500"
+                : "border-emerald-500/30 text-emerald-200/85 hover:bg-emerald-500/10")
+            }
+          >
+            {derivedVerdict === "ok" ? "✓ Без повреждений" : "Без повреждений"}
+          </button>
         </div>
 
-        {/* Теги: отдельные ряды для серьёзных и мелких — как быстрые чипы */}
+        {/* Теги: оба ряда показываются одновременно, под каждым — своё «+ свой тег». */}
         {derivedVerdict !== "ok" && (
           <div className="space-y-3">
             {tagsLoading && (
@@ -447,6 +421,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                   pending={pending.filter((p) => p.severity === "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "serious")}
+                  onAdd={(name) => onAddPendingTag(name, "serious")}
                 />
                 <TagRow
                   tone="minor"
@@ -456,13 +431,13 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                   pending={pending.filter((p) => p.severity !== "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
+                  onAdd={(name) => onAddPendingTag(name, "non_serious")}
                 />
               </>
             )}
-
-            <CustomTagInput bucket={activeBucket} onAdd={onAddPendingTag} />
           </div>
         )}
+
 
 
         {/* Заметка */}
