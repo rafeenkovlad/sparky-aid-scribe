@@ -849,10 +849,20 @@ async function pickGenerationForModel(
 
   const buildGenChips = (): CatalogSuggestion[] => {
     const out: CatalogSuggestion[] = [];
+    const seen = new Set<string>();
     for (const group of genGroups) {
       const gNum = group.number;
-      const multi = group.items.length > 1;
+      // Внутри одной пары (поколение, рестайлинг) у API может быть несколько
+      // frames (разные кузова) — на чипах они смотрятся как дубликаты.
+      // Дедупим по (generationNumber, restylingNumber|restylingName).
+      const uniqueByRestyling = new Map<string, GenerationFrameCandidate>();
       for (const f of group.items) {
+        const k = `${f.restylingNumber ?? f.restylingName ?? "_"}`;
+        if (!uniqueByRestyling.has(k)) uniqueByRestyling.set(k, f);
+      }
+      const items = Array.from(uniqueByRestyling.values());
+      const multi = items.length > 1;
+      for (const f of items) {
         const years =
           f.yearStart || f.yearEnd
             ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
@@ -870,9 +880,13 @@ async function pickGenerationForModel(
           multi && rNum != null
             ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
             : `Поколение ${gNum ?? "?"}`;
+        const label = `${genLabel}${restLabel}`;
+        const dedupKey = `${label}|${years}`;
+        if (seen.has(dedupKey)) continue;
+        seen.add(dedupKey);
         out.push({
           group: "generation",
-          label: `${genLabel}${restLabel}`,
+          label,
           value,
           image: f.urlImage,
           description: years,
@@ -889,7 +903,14 @@ async function pickGenerationForModel(
       const gNum = restylingChoiceGroup.number;
       const genLabel =
         gNum != null ? `Поколение ${gNum}` : (restylingChoiceGroup.name || "Поколение");
-      const restylingChips: CatalogSuggestion[] = restylingChoiceGroup.items.map((f) => {
+      // Дедуп по restylingNumber|restylingName — внутри одной пары могут быть
+      // несколько frames (разные кузова), они выглядят как дубликаты на чипах.
+      const uniqByRest = new Map<string, GenerationFrameCandidate>();
+      for (const f of restylingChoiceGroup.items) {
+        const k = `${f.restylingNumber ?? f.restylingName ?? "_"}`;
+        if (!uniqByRest.has(k)) uniqByRest.set(k, f);
+      }
+      const restylingChips: CatalogSuggestion[] = Array.from(uniqByRest.values()).map((f) => {
         const years =
           f.yearStart || f.yearEnd
             ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
