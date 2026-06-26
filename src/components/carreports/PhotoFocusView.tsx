@@ -98,13 +98,9 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
         : finding?.noDamage === true
           ? "ok"
           : null;
-  const [activeTab, setActiveTab] = useState<"minor" | "serious">(
-    derivedVerdict === "serious" ? "serious" : "minor",
-  );
-  useEffect(() => {
-    setActiveTab(derivedVerdict === "serious" ? "serious" : "minor");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoIdx, elementId]);
+  // (Раньше здесь был activeTab serious/minor — теперь оба ряда тегов
+  // отображаются одновременно, так что переключатель не нужен.)
+
 
   // Базовый каталог тегов раздела (кэшируется).
   const [tags, setTags] = useState<UserTag[]>([]);
