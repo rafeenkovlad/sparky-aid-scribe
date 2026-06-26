@@ -1242,31 +1242,37 @@ export function formatClarifyTrace(entries: ClarifyTraceEntry[]): string {
   return `\n🔁 Уточняющие запросы нейросети:\n${lines.join("\n")}`;
 }
 
-/** Trace builder из ResolvedCar.trace (steps brand/model/generation). */
-export function resolvedTraceToClarify(
-  resolved: ResolvedCar,
+/** Convert a single ResolvedCar trace entry to ClarifyTraceEntry list. */
+export function resolvedTraceEntryToClarify(
+  t: ResolvedCar["trace"][number],
 ): ClarifyTraceEntry[] {
-  const out: ClarifyTraceEntry[] = [];
   const stepLabel: Record<string, string> = {
     brand: "марку",
     model: "модель",
     generation: "поколение/рестайлинг",
   };
-  for (const t of resolved.trace) {
-    const conf = Math.round(t.confidence * 100);
-    out.push({
+  const conf = Math.round(t.confidence * 100);
+  const out: ClarifyTraceEntry[] = [
+    {
       kind: "ai",
       label: `Подбираю ${stepLabel[t.step] ?? t.step} из каталога (${t.candidates} вариантов, уверенность ${conf}%)`,
       ...(t.reason ? { detail: t.reason } : {}),
+    },
+  ];
+  if (t.needsWeb) {
+    out.push({
+      kind: "web",
+      label: `Веб-фолбэк: уточняю ${stepLabel[t.step] ?? t.step} поиском`,
     });
-    if (t.needsWeb) {
-      out.push({
-        kind: "web",
-        label: `Веб-фолбэк: уточняю ${stepLabel[t.step] ?? t.step} поиском`,
-      });
-    }
   }
   return out;
+}
+
+/** Trace builder из ResolvedCar.trace (steps brand/model/generation). */
+export function resolvedTraceToClarify(
+  resolved: ResolvedCar,
+): ClarifyTraceEntry[] {
+  return resolved.trace.flatMap(resolvedTraceEntryToClarify);
 }
 
 
