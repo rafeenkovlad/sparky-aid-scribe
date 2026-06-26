@@ -54,7 +54,7 @@ export interface PhotoFocusViewProps {
   onDismissNoteProposal?: () => void;
 }
 
-export function PhotoFocusView(props: PhotoFocusViewProps) {
+export function ElementFocusCard(props: ElementFocusCardProps) {
   const {
     ins,
     photoIdx,
