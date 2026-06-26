@@ -74,7 +74,9 @@ import type { UserTag } from "@/lib/carreports/inspectionTags";
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
+import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+
 
 interface Props {
   threadId: string;
