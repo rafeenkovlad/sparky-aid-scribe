@@ -405,13 +405,38 @@ export async function extractForStep(
         charPatch.year = Number(data.year);
         charTouched = true;
       }
-      const generationHint =
+      let generationHint =
         typeof data.generationHint === "string" ? data.generationHint : undefined;
+
+      // Если пользователь явно говорит про поколение/рестайлинг («выбери поколение 2»,
+      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение по уже
+      // выбранной машине. Подхватываем brand/model/year из текущего черновика и
+      // форсим пересчёт через resolveCar, иначе charTouched остаётся false и
+      // генерация никогда не обновится.
+      const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      if (mentionsGen) {
+        if (!generationHint) generationHint = text;
+        const prevChar = thread.draft.characteristicsStep;
+        if (!charPatch.brandName && prevChar.brandName) {
+          charPatch.brandName = prevChar.brandName;
+          charTouched = true;
+        }
+        if (!charPatch.modelCarName && prevChar.modelCarName) {
+          charPatch.modelCarName = prevChar.modelCarName;
+          charTouched = true;
+        }
+        if (!charPatch.year && prevChar.year) {
+          charPatch.year = prevChar.year;
+          charTouched = true;
+        }
+        if (charPatch.brandName && charPatch.modelCarName) charTouched = true;
+      }
 
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
+
         const { resolveCar } = await import("./carCatalog");
         const resolved = await resolveCar(
           charPatch.brandName,
