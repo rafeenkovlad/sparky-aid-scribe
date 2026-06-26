@@ -179,7 +179,7 @@ export function InspectionCollage(props: {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm("Удалить это фото?")) onDeletePhoto(idx);
+                      onDeletePhoto(idx);
                     }}
                     aria-label="Удалить фото"
                     className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-black/55 hover:bg-rose-500/80 text-white flex items-center justify-center ring-1 ring-white/15 backdrop-blur-md opacity-80 group-hover:opacity-100 focus:opacity-100 transition-opacity"
