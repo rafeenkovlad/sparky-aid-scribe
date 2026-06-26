@@ -1323,7 +1323,7 @@ function MessageBubble({
                 <ClipboardCheck className="h-3.5 w-3.5 text-emerald-400" />
                 Паспорт авто
                 <span className="tabular-nums text-white/55">
-                  {carPassportFilled(draft)}/10
+                  {countCarPassport(draft)}/10
                 </span>
               </button>
             </PopoverTrigger>
