@@ -1,5 +1,6 @@
 // Prompt templates passed to AiQueue.ChatCompletions as the `cliche` param.
-// The backend substitutes a literal `{text}` placeholder with the user text.
+// Текст эксперта приходит отдельным полем `text` — в самом клише не нужно
+// дублировать его плейсхолдером {text}.
 // Keep prompts short, demand strict JSON.
 
 const COMMON = `Ты — ассистент технического осмотра автомобиля. Извлекай факты
