@@ -994,6 +994,88 @@ function summarizeDocs(c: DocumentReconciliationStep): string {
   return parts.join("\n");
 }
 
+/** Структура распознанной находки для одного фото. */
+export interface PhotoFindingDraft {
+  elementId: string;
+  noDamage: boolean;
+  seriousTagIds: number[];
+  noSeriousTagIds: number[];
+  pendingTags: PendingTagName[];
+  note: string;
+}
+
+/**
+ * Распознать одно фото осмотра в структурированную находку (без записи в draft).
+ * Возвращает поля для предзаполнения PhotoAnnotator. Бросает при ошибке AI.
+ */
+export async function analyzeInspectionPhoto(
+  thread: Thread,
+  sectionSnake: SectionSnake,
+  photoUrl: string,
+  hint?: string,
+): Promise<PhotoFindingDraft> {
+  const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
+  const { CLICHE_INSPECTION_PHOTO } = await import("./cliche");
+  const tagCatalogue = await loadSectionTags(sectionSnake);
+
+  const id = aiChatIdFor(thread, `vision:inspection:${sectionSnake}:${photoUrl.slice(-12)}`);
+  const res = await chatCompletions({
+    id,
+    text: hint?.trim() || "Опиши, что видно на фото.",
+    cliche: CLICHE_INSPECTION_PHOTO(
+      section.label,
+      section.elements.map((el) => ({ id: el.id, label: el.label })),
+      tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+    ),
+    fileUrls: [photoUrl],
+  });
+
+  const raw = parseJsonResponse<{
+    elementId?: string;
+    noDamage?: boolean;
+    seriousTags?: unknown;
+    nonSeriousTags?: unknown;
+    note?: string;
+  }>(res.content) ?? {};
+
+  const elementIds = new Set(section.elements.map((e) => e.id));
+  const elementId =
+    typeof raw.elementId === "string" && elementIds.has(raw.elementId)
+      ? raw.elementId
+      : "generalCondition";
+  const noDamage = raw.noDamage === true;
+  const sNames = Array.isArray(raw.seriousTags)
+    ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const nsNames = Array.isArray(raw.nonSeriousTags)
+    ? (raw.nonSeriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+
+  const seriousIds = new Set<number>();
+  const nsIds = new Set<number>();
+  const pending: PendingTagName[] = [];
+  for (const name of sNames) {
+    const t = findTagId(tagCatalogue, name);
+    if (t) seriousIds.add(t.id);
+    else pending.push({ name, severity: "serious" });
+  }
+  for (const name of nsNames) {
+    const t = findTagId(tagCatalogue, name);
+    if (t) nsIds.add(t.id);
+    else pending.push({ name, severity: "non_serious" });
+  }
+
+  return {
+    elementId,
+    noDamage: noDamage && !seriousIds.size && !nsIds.size,
+    seriousTagIds: [...seriousIds],
+    noSeriousTagIds: [...nsIds],
+    pendingTags: pending,
+    note: typeof raw.note === "string" ? raw.note.trim() : "",
+  };
+}
+
+
 /**
  * Build a short recap of what's already filled for a given step. Returns an
  * empty string when there's nothing yet — caller should then skip the recap

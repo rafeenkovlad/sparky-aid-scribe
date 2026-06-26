@@ -47,11 +47,12 @@ import {
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
+import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
   INSPECTION_SECTIONS,
+  findingKey,
   type SectionSnake,
 } from "@/lib/carreports/inspectionSections";
 import {
@@ -63,7 +64,14 @@ import {
   upsertFinding,
 } from "@/lib/carreports/inspectionState";
 import { InspectionChipsCard } from "./InspectionChipsCard";
+import {
+  InspectionCollage,
+  InspectionUploadPrompt,
+  PhotoAnnotator,
+} from "./InspectionCollage";
+import { SectionPickerButton } from "./SectionPickerButton";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
+
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
@@ -133,6 +141,9 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
+  /** Открытый аннотатор: индекс фото в `inspectionStep.photos`. */
+  const [annotatorPhotoIdx, setAnnotatorPhotoIdx] = useState<number | null>(null);
+
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
@@ -245,6 +256,49 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  /** Гарантирует наличие upload-prompt + collage сообщений для раздела. */
+  const ensureSectionMessages = useCallback(
+    (snake: SectionSnake) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        const promptId = `insp-prompt-${snake}`;
+        const collageId = `insp-collage-${snake}`;
+        // Сохраняем существующие, иначе создаём; в любом случае поднимаем в конец.
+        const list = t.messages.inspection;
+        const existingPrompt = list.find((m) => m.id === promptId);
+        const existingCollage = list.find((m) => m.id === collageId);
+        t.messages.inspection = list.filter(
+          (m) => m.id !== promptId && m.id !== collageId,
+        );
+        const now = Date.now();
+        pushMsg(t, "inspection", {
+          ...(existingPrompt ?? {
+            id: promptId,
+            role: "assistant",
+            text: "",
+            step: "inspection",
+            kind: "inspectionUploadPrompt",
+            sectionSnake: snake,
+            createdAt: now,
+          }),
+          createdAt: now,
+        });
+        pushMsg(t, "inspection", {
+          ...(existingCollage ?? {
+            id: collageId,
+            role: "assistant",
+            text: "",
+            step: "inspection",
+            kind: "inspectionCollage",
+            sectionSnake: snake,
+            createdAt: now + 1,
+          }),
+          createdAt: now + 1,
+        });
+      });
+    },
+    [thread],
+  );
 
   const selectSection = useCallback(
     (snake: SectionSnake) => {
@@ -253,11 +307,15 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.currentSection = snake;
         const sec = INSPECTION_SECTIONS.find((s) => s.snake === snake);
         t.draft.inspectionStep.currentElementId = sec?.elements[0].id;
+        t.draft.inspectionStep.touched = true;
       });
+      ensureSectionMessages(snake);
       textareaRef.current?.focus();
     },
-    [thread],
+    [thread, ensureSectionMessages],
   );
+
+
 
   const selectElement = useCallback(
     (elementId: string) => {
@@ -378,11 +436,10 @@ export function ChatApp({ threadId }: Props) {
 
   const onPickPhoto = useCallback(
     async (file: File) => {
+      // Legacy: точечное фото к активному элементу (без коллажа).
       if (!thread || !cursor) return;
       const sectionSnake = cursor.section.snake;
       const elementId = cursor.element.id;
-      const sectionLabel = cursor.section.label;
-      const elementLabel = cursor.element.label;
       try {
         const prepared = await preparePhoto(file);
         const up = await uploadPhoto(prepared);
@@ -392,33 +449,140 @@ export function ChatApp({ threadId }: Props) {
             elementId,
             filename: up.filename,
             dataUrl: prepared.dataUrl,
+            url: up.url,
             remote: up.remote,
             addedAt: Date.now(),
           });
           t.draft.inspectionStep.touched = true;
-          pushMsg(t, "inspection", {
-            id: msgId(),
-            role: "assistant",
-            text: up.remote
-              ? `📷 Фото добавлено к «${elementLabel}» (раздел «${sectionLabel}»).`
-              : `📷 Фото добавлено локально к «${elementLabel}» (раздел «${sectionLabel}»). ${up.note ?? ""}`,
-            createdAt: Date.now(),
-          });
         });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Ошибка обработки фото";
+        const m = e instanceof Error ? e.message : "Ошибка обработки фото";
         updateThread(thread.id, (t) => {
           pushMsg(t, "inspection", {
             id: msgId(),
             role: "assistant",
-            text: `⚠️ ${msg}`,
+            text: `⚠️ ${m}`,
             createdAt: Date.now(),
           });
         });
       }
     },
-    [thread],
+    [thread, cursor],
   );
+
+  /** Загрузить пачку фото в активный раздел и поднять коллаж в конец. */
+  const addInspectionPhotos = useCallback(
+    async (sectionSnake: SectionSnake, files: File[]) => {
+      if (!thread || !files.length) return;
+      ensureSectionMessages(sectionSnake);
+      for (const file of files) {
+        try {
+          const prepared = await preparePhoto(file);
+          const up = await uploadPhoto(prepared);
+          updateThread(thread.id, (t) => {
+            t.draft.inspectionStep.photos.push({
+              section: sectionSnake,
+              filename: up.filename,
+              dataUrl: prepared.dataUrl,
+              url: up.url,
+              remote: up.remote,
+              addedAt: Date.now(),
+            });
+            t.draft.inspectionStep.touched = true;
+          });
+        } catch (e) {
+          const m = e instanceof Error ? e.message : "Ошибка обработки фото";
+          updateThread(thread.id, (t) => {
+            pushMsg(t, "inspection", {
+              id: msgId(),
+              role: "assistant",
+              text: `⚠️ ${m}`,
+              createdAt: Date.now(),
+            });
+          });
+        }
+      }
+    },
+    [thread, ensureSectionMessages],
+  );
+
+  const annotatorPhoto =
+    annotatorPhotoIdx !== null && thread
+      ? thread.draft.inspectionStep.photos[annotatorPhotoIdx] ?? null
+      : null;
+  const annotatorSection =
+    (annotatorPhoto?.section as SectionSnake | undefined) ??
+    (cursor?.section.snake ?? "body");
+
+  const applyAnnotator = useCallback(
+    (patch: {
+      elementId: string;
+      verdict: "ok" | "minor" | "serious";
+      seriousTagIds: number[];
+      noSeriousTagIds: number[];
+      pendingTags: import("@/lib/carreports/types").PendingTagName[];
+      note: string;
+    }) => {
+      if (annotatorPhotoIdx === null || !thread || !annotatorPhoto) return;
+      const sectionSnake = annotatorPhoto.section as SectionSnake;
+      const prevElementId = annotatorPhoto.elementId;
+      const idx = annotatorPhotoIdx;
+      updateThread(thread.id, (t) => {
+        // Перепривязка фото к новому элементу.
+        const p = t.draft.inspectionStep.photos[idx];
+        if (p) p.elementId = patch.elementId;
+
+        // Если был привязан к другому элементу — снимем у того finding наш note?
+        // Решаем просто: finding принадлежит элементу, не фото. Поэтому
+        // переписываем finding для текущего элемента патчем.
+        const key = findingKey(sectionSnake, patch.elementId);
+        const findings = t.draft.inspectionStep.findings ?? (t.draft.inspectionStep.findings = {});
+        const existing = findings[key] ?? { section: sectionSnake, elementId: patch.elementId };
+        const next: typeof existing = {
+          section: sectionSnake,
+          elementId: patch.elementId,
+          noDamage: patch.verdict === "ok",
+          ...(patch.seriousTagIds.length ? { seriousDamageTagIds: patch.seriousTagIds } : {}),
+          ...(patch.noSeriousTagIds.length ? { noSeriousDamageTagIds: patch.noSeriousTagIds } : {}),
+          ...(patch.pendingTags.length ? { pendingTagNames: patch.pendingTags } : {}),
+          ...(patch.note ? { note: patch.note } : {}),
+          ...(existing.audioNotes?.length ? { audioNotes: existing.audioNotes } : {}),
+        };
+        findings[key] = next;
+        t.draft.inspectionStep.touched = true;
+        void prevElementId;
+      });
+    },
+    [annotatorPhotoIdx, thread, annotatorPhoto],
+  );
+
+  const deleteAnnotatorPhoto = useCallback(() => {
+    if (annotatorPhotoIdx === null || !thread) return;
+    const idx = annotatorPhotoIdx;
+    updateThread(thread.id, (t) => {
+      t.draft.inspectionStep.photos.splice(idx, 1);
+    });
+  }, [annotatorPhotoIdx, thread]);
+
+  const runAnnotatorAi = useCallback(async () => {
+    if (!thread || !annotatorPhoto?.url) {
+      throw new Error("Фото ещё не загружено на сервер — повторите через секунду.");
+    }
+    const fresh = getThread(thread.id);
+    if (!fresh) throw new Error("Поток не найден");
+    const r = await analyzeInspectionPhoto(
+      fresh,
+      annotatorPhoto.section as SectionSnake,
+      annotatorPhoto.url,
+    );
+    // Сохраняем aiChatIds, который мог обновиться внутри analyze.
+    updateThread(thread.id, (t) => {
+      t.aiChatIds = fresh.aiChatIds;
+    });
+    return r;
+  }, [thread, annotatorPhoto]);
+
+
 
   const doSubmit = useCallback(async () => {
     if (!thread || busy) return;
@@ -1023,7 +1187,10 @@ export function ChatApp({ threadId }: Props) {
             onClearElement={clearCurrentElement}
             onAllNoDamage={markSectionAllOk}
             onNextElement={goNextElement}
+            onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
+            onOpenAnnotator={setAnnotatorPhotoIdx}
           />
+
         ))}
 
         {busy && (
@@ -1166,7 +1333,15 @@ export function ChatApp({ threadId }: Props) {
         >
           <HelpCircle className="h-4 w-4" />
         </button>
+        {currentStep === "inspection" && cursor && (
+          <SectionPickerButton
+            ins={thread.draft.inspectionStep}
+            currentSection={cursor.section.snake}
+            onPick={selectSection}
+          />
+        )}
       </div>
+
 
 
       {/* Composer */}
@@ -1251,30 +1426,8 @@ export function ChatApp({ threadId }: Props) {
           >
             <Paperclip className="h-5 w-5" />
           </button>
-          {currentStep === "inspection" && (
-            <>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*,.heic,.heif"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void onPickPhoto(f);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
-                aria-label="Прикрепить фото"
-                title="Прикрепить фото"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
-            </>
-          )}
+
+
           <Textarea
             ref={textareaRef}
             value={composer}
@@ -1349,10 +1502,21 @@ export function ChatApp({ threadId }: Props) {
       {fullReportOpen && (
         <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
       )}
+      <PhotoAnnotator
+        open={annotatorPhotoIdx !== null}
+        onClose={() => setAnnotatorPhotoIdx(null)}
+        photo={annotatorPhoto}
+        sectionSnake={annotatorSection}
+        ins={thread.draft.inspectionStep}
+        onApply={applyAnnotator}
+        onAnalyze={runAnnotatorAi}
+        onDelete={deleteAnnotatorPhoto}
+      />
 
     </div>
   );
 }
+
 
 // ─── Message bubble ────────────────────────────────────────────────────────
 
@@ -1376,6 +1540,8 @@ interface BubbleProps {
   onClearElement?: () => void;
   onAllNoDamage?: () => void;
   onNextElement?: () => void;
+  onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
+  onOpenAnnotator?: (photoIdx: number) => void;
 }
 
 function MessageBubble({
@@ -1397,7 +1563,10 @@ function MessageBubble({
   onClearElement,
   onAllNoDamage,
   onNextElement,
+  onPickInspectionPhotos,
+  onOpenAnnotator,
 }: BubbleProps) {
+
 
   if (msg.role === "user") {
     return (
@@ -1493,6 +1662,28 @@ function MessageBubble({
             onNextElement={onNextElement ?? (() => {})}
           />
         )}
+        {msg.kind === "inspectionUploadPrompt" && msg.sectionSnake && inspectionDraft && (
+          <InspectionUploadPrompt
+            sectionSnake={msg.sectionSnake as SectionSnake}
+            interactive
+            onPick={(files) =>
+              onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
+            }
+          />
+        )}
+        {msg.kind === "inspectionCollage" && msg.sectionSnake && inspectionDraft && (
+          <InspectionCollage
+            ins={inspectionDraft}
+            sectionSnake={msg.sectionSnake as SectionSnake}
+            interactive
+            onPick={(files) =>
+              onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
+            }
+            onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
+          />
+        )}
+
+
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
           // марки/модели/поколения — оставляем только мелкие миниатюры (если есть).

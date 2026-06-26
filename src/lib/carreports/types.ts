@@ -69,10 +69,13 @@ export interface InspectionPhoto {
   filename: string;
   /** local preview (data: URL). May be absent for server-only photos. */
   dataUrl?: string;
+  /** presigned view URL (для отправки в AI vision). */
+  url?: string;
   /** true if uploaded to remote storage via presigned PUT. */
   remote?: boolean;
   addedAt?: number;
 }
+
 
 export interface PendingTagName {
   name: string;
@@ -186,8 +189,16 @@ export interface ChatMessage {
   /** image attachments (brand/model/generation pictures, etc.) */
   attachments?: MessageAttachment[];
   /** custom message variants rendered with a domain-specific card */
-  kind?: "passport" | "docsPassport" | "inspectionChips";
+  kind?:
+    | "passport"
+    | "docsPassport"
+    | "inspectionChips"
+    | "inspectionUploadPrompt"
+    | "inspectionCollage";
+  /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
+  sectionSnake?: string;
   createdAt: number;
+
 }
 
 export type StepMessages = Record<StepId, ChatMessage[]>;

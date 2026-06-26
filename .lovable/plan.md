@@ -1,92 +1,84 @@
+## Что меняем в шаге «Осмотр»
 
-## Что говорит API (доки + наш каталог)
+Сейчас выбор раздела/элемента и теги живут в карточке внутри сообщения ИИ. Переносим начало флоу в композер и делаем медиа главной единицей записи: фото → элемент → теги + заметка.
 
-Шаг «Осмотр» в `Storage.PrepareSpecialistReport` хранит данные не «по зонам», а строго по DTO:
+## 1) Композер: кнопка «Раздел» рядом с «?»
 
-- **8 разделов** (`INSPECTION_SECTIONS` в `src/lib/carreports/inspectionSections.ts`):
-  кузов, силовой каркас, остекление, салон, подкапотка, колёса/тормоза, освещение, компьютерная диагностика.
-- Каждый раздел имеет **фиксированный набор элементов** (капот, лонжерон, лобовое, руль…) + всегда последний `generalCondition`. У каждого элемента — своё имя коллекции (`bodyElementHoodCollection`, …).
-- Для каждого элемента сервер ждёт **`InspectionElementFinding`**:
-  - `noDamage: bool` — вердикт,
-  - `seriousDamageTagIds[]`, `noSeriousDamageTagIds[]` — теги из каталога,
-  - `pendingTagNames[]` — свободные имена, которых нет в каталоге,
-  - `note`, `audioNotes[]`.
-- Каталог тегов раздела отдаёт `Storage.GetUserTags(step="inspection", section=<snake>)`, добавить — `Storage.AddUserTag`. Уже завёрнуто в `loadSectionTags` / `addUserTag` / `findTagId`.
+В нижней панели слева от иконок 📎/📷 (только на шаге `inspection`) — пилюля с активным разделом, например `Кузов ▾`. По тапу — bottom-sheet со списком из 8 разделов (`INSPECTION_SECTIONS`) и прогрессом `N/Total`. Выбор раздела:
 
-Текущий чат-UI оперирует локальными «зонами» (`INSPECTION_ZONES`) и плоской заметкой `sectionNotes[zone]`. Это не покрывает уровень «элемент», а именно он — единица записи в API.
+- обновляет `currentSection` + сбрасывает `currentElementId` на первый элемент
+- кидает в чат новое assistant-сообщение со специальной карточкой `UploadCollagePrompt`: «Раздел «Кузов». Загрузите фото элементов — соберём коллаж и проставим теги.» с кнопками 📷 «Снять» и 🖼 «Из галереи» (input multiple).
 
-## Цель
+## 2) Коллаж из медиа в чат-сообщении
 
-Привести чат осмотра к структуре DTO: специалист в одном сообщении выбирает **раздел → элемент**, ставит **вердикт**, тапает **теги** (или диктует заметку), при необходимости прикладывает **фото/аудио**. Всё это копится в `inspectionStep.findings["section.elementId"]` и улетает 1-в-1 в нужный `*Collection`.
+Новое assistant-сообщение `kind: "inspectionCollage"` с полем `sectionSnake`. Рендер — `CollageCard`:
 
-## Изменения в модели (`types.ts`)
+- сетка превью 3×N для всех `inspectionStep.photos`, у которых `section === sectionSnake`
+- бейдж на превью: иконка элемента (если назначен) + 🟢/🟡/🔴 (вердикт) + `📝N` (кол-во тегов/заметка)
+- + кнопка «Добавить ещё» (тот же input)
+- тап по превью открывает sheet `PhotoAnnotator`
 
-- `InspectionStep`:
-  - `currentSection: SectionSnake` (вместо `currentZone`)
-  - `currentElementId: string`
-  - `findings` — уже есть, остаётся ключом `${section}.${elementId}`.
-- `InspectionPhoto`: добавить `section: SectionSnake`, `elementId: string` (фото привязывается к элементу, а не к «зоне»).
-- Удалить `sectionNotes` из активного пути (оставить опциональным «комментарием к разделу» или выпилить совсем).
+Коллаж — единственный (per section): при повторном выборе того же раздела поднимаем существующее сообщение в конец, а не создаём новое.
 
-## UI: карточка `InspectionChipsBlock` (внутри сообщения ассистента)
+## 3) Аннотация фото (PhotoAnnotator)
 
-Заменяем текущий 2-слойный блок на 3 уровня в одной карточке:
+Bottom-sheet на одно фото:
 
-1. **Разделы** — горизонтальные чипсы по 8 разделам с бейджем прогресса `N/Total` (сколько элементов имеют finding). Текущий раздел подсвечен оранжевым.
-2. **Элементы текущего раздела** — чипсы по элементам, иконка статуса:
-   - 🟢 `noDamage=true`,
-   - 🟡 есть `noSeriousDamageTagIds`,
-   - 🔴 есть `seriousDamageTagIds`,
-   - `📷N` / `📝` если есть фото/заметка.
-   `generalCondition` всегда последний.
-3. **Вердикт + теги текущего элемента**:
-   - Сегмент «Без замечаний / Мелкие / Серьёзные» — переключает `noDamage` и активный список тегов.
-   - Чипсы тегов из `loadSectionTags(currentSection)`, разделённые `groupLabel` «Серьёзные» / «Мелкие». Тап — добавить/убрать `tagId` из соответствующего массива finding'а.
-   - Кнопка `+ Свой тег` — инлайн-ввод; имя сначала ищем в каталоге (`findTagId`), потом либо берём id, либо кладём в `pendingTagNames` и пробуем `addUserTag` в фоне.
+1. Превью фото в максимальном размере
+2. Чипсы элементов раздела (выбор → `photo.elementId`)
+3. Сегмент «Без замечаний / Мелкие / Серьёзные» → `finding.noDamage` + бакет тегов
+4. Чипсы тегов из `loadSectionTags(section)` + «Свой тег» (как в `InspectionChipsCard`)
+5. Поле заметки (`finding.note`, добавляется к существующей)
+6. Кнопка **🪄 Распознать ИИ** — отправляет фото в `vision`-эндпоинт с новым клише `CLICHE_INSPECTION_PHOTO`:
+   - возвращает `{elementId, noDamage, seriousTags[], nonSeriousTags[], note}`
+   - подставляет в поля, теги маппятся через `findTagId` / `pendingTagNames`
+   - пользователь правит и сохраняет
 
-Действия в карточке:
-- «✅ Раздел без замечаний» — массово ставит `noDamage=true` всем элементам раздела без finding.
-- «Следующий элемент» / «Следующий раздел» — навигация без диктовки.
-- «Очистить элемент» — сброс finding.
+Сохранение — `upsertFinding` (один photo → один elementId; теги/note из аннотатора сливаются в `finding`).
 
-## Composer
+## 4) Типы и хранилище
 
-- Текст в композере = `finding.note` активного элемента (двусторонняя привязка). Enter сохраняет finding и переходит к следующему элементу без finding'а.
-- Placeholder: `Заметка по «Капот» (раздел «Кузов») — Enter сохранит и перейдёт дальше`.
-- Камера (уже есть) — прикладывает фото к **текущему `section + elementId`**, сохраняет в `inspectionStep.photos`.
-- Голосовой ввод — `audioNotes.push(url)` + расшифровка идёт в `note`.
+В `types.ts`:
+- `ChatMessage.kind`: добавить `"inspectionUploadPrompt"` и `"inspectionCollage"`, с полем `sectionSnake: string`
+- `InspectionPhoto`: уже есть `elementId`. Добавить опц. `verdict?: "ok"|"minor"|"serious"` для быстрого бейджа (производное от finding, но кэшируем для сетки).
 
-## Интеграция с ИИ (`orchestrator.ts`)
+В `inspectionState.ts`:
+- `setPhotoElement(ins, photoIdx, elementId)`
+- `photosForSection(ins, section)`
 
-Существующий путь «свободная реплика → findings» сохраняем, но обогащаем:
+## 5) Старая карточка `InspectionChipsCard`
 
-- В system-prompt передаём `currentSection`, `currentElementId`, `label` элемента и каталог тегов раздела (`{id, name, type}`), плюс правило «писать finding для активного элемента, если в реплике явно не назван другой элемент того же раздела».
-- Ответ ИИ — массив `findings` строго по элементам этого раздела. Имена тегов резолвим через `findTagId`; не нашлось — `pendingTagNames`.
-- «Всё ок по капоту» / «без замечаний» → `noDamage=true`, очищаем теги элемента.
+Оставляем для ручного режима (без фото) — она по-прежнему рендерится во вступительном сообщении, но описание упрощаем: «или работайте через коллаж — кнопка раздела снизу».
 
-## Прогресс шага
+## 6) Клише для ИИ (`cliche.ts`)
 
-- Над композером — компактная полоска: `Кузов 12/16 · Каркас 0/15 · …` (тап = прыжок к разделу).
-- В `progress.ts` `isStepFilled("inspection")` = у каждого раздела все элементы имеют finding (либо явный `noDamage=true`).
-- `missingOptionalFields` подсказывает следующий пустой элемент: «Осталось: Силовой каркас → Левый лонжерон».
+```
+CLICHE_INSPECTION_PHOTO(sectionLabel, elements[], knownTags[])
+```
 
-## Сериализация (`storageApi.ts`)
+Возвращает строго JSON одной находки для активного фото:
+```json
+{
+  "elementId": "<id из списка>",
+  "noDamage": true|false,
+  "seriousTags": ["..."],
+  "nonSeriousTags": ["..."],
+  "note": "что видно на фото, 1–2 предложения"
+}
+```
 
-- Перед `PrepareSpecialistReport`: пройтись по всем findings, создать недостающие теги через `Storage.AddUserTag` для `pendingTagNames`, подменить на полученные `id`.
-- Каждый finding пишется в `INSPECTION_SECTIONS[section].elements[elementId].collection` (это уже хранится в каталоге, переиспользуем).
-- Фото отправляем с `section + elementId` в нужный element collection.
+В `aiApi.chatCompletions` уже есть `fileUrls` — отправляем туда presigned URL фото из `uploadTemporary`/`uploadPhoto`.
 
-## Что выкидываем
+## 7) Что выкидываем
 
-- `INSPECTION_ZONES` и `ZONE_TO_SECTION` (моделирование «зон» больше не нужно — раздел приходит из API-каталога).
-- `sectionNotes[zone]` как основное хранилище (по желанию — оставить как «общий комментарий к разделу», но в DTO он не нужен).
-- В `ChatApp.tsx`: `currentZoneId`/`zoneStats` пропсы — переименовать в `currentSection`/`sectionStats` + `currentElementId`/`elementStats`.
+- Кнопка 📷 в нижней панели для шага inspection (теперь живёт в карточке загрузки/коллаже).
+- Текстовый плейсхолдер «Заметка по элементу…» в композере — для inspection меняем на «Напишите вопрос ИИ или выберите раздел снизу».
 
-## Этапы
+## Этапы реализации
 
-1. **Модель**: расширить `InspectionStep` (`currentSection`, `currentElementId`) и `InspectionPhoto` (привязка к элементу). Миграция: `currentZone → currentSection` через `ZONE_TO_SECTION`.
-2. **UI**: переписать `InspectionChipsBlock` под 3 уровня + теги из каталога (lazy-load с `loadSectionTags`).
-3. **Composer ↔ finding**: двусторонняя привязка `note`, авто-переход к следующему элементу.
-4. **Orchestrator**: контекст активного элемента + каталог тегов; парсинг ответа строго по элементам.
-5. **Progress + сериализация**: пересчёт готовности по элементам, создание `pendingTagNames` перед `PrepareSpecialistReport`, фото с `elementId`.
-6. **Чистка**: удалить `INSPECTION_ZONES`, `ZONE_TO_SECTION`, мёртвые ветки `sectionNotes` (или явно пометить как опционально).
+1. Типы (`types.ts`, `inspectionState.ts`) + рендеры новых kind.
+2. Кнопка `SectionPicker` в композере + bottom-sheet.
+3. `UploadCollagePrompt` карточка + bridge с input multiple.
+4. `CollageCard` (сетка фото) + `PhotoAnnotator` sheet (ручные поля).
+5. Клише + `analyzePhotoForInspection()` в `orchestrator`, кнопка «Распознать ИИ» в аннотаторе.
+6. Чистка: убрать 📷 из композера для inspection, обновить плейсхолдеры/тексты.

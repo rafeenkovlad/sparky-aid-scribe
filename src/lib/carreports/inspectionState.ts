@@ -127,6 +127,19 @@ export function photosFor(
   ).length;
 }
 
+/** Все фото раздела с их индексами в `ins.photos` (нужно для аннотатора). */
+export function photosForSection(
+  ins: InspectionStep,
+  section: SectionSnake,
+): Array<{ idx: number; photo: import("./types").InspectionPhoto }> {
+  const out: Array<{ idx: number; photo: import("./types").InspectionPhoto }> = [];
+  ins.photos.forEach((p, idx) => {
+    if (p.section === section) out.push({ idx, photo: p });
+  });
+  return out;
+}
+
+
 /** Toggle a tag id inside a finding (serious or non_serious bucket). */
 export function toggleTag(
   f: InspectionElementFinding,
