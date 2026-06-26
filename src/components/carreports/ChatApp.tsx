@@ -1768,16 +1768,6 @@ export function ChatApp({ threadId }: Props) {
       {fullReportOpen && (
         <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
       )}
-      <PhotoAnnotator
-        open={annotatorPhotoIdx !== null}
-        onClose={() => setAnnotatorPhotoIdx(null)}
-        photo={annotatorPhoto}
-        sectionSnake={annotatorSection}
-        ins={thread.draft.inspectionStep}
-        onApply={applyAnnotator}
-        onAnalyze={runAnnotatorAi}
-        onDelete={deleteAnnotatorPhoto}
-      />
 
     </div>
   );
