@@ -235,28 +235,25 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      {/* Sub-header — компактный, в тон шапке шагов чата */}
-      <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur border-b border-white/10 px-2.5 py-2 flex items-center gap-2">
+    <div className="flex-1 overflow-y-auto bg-zinc-950">
+      {/* Минималистичная шапка */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-zinc-950/80 border-b border-white/[0.06] px-2 py-1.5 flex items-center gap-1">
         <button
           onClick={onClose}
           aria-label="Назад"
-          className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/90 shrink-0"
+          className="h-8 w-8 rounded-full hover:bg-white/[0.06] flex items-center justify-center text-white/80 shrink-0 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium truncate text-white">
-            {elementLabel}
-          </div>
-          <div className="text-[11px] text-white/50 truncate">
+        <div className="min-w-0 flex-1 px-1">
+          <div className="text-[11px] uppercase tracking-[0.08em] text-white/40 truncate">
             {section?.label ?? sectionSnake}
             {posInSection >= 0 && (
-              <>
-                <span className="text-white/25"> · </span>
-                {posInSection + 1}/{siblings.length}
-              </>
+              <span className="text-white/25"> · {posInSection + 1}/{siblings.length}</span>
             )}
+          </div>
+          <div className="text-[14px] font-semibold truncate text-white leading-tight">
+            {elementLabel}
           </div>
         </div>
         <button
@@ -264,157 +261,139 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
             if (confirm("Удалить это фото?")) onDeletePhoto();
           }}
           aria-label="Удалить фото"
-          className="h-8 w-8 rounded-full hover:bg-rose-500/15 text-rose-300 flex items-center justify-center shrink-0"
+          className="h-8 w-8 rounded-full hover:bg-rose-500/15 text-rose-300/80 hover:text-rose-300 flex items-center justify-center shrink-0 transition-colors"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Лента-чат для осмотра элемента */}
-      <div className="px-3 py-3 space-y-3">
-        {/* 1. Фото — assistant-пузырь с миниатюрой и навигацией */}
-        <Caption>
-          Сейчас смотрим: <b className="text-white/70">{elementLabel}</b> в разделе «{section?.label ?? sectionSnake}»
-          {posInSection >= 0 && (
-            <span className="text-white/35"> · {posInSection + 1}/{siblings.length}</span>
-          )}
-        </Caption>
-        <AssistantBubble>
-          <div className="relative overflow-hidden rounded-xl bg-black/40 select-none -mx-1">
-            {photo.dataUrl ? (
-              <img
-                src={photo.dataUrl}
-                alt=""
-                className="block w-full max-h-[38dvh] object-contain"
-              />
-            ) : (
-              <div className="h-40 flex items-center justify-center text-white/40 text-sm">
-                нет превью
-              </div>
-            )}
-            <div
-              className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/15"
-            >
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictDot}`} />
-              {verdictLabel}
-            </div>
-            {siblings.length > 1 && (
-              <>
-                {posInSection > 0 && (
-                  <button
-                    onClick={goPrev}
-                    aria-label="Предыдущее фото"
-                    className="absolute left-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                )}
-                {posInSection < siblings.length - 1 && (
-                  <button
-                    onClick={goNext}
-                    aria-label="Следующее фото"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                )}
-              </>
-            )}
+      {/* Hero-фото: на всю ширину, с виньеткой и плавающим вердиктом */}
+      <div className="relative select-none bg-gradient-to-b from-black via-zinc-950 to-zinc-950">
+        {photo.dataUrl ? (
+          <img
+            src={photo.dataUrl}
+            alt=""
+            className="block w-full max-h-[44dvh] object-contain"
+          />
+        ) : (
+          <div className="h-40 flex items-center justify-center text-white/30 text-sm">
+            нет превью
           </div>
+        )}
+        {/* Виньетка снизу */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-950 to-transparent" />
 
-          {/* Миниатюры — внутри пузыря, как ряд чипов */}
-          {siblings.length > 1 && (
-            <div className="-mx-1 mt-2 px-1 overflow-x-auto">
-              <div className="flex gap-1.5 w-max">
-                {siblings.map((s) => {
-                  const sel = s.idx === photoIdx;
-                  return (
-                    <button
-                      key={s.idx}
-                      onClick={() => onChangePhotoIdx(s.idx)}
-                      className={
-                        "relative h-10 w-10 rounded-md overflow-hidden border shrink-0 " +
-                        (sel
-                          ? "border-orange-400 ring-1 ring-orange-400"
-                          : "border-white/10 opacity-60 hover:opacity-100")
-                      }
-                    >
-                      {s.photo.dataUrl ? (
-                        <img src={s.photo.dataUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="h-full w-full bg-white/5" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </AssistantBubble>
+        {/* Floating verdict pill */}
+        <div className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/15">
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictDot}`} />
+          {verdictLabel}
+        </div>
 
-        {/* 2. Элемент — chip-row внутри assistant-пузыря */}
-        {section && section.elements.length > 1 && (
+        {/* Nav */}
+        {siblings.length > 1 && (
           <>
-            <Caption>Элемент раздела</Caption>
-            <AssistantBubble>
-              <div className="-mx-1 px-1 overflow-x-auto">
-                <div className="flex gap-1.5 w-max">
-                  {section.elements.map((el) => {
-                    const sel = el.id === elementId;
-                    return (
-                      <button
-                        key={el.id}
-                        onClick={() => onChangeElement(el.id)}
-                        className={
-                          "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
-                          (sel
-                            ? "bg-orange-500 text-white border-orange-500"
-                            : "bg-white/[0.03] border-white/10 text-white/75 hover:border-orange-400/50 hover:text-white")
-                        }
-                      >
-                        {el.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </AssistantBubble>
+            {posInSection > 0 && (
+              <button
+                onClick={goPrev}
+                aria-label="Предыдущее"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {posInSection < siblings.length - 1 && (
+              <button
+                onClick={goNext}
+                aria-label="Следующее"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white flex items-center justify-center ring-1 ring-white/10 transition-colors"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
           </>
         )}
 
-        {/* 3. Состояние элемента — один чип */}
-        <Caption>Состояние элемента?</Caption>
-        <AssistantBubble>
+        {/* Точки-индикаторы */}
+        {siblings.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md ring-1 ring-white/10">
+            {siblings.map((s) => {
+              const sel = s.idx === photoIdx;
+              return (
+                <button
+                  key={s.idx}
+                  onClick={() => onChangePhotoIdx(s.idx)}
+                  aria-label={`Фото ${siblings.indexOf(s) + 1}`}
+                  className={
+                    "h-1.5 rounded-full transition-all " +
+                    (sel ? "w-5 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70")
+                  }
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Тело: плотный inline-слой без карточек */}
+      <div className="px-4 pt-4 pb-6 space-y-5">
+        {/* Элемент раздела — только если есть выбор */}
+        {section && section.elements.length > 1 && (
+          <Section label="Элемент">
+            <ChipScroller>
+              {section.elements.map((el) => {
+                const sel = el.id === elementId;
+                return (
+                  <button
+                    key={el.id}
+                    onClick={() => onChangeElement(el.id)}
+                    className={
+                      "rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-all border " +
+                      (sel
+                        ? "bg-orange-500 text-white border-orange-500 shadow-[0_0_0_3px_rgba(249,115,22,0.15)]"
+                        : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:border-white/20 hover:text-white")
+                    }
+                  >
+                    {el.label}
+                  </button>
+                );
+              })}
+            </ChipScroller>
+          </Section>
+        )}
+
+        {/* Состояние */}
+        <Section label="Состояние">
           <button
             onClick={() => onSetVerdict("ok")}
             className={
-              "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
+              "group inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium whitespace-nowrap transition-all border " +
               (derivedVerdict === "ok"
-                ? "bg-emerald-500 text-white border-emerald-500"
-                : "border-emerald-500/30 text-emerald-200/85 hover:bg-emerald-500/10")
+                ? "bg-emerald-500 text-white border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]"
+                : "border-emerald-400/25 bg-emerald-500/5 text-emerald-100/90 hover:bg-emerald-500/10 hover:border-emerald-400/50")
             }
           >
-            {derivedVerdict === "ok" ? "✓ Без повреждений" : "Без повреждений"}
+            <Check
+              className={
+                "h-3.5 w-3.5 transition-opacity " +
+                (derivedVerdict === "ok" ? "opacity-100" : "opacity-0 -mr-2 group-hover:opacity-50 group-hover:mr-0")
+              }
+            />
+            Без повреждений
           </button>
-        </AssistantBubble>
+        </Section>
 
-        {/* 4. Теги — каждый ряд = отдельный assistant-пузырь */}
-        {tagsLoading && (
-          <AssistantBubble>
-            <div className="flex items-center gap-1.5 text-[12px] text-white/60">
-              <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-            </div>
-          </AssistantBubble>
-        )}
-        {!tagsLoading && tagsError && (
-          <AssistantBubble tone="error">
-            <div className="text-[12px] text-rose-200">{tagsError}</div>
-          </AssistantBubble>
-        )}
-        {!tagsLoading && (
+        {/* Теги: всегда оба ряда */}
+        {tagsLoading ? (
+          <div className="flex items-center gap-2 text-[12px] text-white/45">
+            <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+          </div>
+        ) : tagsError ? (
+          <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+            {tagsError}
+          </div>
+        ) : (
           <>
-            <Caption>Серьёзные повреждения</Caption>
-            <AssistantBubble>
+            <Section label="Серьёзные" dotClass="bg-rose-400">
               <TagRow
                 tone="serious"
                 section={sectionSnake}
@@ -426,10 +405,8 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 onAdd={(name) => onAddPendingTag(name, "serious")}
                 onCatalogChanged={() => setTokenTick((t) => t + 1)}
               />
-            </AssistantBubble>
-
-            <Caption>Мелкие повреждения</Caption>
-            <AssistantBubble>
+            </Section>
+            <Section label="Мелкие" dotClass="bg-amber-400">
               <TagRow
                 tone="minor"
                 section={sectionSnake}
@@ -441,39 +418,68 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 onAdd={(name) => onAddPendingTag(name, "non_serious")}
                 onCatalogChanged={() => setTokenTick((t) => t + 1)}
               />
-            </AssistantBubble>
+            </Section>
           </>
         )}
 
-        {/* 5. Заметка — user-пузырь если есть, иначе assistant-подсказка */}
-        <Caption>Заметка к фото</Caption>
-        {finding?.note ? (
-          <UserBubble>{finding.note}</UserBubble>
-        ) : (
-          <AssistantBubble tone="hint">
-            <div className="text-[12px] text-white/55">
-              💬 Напишите заметку в композере ниже — Enter сохранит её к этому фото.
+        {/* Заметка */}
+        <Section label="Заметка">
+          {finding?.note ? (
+            <UserBubble>{finding.note}</UserBubble>
+          ) : (
+            <div className="text-[12px] text-white/40 italic">
+              Напишите в композере ниже — Enter сохранит.
             </div>
-          </AssistantBubble>
-        )}
+          )}
+        </Section>
 
-        {/* 6. AI-вариант заметки — отдельный «proposal»-пузырь */}
+        {/* AI-вариант */}
         {noteProposal && (
-          <>
-            <Caption>
-              <Sparkles className="inline h-3 w-3 -mt-0.5" /> Вариант ИИ
-            </Caption>
-            <AssistantBubble tone="ai">
+          <Section
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-violet-300" /> Вариант ИИ
+              </span>
+            }
+          >
+            <div className="rounded-2xl border border-violet-400/25 bg-violet-500/[0.08] backdrop-blur-sm p-3">
               <NoteProposalContent
                 proposal={noteProposal}
                 onPickOriginal={onPickNoteOriginal}
                 onPickAi={onPickNoteAi}
                 onDismiss={onDismissNoteProposal}
               />
-            </AssistantBubble>
-          </>
+            </div>
+          </Section>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Унифицированный раздел: маленький label + контент ───────────────────
+function Section(props: {
+  label: React.ReactNode;
+  dotClass?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
+        {props.dotClass && (
+          <span className={"inline-block h-1.5 w-1.5 rounded-full " + props.dotClass} />
+        )}
+        {props.label}
+      </div>
+      {props.children}
+    </div>
+  );
+}
+
+function ChipScroller(props: { children: React.ReactNode }) {
+  return (
+    <div className="-mx-4 px-4 overflow-x-auto scrollbar-none">
+      <div className="flex gap-1.5 w-max pb-0.5">{props.children}</div>
     </div>
   );
 }
