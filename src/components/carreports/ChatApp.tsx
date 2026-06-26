@@ -436,36 +436,59 @@ export function ChatApp({ threadId }: Props) {
       step: StepId,
       userText: string,
     ): Promise<string> => {
-      if (!atts.length) return "";
-      const parts: string[] = [];
+      if (!atts.length || !thread) return "";
+      const STEP_HINTS: Record<StepId, string> = {
+        car: "На фото — документ авто (СТС/ПТС), VIN-таблица, шильдик или объявление. Извлеки: VIN, госномер, марку, модель, год, объём, мощность, тип топлива, КПП, привод, цвет, пробег.",
+        characteristics: "Извлеки характеристики авто с фото: марка, модель, поколение, год, объём и мощность двигателя, тип топлива, КПП, привод, цвет, комплектация.",
+        docs: "На фото — ПТС/СТС или договор. Извлеки: ФИО владельца, кол-во владельцев, VIN, номер двигателя, серию/номер документа.",
+        inspection: "На фото — элемент кузова/салона. Опиши состояние и видимые дефекты (царапины, сколы, ржавчина, вмятины, трещины), укажи деталь.",
+        testDrive: "На фото — приборная панель / салон при тест-драйве. Опиши показания (пробег, ошибки, ESP/ABS, давление) и особенности.",
+        result: "Опиши, что видно на фото — кратко, по фактам.",
+        submit: "Опиши, что видно на фото — кратко, по фактам.",
+      };
+      // 1) Загружаем все фото во временное объектное хранилище.
+      const urls: string[] = [];
+      const failures: string[] = [];
       for (const a of atts) {
         try {
-          // 1) Загружаем фото во временное объектное хранилище.
           const up = await uploadTemporary({
             filename: a.filename,
             blob: a.blob,
             dataUrl: "",
           });
-          // 2) Просим AI распознать по публичному URL.
-          const r = await fetch("/api/analyze-image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              imageUrl: up.url,
-              step,
-              prompt: userText,
-            }),
-          });
-          const j = (await r.json()) as { text?: string; error?: string };
-          if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
-          if (j.text) parts.push(j.text.trim());
+          urls.push(up.url);
         } catch (e) {
-          parts.push(`[не удалось распознать фото ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}]`);
+          failures.push(`[не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}]`);
         }
       }
-      return parts.join("\n\n");
+      if (!urls.length) return failures.join("\n");
+      // 2) Один запрос в ai.carreports.ru со всеми ссылками сразу.
+      const fresh = getThread(thread.id);
+      if (!fresh) return failures.join("\n");
+      const hint = STEP_HINTS[step] ?? STEP_HINTS.result;
+      const prompt = userText
+        ? `${hint}\n\nОтвет — компактный список фактов на русском, без воды.\n\nКонтекст: ${userText}`
+        : `${hint}\n\nОтвет — компактный список фактов на русском, без воды.`;
+      try {
+        const { chatCompletions, aiChatIdFor } = await import("@/lib/carreports/aiApi");
+        const id = aiChatIdFor(fresh, `vision:${step}`);
+        const r = await chatCompletions({
+          id,
+          text: prompt,
+          cliche: "{text}",
+          fileUrls: urls,
+        });
+        updateThread(thread.id, (t) => {
+          t.aiChatIds = fresh.aiChatIds;
+        });
+        const text = (r.content ?? "").trim();
+        return [text, ...failures].filter(Boolean).join("\n\n");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "ошибка AI";
+        return [...failures, `[AI: ${msg}]`].join("\n");
+      }
     },
-    [],
+    [thread],
   );
 
   const submit = useCallback(async () => {
