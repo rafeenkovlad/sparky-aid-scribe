@@ -1649,6 +1649,14 @@ function MessageBubble({
             </>
           )
         )}
+        {msg.kind === "inspectionSectionPicker" && inspectionDraft && (
+          <SectionPickerCard
+            ins={inspectionDraft}
+            currentSection={inspectionCursor?.section.snake}
+            interactive={interactive}
+            onPick={onSelectSection ?? (() => {})}
+          />
+        )}
         {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
           <InspectionChipsCard
             ins={inspectionDraft}
