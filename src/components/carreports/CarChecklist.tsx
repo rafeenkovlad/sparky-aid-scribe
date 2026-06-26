@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import type { ReportDraft } from "@/lib/carreports/types";
 
 interface Item {
@@ -9,13 +9,20 @@ interface Item {
 
 interface Props {
   draft: ReportDraft;
+  /**
+   * Если задано — снизу показывается кнопка «Заполнить недостающее».
+   * Колбэк получает готовый шаблон вида "Пробег: \nГород осмотра: \n…",
+   * содержащий только незаполненные обязательные поля.
+   */
+  onFillMissing?: (template: string) => void;
 }
 
 /**
  * Компактная карточка «паспорт авто» в стиле чата.
  * Поля разделены на обязательные и необязательные.
+ * Незаполненные обязательные подсвечены янтарным.
  */
-export function CarChecklist({ draft }: Props) {
+export function CarChecklist({ draft, onFillMissing }: Props) {
   const c = draft.carStep ?? {};
   const ch = draft.characteristicsStep ?? {};
 
@@ -58,12 +65,24 @@ export function CarChecklist({ draft }: Props) {
 
   const filledReq = required.filter((i) => i.filled).length;
   const filledOpt = optional.filter((i) => i.filled).length;
+  const missingReq = required.filter((i) => !i.filled);
+
+  function handleFill() {
+    if (!onFillMissing || missingReq.length === 0) return;
+    const template = missingReq.map((i) => `${i.label}: `).join("\n");
+    onFillMissing(template);
+  }
 
   return (
     <div className="text-[13px] leading-tight">
       <div className="flex items-baseline justify-between mb-2">
         <span className="text-white/70 font-medium">Паспорт авто</span>
-        <span className="text-[11px] text-white/40 tabular-nums">
+        <span
+          className={
+            "text-[11px] tabular-nums " +
+            (missingReq.length > 0 ? "text-amber-300/90" : "text-emerald-400/80")
+          }
+        >
           {filledReq}/{required.length}
         </span>
       </div>
@@ -71,7 +90,7 @@ export function CarChecklist({ draft }: Props) {
       <SectionLabel>Обязательные</SectionLabel>
       <ul className="space-y-0.5">
         {required.map((it) => (
-          <Row key={it.label} item={it} />
+          <Row key={it.label} item={it} highlightMissing />
         ))}
       </ul>
 
@@ -88,6 +107,17 @@ export function CarChecklist({ draft }: Props) {
           ))}
         </ul>
       </div>
+
+      {onFillMissing && missingReq.length > 0 && (
+        <button
+          type="button"
+          onClick={handleFill}
+          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/15 text-amber-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Заполнить недостающее ({missingReq.length})
+        </button>
+      )}
     </div>
   );
 }
@@ -100,18 +130,46 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Row({ item, muted }: { item: Item; muted?: boolean }) {
+function Row({
+  item,
+  muted,
+  highlightMissing,
+}: {
+  item: Item;
+  muted?: boolean;
+  highlightMissing?: boolean;
+}) {
+  const missing = highlightMissing && !item.filled;
   return (
     <li className="flex items-baseline gap-2 min-w-0">
       {item.filled ? (
         <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
       ) : (
-        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+        <span
+          className={
+            "h-3 w-3 shrink-0 translate-y-0.5 rounded-full border " +
+            (missing ? "border-amber-400/70 bg-amber-400/15" : "border-white/15")
+          }
+        />
       )}
-      <span className={"shrink-0 " + (muted ? "text-white/40" : "text-white/55")}>
+      <span
+        className={
+          "shrink-0 " +
+          (missing
+            ? "text-amber-200/90"
+            : muted
+              ? "text-white/40"
+              : "text-white/55")
+        }
+      >
         {item.label}
       </span>
-      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <span
+        className={
+          "flex-1 border-b border-dashed translate-y-[-3px] " +
+          (missing ? "border-amber-400/20" : "border-white/5")
+        }
+      />
       <span
         className={
           "text-right break-all min-w-0 " +
@@ -119,7 +177,9 @@ function Row({ item, muted }: { item: Item; muted?: boolean }) {
             ? muted
               ? "text-white/65"
               : "text-white/85"
-            : "text-white/30")
+            : missing
+              ? "text-amber-300/60"
+              : "text-white/30")
         }
         title={item.value ?? ""}
       >
