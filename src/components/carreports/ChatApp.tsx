@@ -1423,30 +1423,8 @@ export function ChatApp({ threadId }: Props) {
           >
             <Paperclip className="h-5 w-5" />
           </button>
-          {currentStep === "inspection" && (
-            <>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*,.heic,.heif"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void onPickPhoto(f);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
-                aria-label="Прикрепить фото"
-                title="Прикрепить фото"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
-            </>
-          )}
+
+
           <Textarea
             ref={textareaRef}
             value={composer}
