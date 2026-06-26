@@ -1368,12 +1368,17 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
-  /** Активная зона осмотра (для рендера блока inspectionChips). */
-  currentZoneId?: string;
-  /** Переключение зоны осмотра. */
-  onZoneSelect?: (zoneId: string) => void;
-  /** Счётчики заметок/фото по зонам. */
-  zoneStats?: Record<string, { hasNote: boolean; photos: number }>;
+  /** Inspection chat card data + handlers. */
+  inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
+  inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
+  onSelectSection?: (snake: SectionSnake) => void;
+  onSelectElement?: (elementId: string) => void;
+  onSetVerdict?: (v: "ok" | "minor" | "serious") => void;
+  onToggleTag?: (t: UserTag) => void;
+  onAddPendingTag?: (name: string, severity: "serious" | "non_serious") => void;
+  onClearElement?: () => void;
+  onAllNoDamage?: () => void;
+  onNextElement?: () => void;
 }
 
 function MessageBubble({
@@ -1385,9 +1390,16 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
-  currentZoneId,
-  onZoneSelect,
-  zoneStats,
+  inspectionDraft,
+  inspectionCursor,
+  onSelectSection,
+  onSelectElement,
+  onSetVerdict,
+  onToggleTag,
+  onAddPendingTag,
+  onClearElement,
+  onAllNoDamage,
+  onNextElement,
 }: BubbleProps) {
 
   if (msg.role === "user") {
