@@ -149,6 +149,10 @@ export function ChatApp({ threadId }: Props) {
   const composerBackupRef = useRef<string | null>(null);
   /** Идёт ли AI-анализ заметки к фото. */
   const [photoAiBusy, setPhotoAiBusy] = useState(false);
+  /** Предложение по заметке: оригинал vs AI-переформулировка. */
+  const [noteProposal, setNoteProposal] = useState<
+    import("./PhotoFocusView").NoteProposal | null
+  >(null);
 
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
@@ -581,6 +585,7 @@ export function ChatApp({ threadId }: Props) {
 
   const exitPhotoFocus = useCallback(() => {
     setPhotoFocusIdx(null);
+    setNoteProposal(null);
     if (composerBackupRef.current !== null) {
       setComposer(composerBackupRef.current);
       composerBackupRef.current = null;
@@ -670,13 +675,67 @@ export function ChatApp({ threadId }: Props) {
     exitPhotoFocus();
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
-  /** Сохранить текст композера как заметку к фото. */
+  /** Сохранить текст композера как заметку к фото + запросить AI-переформулировку. */
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
+    if (!text) return;
     mutatePhotoFinding((f) => {
       f.note = text;
     });
-  }, [composer, mutatePhotoFinding]);
+    setComposer("");
+    // Показать proposal с оригиналом, AI начинает грузиться.
+    setNoteProposal({ original: text, ai: null, loading: true, picked: "original" });
+    // Запускаем AI-переформулировку.
+    (async () => {
+      try {
+        if (!thread) return;
+        const fresh = getThread(thread.id);
+        if (!fresh) return;
+        const { chatCompletions, aiChatIdFor } = await import("@/lib/carreports/aiApi");
+        const id = aiChatIdFor(fresh, "photo-note-rewrite");
+        const r = await chatCompletions({
+          id,
+          text,
+          cliche:
+            "Переформулируй короткую заметку специалиста по осмотру авто в одно-два сухих предложения, без воды, на русском. Сохрани смысл и упомянутые дефекты. Только сам текст заметки.\n\nЗаметка: {text}",
+        });
+        updateThread(thread.id, (t) => {
+          t.aiChatIds = fresh.aiChatIds;
+        });
+        const ai = (r.content ?? "").trim();
+        setNoteProposal((prev) =>
+          prev && prev.original === text
+            ? { ...prev, ai, loading: false }
+            : prev,
+        );
+      } catch {
+        setNoteProposal((prev) =>
+          prev && prev.original === text
+            ? { ...prev, ai: "", loading: false }
+            : prev,
+        );
+      }
+    })();
+  }, [composer, mutatePhotoFinding, thread]);
+
+  const pickNoteOriginal = useCallback(() => {
+    setNoteProposal((p) => (p ? { ...p, picked: "original" } : p));
+    mutatePhotoFinding((f) => {
+      const p = noteProposal;
+      if (p) f.note = p.original;
+    });
+  }, [mutatePhotoFinding, noteProposal]);
+
+  const pickNoteAi = useCallback(() => {
+    if (!noteProposal?.ai) return;
+    const aiText = noteProposal.ai;
+    setNoteProposal((p) => (p ? { ...p, picked: "ai" } : p));
+    mutatePhotoFinding((f) => {
+      f.note = aiText;
+    });
+  }, [mutatePhotoFinding, noteProposal]);
+
+  const dismissNoteProposal = useCallback(() => setNoteProposal(null), []);
 
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
@@ -1399,7 +1458,10 @@ export function ChatApp({ threadId }: Props) {
         <PhotoFocusView
           ins={thread.draft.inspectionStep}
           photoIdx={photoFocusIdx}
-          onChangePhotoIdx={(idx) => setPhotoFocusIdx(idx)}
+          onChangePhotoIdx={(idx) => {
+            setNoteProposal(null);
+            setPhotoFocusIdx(idx);
+          }}
           onChangeElement={photoChangeElement}
           onSetVerdict={photoSetVerdict}
           onToggleTag={photoToggleTag}
@@ -1407,6 +1469,10 @@ export function ChatApp({ threadId }: Props) {
           onTogglePendingTag={photoAddPendingTag}
           onDeletePhoto={deletePhotoFocus}
           onClose={exitPhotoFocus}
+          noteProposal={noteProposal}
+          onPickNoteOriginal={pickNoteOriginal}
+          onPickNoteAi={pickNoteAi}
+          onDismissNoteProposal={dismissNoteProposal}
         />
       ) : (
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
