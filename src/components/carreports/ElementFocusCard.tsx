@@ -56,6 +56,8 @@ export interface ElementFocusCardProps {
   onPickNoteOriginal?: () => void;
   onPickNoteAi?: () => void;
   onDismissNoteProposal?: () => void;
+  /** ИИ сейчас анализирует заметку — подсвечиваем поля паспорта. */
+  aiUpdating?: boolean;
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
