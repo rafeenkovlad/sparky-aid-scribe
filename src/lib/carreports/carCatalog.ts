@@ -1003,6 +1003,86 @@ export async function resolveGenerationByModelId(
   }
 }
 
+/**
+ * Возвращает только список чипов поколений/рестайлингов для модели — без
+ * попыток что-либо автоматически выбрать. Используется когда марка/модель
+ * только что определились и нужно дать пользователю выбрать вручную.
+ */
+export async function listGenerationChipsForModel(
+  modelCarId: number,
+): Promise<CatalogSuggestion[]> {
+  try {
+    const gens = await fetchGenerations(modelCarId);
+    const frames = flattenFrames(gens);
+    if (!frames.length) return [];
+    const genGroups: {
+      key: string;
+      number?: number;
+      name: string;
+      items: GenerationFrameCandidate[];
+    }[] = [];
+    for (const f of frames) {
+      const key =
+        f.generationNumber != null ? `#${f.generationNumber}` : (f.generationName ?? "");
+      const g = genGroups.find((x) => x.key === key);
+      if (g) g.items.push(f);
+      else
+        genGroups.push({
+          key,
+          number: f.generationNumber,
+          name: f.generationName ?? key,
+          items: [f],
+        });
+    }
+    const out: CatalogSuggestion[] = [];
+    const seen = new Set<string>();
+    for (const group of genGroups) {
+      const gNum = group.number;
+      const uniq = new Map<string, GenerationFrameCandidate>();
+      for (const f of group.items) {
+        const k = `${f.restylingNumber ?? f.restylingName ?? "_"}`;
+        if (!uniq.has(k)) uniq.set(k, f);
+      }
+      const items = Array.from(uniq.values());
+      const multi = items.length > 1;
+      for (const f of items) {
+        const years =
+          f.yearStart || f.yearEnd
+            ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
+            : "";
+        const rNum = f.restylingNumber;
+        const genLabel = gNum != null ? `Поколение ${gNum}` : (group.name || "Поколение");
+        const restLabel = multi
+          ? rNum === 0
+            ? " · базовый"
+            : rNum != null
+              ? ` · рестайлинг ${rNum}`
+              : ` · ${f.restylingName ?? ""}`
+          : "";
+        const value =
+          multi && rNum != null
+            ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+            : `Поколение ${gNum ?? "?"}`;
+        const label = `${genLabel}${restLabel}`;
+        const dedupKey = `${label}|${years}`;
+        if (seen.has(dedupKey)) continue;
+        seen.add(dedupKey);
+        out.push({
+          group: "generation",
+          label,
+          value,
+          ...(f.urlImage ? { image: f.urlImage } : {}),
+          ...(years ? { description: years } : {}),
+        });
+        if (out.length >= 12) return out;
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** Backwards-compatible shortcut returning only modelCarId. */
 export async function resolveModelCarId(
   brandName: string | undefined,
