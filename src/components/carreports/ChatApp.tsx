@@ -1336,12 +1336,15 @@ export function ChatApp({ threadId }: Props) {
 
         ))}
 
-        {busy && (
+        {(busy || queueSize > 0) && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
-            ИИ-ассистент думает…
+            {queueSize > 0
+              ? `ИИ обрабатывает запросы… (в очереди: ${queueSize})`
+              : "ИИ-ассистент думает…"}
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </main>
 
