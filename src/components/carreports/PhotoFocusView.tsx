@@ -482,7 +482,6 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
 function TagRow(props: {
   tone: "serious" | "minor";
-  label: string;
   section: SectionSnake;
   tags: UserTag[];
   selected: Set<number>;
@@ -493,7 +492,7 @@ function TagRow(props: {
   onCatalogChanged: () => void;
 }) {
   const {
-    tone, label, section, tags, selected, pending,
+    tone, section, tags, selected, pending,
     onTap, onTogglePending, onAdd, onCatalogChanged,
   } = props;
   const sorted = useMemo(() => {
