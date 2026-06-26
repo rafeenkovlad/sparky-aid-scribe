@@ -804,7 +804,7 @@ export function ChatApp({ threadId }: Props) {
           const elId = p.elementId ?? resultElementId ?? elIdInitial;
           if (!elId) return;
           elementLabelForSummary =
-            sectionDef?.elements.find((e) => e.id === elId)?.label ?? elId;
+            sectionDef?.elements.find((el: { id: string; label: string }) => el.id === elId)?.label ?? elId;
           upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
             const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
             const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
