@@ -1536,7 +1536,7 @@ export function ChatApp({ threadId }: Props) {
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={enterPhotoFocus}
-            onDeleteInspectionPhoto={(idx) => {
+            onDeleteInspectionPhoto={(idx: number) => {
               if (!thread) return;
               updateThread(thread.id, (t) => {
                 t.draft.inspectionStep.photos.splice(idx, 1);
