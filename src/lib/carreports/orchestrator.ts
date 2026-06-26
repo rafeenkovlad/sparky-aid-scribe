@@ -51,6 +51,9 @@ export async function extractForStep(
   step: StepId,
   text: string,
   thread: Thread,
+  opts?: {
+    onClarify?: (entry: { kind: "ai" | "web"; label: string; detail?: string }) => void;
+  },
 ): Promise<{
   patch: Partial<Thread["draft"]>;
   reply: string;
