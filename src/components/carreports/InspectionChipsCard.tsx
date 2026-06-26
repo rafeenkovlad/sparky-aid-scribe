@@ -415,7 +415,7 @@ function ElementBlock({
       {verdict !== "ok" && (
         <TagsArea
           loading={loading}
-          verdict={verdict}
+          activeTab={activeTab}
           serious={serious}
           minor={minor}
           selectedSerious={selectedSerious}
