@@ -164,10 +164,11 @@ export function ChatApp({ threadId }: Props) {
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
 
-  // Auto-scroll on new messages in the current step.
+  // Auto-scroll on new messages in the current step (also when last message changes identity).
+  const lastMsgId = currentStepMessages[currentStepMessages.length - 1]?.id ?? null;
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [currentStepMessages.length, currentStep]);
+  }, [currentStepMessages.length, currentStep, lastMsgId]);
 
   const lastOptionsMsgId = useMemo(() => {
     for (let i = currentStepMessages.length - 1; i >= 0; i--) {
