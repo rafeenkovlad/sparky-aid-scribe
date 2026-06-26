@@ -74,10 +74,18 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
         return "Номер двигателя совпадает с ПТС?";
       return null;
     }
-    case "inspection":
-      return d.inspectionStep?.touched
-        ? null
-        : "Выберите зону осмотра и опишите её состояние (или нажмите «Без замечаний»).";
+    case "inspection": {
+      const ins = d.inspectionStep;
+      if (!ins?.touched) return "Выберите раздел и элемент, поставьте вердикт или опишите состояние.";
+      // Подсказываем первый раздел без findings.
+      const empty = INSPECTION_SECTIONS.find(
+        (s) => sectionProgress(ins, s).filled === 0,
+      );
+      if (empty)
+        return `Осталось пройти раздел «${empty.label}» (${empty.elements.length} элементов).`;
+      return null;
+    }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       if (!c.notDone && !c.notes && c.testDriveIsIncluded === undefined)
