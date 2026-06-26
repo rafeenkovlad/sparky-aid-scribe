@@ -35,26 +35,47 @@ export const Route = createFileRoute("/api/analyze-image")({
         if (!key) {
           return Response.json({ error: "Missing LOVABLE_API_KEY" }, { status: 500 });
         }
-        const form = await request.formData();
-        const file = form.get("file");
-        if (!(file instanceof Blob)) {
-          return Response.json({ error: "Missing image file" }, { status: 400 });
+
+        const contentType = request.headers.get("content-type") ?? "";
+        let step = "";
+        let userPrompt = "";
+        let imageDataUrl = "";
+
+        if (contentType.includes("application/json")) {
+          const body = (await request.json()) as {
+            imageUrl?: string;
+            step?: string;
+            prompt?: string;
+          };
+          if (!body.imageUrl) {
+            return Response.json({ error: "Missing imageUrl" }, { status: 400 });
+          }
+          step = body.step ?? "";
+          userPrompt = body.prompt ?? "";
+          imageDataUrl = body.imageUrl;
+        } else {
+          const form = await request.formData();
+          const file = form.get("file");
+          if (!(file instanceof Blob)) {
+            return Response.json({ error: "Missing image file" }, { status: 400 });
+          }
+          if (file.size > 6 * 1024 * 1024) {
+            return Response.json({ error: "Image too large (>6MB)" }, { status: 413 });
+          }
+          step = (form.get("step") as string | null) ?? "";
+          userPrompt = (form.get("prompt") as string | null) ?? "";
+          const buf = new Uint8Array(await file.arrayBuffer());
+          let binary = "";
+          for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+          const b64 = btoa(binary);
+          const mime = file.type || "image/jpeg";
+          imageDataUrl = `data:${mime};base64,${b64}`;
         }
-        if (file.size > 6 * 1024 * 1024) {
-          return Response.json({ error: "Image too large (>6MB)" }, { status: 413 });
-        }
-        const step = (form.get("step") as string | null) ?? "";
-        const userPrompt = (form.get("prompt") as string | null) ?? "";
+
         const hint = STEP_HINTS[step] ?? DEFAULT_PROMPT;
         const prompt = userPrompt
           ? `${hint}\n\nКонтекст от пользователя: ${userPrompt}`
           : hint;
-
-        const buf = new Uint8Array(await file.arrayBuffer());
-        let binary = "";
-        for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
-        const b64 = btoa(binary);
-        const mime = file.type || "image/jpeg";
 
         const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
