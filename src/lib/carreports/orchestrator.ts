@@ -460,7 +460,6 @@ export async function extractForStep(
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
 
-        const prevChar = thread.draft.characteristicsStep;
         const brandModelChanged =
           prevChar.brandName !== charPatch.brandName ||
           prevChar.modelCarName !== charPatch.modelCarName;
