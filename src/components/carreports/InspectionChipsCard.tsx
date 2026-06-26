@@ -157,6 +157,46 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
   );
 }
 
+// ─── Lightweight section picker (greeting / pencil entry point) ────────────
+
+export function SectionPickerCard(props: {
+  ins: InspectionStep;
+  currentSection?: SectionSnake;
+  interactive: boolean;
+  onPick: (s: SectionSnake) => void;
+}) {
+  const { ins, currentSection, interactive, onPick } = props;
+  return (
+    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
+      <div className="text-[10px] uppercase tracking-wide text-white/45">
+        Выберите раздел для осмотра
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {INSPECTION_SECTIONS.map((s) => {
+          const sel = s.snake === currentSection;
+          const prog = sectionProgress(ins, s);
+          const done = prog.filled === prog.total && prog.total > 0;
+          return (
+            <button
+              key={s.snake}
+              disabled={!interactive}
+              onClick={() => onPick(s.snake)}
+              className={chip(sel, interactive)}
+              title={s.label}
+            >
+              {done && <span className="mr-1">✅</span>}
+              {s.label}
+              <span className="ml-1 text-[10px] opacity-70">
+                {prog.filled}/{prog.total}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function chip(selected: boolean, interactive: boolean): string {
   return (
     "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
