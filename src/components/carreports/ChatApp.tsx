@@ -1482,6 +1482,7 @@ export function ChatApp({ threadId }: Props) {
 
 
       {/* Quick actions */}
+      {photoFocusIdx === null && (
       <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
         {currentStep === "result" && (
           <button
