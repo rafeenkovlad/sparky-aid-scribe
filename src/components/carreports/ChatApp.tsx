@@ -1457,7 +1457,10 @@ export function ChatApp({ threadId }: Props) {
         <PhotoFocusView
           ins={thread.draft.inspectionStep}
           photoIdx={photoFocusIdx}
-          onChangePhotoIdx={(idx) => setPhotoFocusIdx(idx)}
+          onChangePhotoIdx={(idx) => {
+            setNoteProposal(null);
+            setPhotoFocusIdx(idx);
+          }}
           onChangeElement={photoChangeElement}
           onSetVerdict={photoSetVerdict}
           onToggleTag={photoToggleTag}
@@ -1465,6 +1468,10 @@ export function ChatApp({ threadId }: Props) {
           onTogglePendingTag={photoAddPendingTag}
           onDeletePhoto={deletePhotoFocus}
           onClose={exitPhotoFocus}
+          noteProposal={noteProposal}
+          onPickNoteOriginal={pickNoteOriginal}
+          onPickNoteAi={pickNoteAi}
+          onDismissNoteProposal={dismissNoteProposal}
         />
       ) : (
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
