@@ -173,6 +173,8 @@ export interface ChatMessage {
   selectedChipValues?: string[];
   /** image attachments (brand/model/generation pictures, etc.) */
   attachments?: MessageAttachment[];
+  /** custom message variants rendered with a domain-specific card */
+  kind?: "passport";
   createdAt: number;
 }
 
