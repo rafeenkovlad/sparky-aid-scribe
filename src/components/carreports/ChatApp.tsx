@@ -1662,6 +1662,27 @@ function MessageBubble({
             onNextElement={onNextElement ?? (() => {})}
           />
         )}
+        {msg.kind === "inspectionUploadPrompt" && msg.sectionSnake && inspectionDraft && (
+          <InspectionUploadPrompt
+            sectionSnake={msg.sectionSnake as SectionSnake}
+            interactive={interactive}
+            onPick={(files) =>
+              onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
+            }
+          />
+        )}
+        {msg.kind === "inspectionCollage" && msg.sectionSnake && inspectionDraft && (
+          <InspectionCollage
+            ins={inspectionDraft}
+            sectionSnake={msg.sectionSnake as SectionSnake}
+            interactive={interactive}
+            onPick={(files) =>
+              onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
+            }
+            onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
+          />
+        )}
+
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
           // марки/модели/поколения — оставляем только мелкие миниатюры (если есть).
