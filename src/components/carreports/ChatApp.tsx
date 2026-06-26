@@ -2345,6 +2345,7 @@ function MessageBubble({
               onPickNoteOriginal={onElementFocusPickNoteOriginal}
               onPickNoteAi={onElementFocusPickNoteAi}
               onDismissNoteProposal={onElementFocusDismissNoteProposal}
+              aiUpdating={!!elementFocusNoteProposal?.loading}
             />
           )}
         {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
