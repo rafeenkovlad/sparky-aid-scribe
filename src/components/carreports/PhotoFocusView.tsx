@@ -802,40 +802,7 @@ function tagChip(tone: "serious" | "minor", selected: boolean): string {
 
 // ─── Чат-обёртки ──────────────────────────────────────────────────────────
 
-function Caption(props: { children: React.ReactNode }) {
-  return (
-    <div className="text-[10px] uppercase tracking-wide text-white/40 px-1">
-      {props.children}
-    </div>
-  );
-}
 
-function AssistantBubble(props: {
-  children: React.ReactNode;
-  tone?: "default" | "ai" | "hint" | "error";
-}) {
-  const tone = props.tone ?? "default";
-  const cls =
-    tone === "ai"
-      ? "border-violet-400/30 bg-violet-500/10"
-      : tone === "error"
-        ? "border-rose-500/30 bg-rose-500/10"
-        : tone === "hint"
-          ? "border-dashed border-white/15 bg-transparent"
-          : "border-white/10 bg-white/[0.04]";
-  return (
-    <div className="flex justify-start">
-      <div
-        className={
-          "max-w-[92%] rounded-2xl rounded-tl-md border text-sm px-3 py-2.5 text-white " +
-          cls
-        }
-      >
-        {props.children}
-      </div>
-    </div>
-  );
-}
 
 function UserBubble(props: { children: React.ReactNode }) {
   return (
