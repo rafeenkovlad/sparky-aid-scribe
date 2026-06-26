@@ -63,13 +63,12 @@ import {
   toggleTag as toggleFindingTag,
   upsertFinding,
 } from "@/lib/carreports/inspectionState";
-import { InspectionChipsCard } from "./InspectionChipsCard";
+import { InspectionChipsCard, SectionPickerCard } from "./InspectionChipsCard";
 import {
   InspectionCollage,
   InspectionUploadPrompt,
   PhotoAnnotator,
 } from "./InspectionCollage";
-import { SectionPickerButton } from "./SectionPickerButton";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
 
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
