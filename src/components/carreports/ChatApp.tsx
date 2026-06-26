@@ -820,6 +820,9 @@ export function ChatApp({ threadId }: Props) {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[400px]">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Черновик отчёта</SheetTitle>
+            </SheetHeader>
             <ReportPreview
               thread={thread}
               onJump={jumpTo}
