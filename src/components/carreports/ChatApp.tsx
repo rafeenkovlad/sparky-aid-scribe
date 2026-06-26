@@ -767,7 +767,25 @@ export function ChatApp({ threadId }: Props) {
           note: string;
         };
         if (photoFocus.url) {
-          const v = await analyzeInspectionPhoto(fresh, sec, photoFocus.url, text);
+          // Проверяем, что фото всё ещё доступно по presigned URL — иначе
+          // перезаливаем во временное хранилище из локального превью.
+          const usableUrl = await ensurePhotoAccessible({
+            url: photoFocus.url,
+            dataUrl: photoFocus.dataUrl,
+            filename: photoFocus.filename,
+          });
+          if (usableUrl && usableUrl !== photoFocus.url) {
+            updateThread(thread.id, (t) => {
+              const pp = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
+              if (pp) pp.url = usableUrl;
+            });
+          }
+          const v = await analyzeInspectionPhoto(
+            fresh,
+            sec,
+            usableUrl ?? photoFocus.url,
+            text,
+          );
           r = {
             noDamage: v.noDamage,
             seriousTagIds: v.seriousTagIds,
