@@ -32,7 +32,7 @@ import { TokenDialog } from "./TokenDialog";
 import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
-import { LexChips } from "./LexChips";
+
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 
@@ -98,6 +98,7 @@ function makeIntroMessage(step: StepId): ChatMessage {
     chips: intro.chips,
     optionsStep: step,
     selectedChipValues: [],
+    ...(step === "inspection" ? { kind: "inspectionChips" as const } : {}),
     createdAt: Date.now(),
   };
 }
@@ -118,7 +119,7 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
-  const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
+  
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
     Array<{ id: string; dataUrl: string; blob: Blob; filename: string }>
@@ -233,22 +234,15 @@ export function ChatApp({ threadId }: Props) {
       if (!thread) return;
       updateThread(thread.id, (t) => {
         t.draft.inspectionStep.currentZone = zoneId;
+        // Clear chip selections on the inspection intro message when switching zone.
+        for (const m of t.messages.inspection) {
+          if (m.kind === "inspectionChips") m.selectedChipValues = [];
+        }
       });
-      setSelectedInspectionChips(new Set());
       textareaRef.current?.focus();
     },
     [thread],
   );
-
-  const insertInspectionChip = useCallback((chip: ChatChip) => {
-    setSelectedInspectionChips((prev) => {
-      const next = new Set(prev);
-      if (next.has(chip.value)) next.delete(chip.value);
-      else next.add(chip.value);
-      return next;
-    });
-    textareaRef.current?.focus();
-  }, []);
 
   const onPickPhoto = useCallback(
     async (file: File) => {
@@ -509,12 +503,9 @@ export function ChatApp({ threadId }: Props) {
     const typed = composer.trim();
     const atts = pendingAttachments;
 
-    // Gather selected chip values from the last interactive options message
-    // (per-step chips) or the inspection chip selection state.
+    // Gather selected chip values from the last interactive options message.
     let selectedFromChips: string[] = [];
-    if (currentStep === "inspection") {
-      selectedFromChips = [...selectedInspectionChips];
-    } else if (lastOptionsMsgId) {
+    if (lastOptionsMsgId) {
       const msg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
       selectedFromChips = msg?.selectedChipValues ?? [];
     }
@@ -556,7 +547,7 @@ export function ChatApp({ threadId }: Props) {
     });
     setComposer("");
     setPendingAttachments([]);
-    if (currentStep === "inspection") setSelectedInspectionChips(new Set());
+    
 
     // 1b) If photos attached — recognize them via vision and append to text.
     let textForAI = combined;
@@ -692,7 +683,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips, pendingAttachments, analyzeAttachments]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, pendingAttachments, analyzeAttachments]);
 
 
   function jumpTo(step: StepId) {
@@ -886,6 +877,19 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
+            currentZoneId={currentZoneId}
+            onZoneSelect={selectZone}
+            zoneStats={(() => {
+              const ins = thread.draft.inspectionStep;
+              const stats: Record<string, { hasNote: boolean; photos: number }> = {};
+              for (const z of INSPECTION_ZONES) {
+                stats[z.id] = {
+                  hasNote: !!ins.sectionNotes[z.id],
+                  photos: ins.photos.filter((p) => p.section === z.id).length,
+                };
+              }
+              return stats;
+            })()}
           />
         ))}
 
@@ -898,70 +902,7 @@ export function ChatApp({ threadId }: Props) {
         <div ref={messagesEndRef} />
       </main>
 
-      {/* Inspection panel: zone picker + per-zone chips + photo button */}
-      {currentStep === "inspection" && (
-        <div className="px-3 pt-2 shrink-0 border-t border-white/5">
-          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none">
-            {INSPECTION_ZONES.map((z) => {
-              const sel = z.id === currentZoneId;
-              const hasNote = !!thread.draft.inspectionStep.sectionNotes[z.id];
-              const photoCount = thread.draft.inspectionStep.photos.filter(
-                (p) => p.section === z.id,
-              ).length;
-              return (
-                <button
-                  key={z.id}
-                  onClick={() => selectZone(z.id)}
-                  className={
-                    "shrink-0 rounded-xl px-3 py-1.5 text-xs font-medium border whitespace-nowrap transition-colors " +
-                    (sel
-                      ? "bg-orange-500 border-orange-500 text-white"
-                      : hasNote || photoCount > 0
-                        ? "bg-white/10 border-white/15 text-white"
-                        : "bg-transparent border-white/10 text-white/70 hover:border-white/25")
-                  }
-                >
-                  <span className="mr-1">{z.emoji}</span>
-                  {z.label}
-                  {(hasNote || photoCount > 0) && (
-                    <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] opacity-80">
-                      {hasNote && <span>✓</span>}
-                      {photoCount > 0 && <span>📷{photoCount}</span>}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="text-[11px] text-white/50 px-0.5 pb-1.5">{currentZone.intro}</div>
-          <div className="flex flex-wrap gap-1.5 pb-1">
-            {currentZone.chips.map((c) => {
-              const isSel = selectedInspectionChips.has(c.value);
-              return (
-                <button
-                  key={c.label}
-                  onClick={() => insertInspectionChip(c)}
-                  className={
-                    "rounded-full border px-2.5 py-1 text-xs transition-colors " +
-                    (isSel
-                      ? "bg-orange-500 text-white border-orange-500"
-                      : "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white")
-                  }
-                >
-                  {isSel ? "✓ " : ""}
-                  {c.label}
-                </button>
-              );
-            })}
-            <LexChips
-              step="inspection"
-              zone={currentZoneId}
-              selectedValues={selectedInspectionChips}
-              onTap={insertInspectionChip}
-            />
-          </div>
-        </div>
-      )}
+
 
 
       {/* Quick actions */}
@@ -1258,11 +1199,9 @@ export function ChatApp({ threadId }: Props) {
               analyzing ||
               (!composer.trim() &&
                 pendingAttachments.length === 0 &&
-                (currentStep === "inspection"
-                  ? selectedInspectionChips.size === 0
-                  : !(lastOptionsMsgId &&
-                      (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
-                        ?.selectedChipValues?.length ?? 0) > 0)))
+                !(lastOptionsMsgId &&
+                  (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                    ?.selectedChipValues?.length ?? 0) > 0))
             }
             className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
             aria-label="Отправить и перейти дальше"
@@ -1293,6 +1232,12 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
+  /** Активная зона осмотра (для рендера блока inspectionChips). */
+  currentZoneId?: string;
+  /** Переключение зоны осмотра. */
+  onZoneSelect?: (zoneId: string) => void;
+  /** Счётчики заметок/фото по зонам. */
+  zoneStats?: Record<string, { hasNote: boolean; photos: number }>;
 }
 
 function MessageBubble({
@@ -1304,6 +1249,9 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
+  currentZoneId,
+  onZoneSelect,
+  zoneStats,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1384,6 +1332,16 @@ function MessageBubble({
               <CopyButton text={msg.text} />
             </>
           )
+        )}
+        {msg.kind === "inspectionChips" && (
+          <InspectionChipsBlock
+            currentZoneId={currentZoneId ?? INSPECTION_ZONES[0].id}
+            interactive={interactive}
+            selectedValues={new Set(msg.selectedChipValues ?? [])}
+            onZoneSelect={onZoneSelect}
+            onChipTap={onChipTap}
+            zoneStats={zoneStats ?? {}}
+          />
         )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
@@ -1612,6 +1570,90 @@ function CopyButton({ text }: { text: string }) {
         </>
       )}
     </button>
+  );
+}
+
+function InspectionChipsBlock({
+  currentZoneId,
+  interactive,
+  selectedValues,
+  onZoneSelect,
+  onChipTap,
+  zoneStats,
+}: {
+  currentZoneId: string;
+  interactive: boolean;
+  selectedValues: Set<string>;
+  onZoneSelect?: (zoneId: string) => void;
+  onChipTap: (chip: ChatChip) => void;
+  zoneStats: Record<string, { hasNote: boolean; photos: number }>;
+}) {
+  const zone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
+  return (
+    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2.5">
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1">
+          Зона осмотра
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {INSPECTION_ZONES.map((z) => {
+            const sel = z.id === currentZoneId;
+            const st = zoneStats[z.id];
+            const has = st && (st.hasNote || st.photos > 0);
+            return (
+              <button
+                key={z.id}
+                disabled={!interactive}
+                onClick={() => onZoneSelect?.(z.id)}
+                className={
+                  "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
+                  (sel
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : interactive
+                      ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                      : "border-white/10 text-white/40 cursor-default")
+                }
+              >
+                <span className="mr-1">{z.emoji}</span>
+                {z.label}
+                {has && (
+                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] opacity-80">
+                    {st!.hasNote && <span>✓</span>}
+                    {st!.photos > 0 && <span>📷{st!.photos}</span>}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <div className="text-[11px] text-white/55 mb-1">{zone.intro}</div>
+        <div className="flex flex-wrap gap-1.5">
+          {zone.chips.map((c) => {
+            const isSel = selectedValues.has(c.value);
+            return (
+              <button
+                key={c.label}
+                disabled={!interactive}
+                onClick={() => onChipTap(c)}
+                className={
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                  (isSel
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : interactive
+                      ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                      : "border-white/10 text-white/40 cursor-default")
+                }
+              >
+                {isSel ? "✓ " : ""}
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
