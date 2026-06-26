@@ -471,22 +471,14 @@ function TagsArea({
   onToggleTag,
   onAddPendingTag,
 }: TagsAreaProps) {
-  const [showOther, setShowOther] = useState(false);
-
-  // Primary bucket follows verdict; "other" is the opposite list.
+  // Show only the bucket matching the active verdict — no cross-severity reveal.
   const primaryIsSerious = verdict === "serious";
   const primary = primaryIsSerious ? serious : minor;
   const primarySelected = primaryIsSerious ? selectedSerious : selectedMinor;
-  const other = primaryIsSerious ? minor : serious;
-  const otherSelected = primaryIsSerious ? selectedMinor : selectedSerious;
-  const otherActiveCount = other.filter((t) => otherSelected.has(t.id)).length;
-
   const primaryPending = pending.filter((p) =>
     primaryIsSerious ? p.severity === "serious" : p.severity !== "serious",
   );
-  const otherPending = pending.filter((p) =>
-    primaryIsSerious ? p.severity !== "serious" : p.severity === "serious",
-  );
+
 
   if (loading) {
     return (
