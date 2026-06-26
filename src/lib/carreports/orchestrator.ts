@@ -17,13 +17,14 @@ import {
 } from "./cliche";
 
 import { decodeVin } from "./storageApi";
-import { zoneById } from "./inspectionZones";
 import {
+  INSPECTION_SECTIONS,
   ZONE_TO_SECTION,
   getSection,
   findingKey,
   type SectionSnake,
 } from "./inspectionSections";
+
 import { loadSectionTags, findTagId } from "./inspectionTags";
 import type {
   CarStep,
@@ -65,13 +66,24 @@ export async function extractForStep(
   // legacy free-form note and structured findings.
   if (step === "inspection") {
     const ins = thread.draft.inspectionStep;
-    const zone = ins.currentZone ?? "body";
-    const zoneLabel = zoneById(zone)?.label ?? zone;
-    const sectionSnake: SectionSnake = ZONE_TO_SECTION[zone] ?? "body";
-    const section = getSection(sectionSnake);
+    // Resolve cursor → active section + element. Legacy fallback via ZONE_TO_SECTION.
+    const sectionSnake: SectionSnake =
+      (ins.currentSection as SectionSnake | undefined) ??
+      (ins.currentZone ? ZONE_TO_SECTION[ins.currentZone] : undefined) ??
+      INSPECTION_SECTIONS[0].snake;
+    const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
+    const elementId = ins.currentElementId ?? section.elements[0].id;
+    const activeElement =
+      section.elements.find((e) => e.id === elementId) ?? section.elements[0];
 
     // Fetch tags catalogue for this section (cached); never throws.
     const tagCatalogue = await loadSectionTags(sectionSnake);
+
+    // Tell the AI to default to the currently focused element.
+    const focusedText =
+      `Активный элемент: ${activeElement.id} — «${activeElement.label}» ` +
+      `(раздел «${section.label}»). Если эксперт явно не назвал другой элемент ` +
+      `из этого раздела — пиши находку для активного.\n\n${text}`;
 
     let cleaned = text;
     let aiFindings: Array<{
@@ -82,12 +94,12 @@ export async function extractForStep(
       note?: string;
     }> = [];
     try {
-      const id = aiChatIdFor(thread, `extract:inspection:${zone}`);
+      const id = aiChatIdFor(thread, `extract:inspection:${sectionSnake}`);
       const res = await chatCompletions({
         id,
-        text,
+        text: focusedText,
         cliche: CLICHE_INSPECTION(
-          zoneLabel,
+          activeElement.label,
           section.label,
           section.elements.map((el) => ({ id: el.id, label: el.label })),
           tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
@@ -103,15 +115,21 @@ export async function extractForStep(
       /* keep raw text */
     }
 
+    // If AI returned nothing usable — treat the raw text as a note on the active element.
+    if (!aiFindings.length && text.trim()) {
+      aiFindings = [{ elementId, note: text.trim() }];
+    }
+
     // Resolve element findings: validate elementId, map tag names → server IDs.
     const elementIds = new Set(section.elements.map((el) => el.id));
     const prevFindings = ins.findings ?? {};
     const nextFindings: Record<string, InspectionElementFinding> = { ...prevFindings };
-    let hasIssues = false;
+    const touchedElements: string[] = [];
 
     for (const f of aiFindings) {
-      const eid = typeof f.elementId === "string" ? f.elementId : "";
-      if (!eid || !elementIds.has(eid)) continue;
+      const eid = typeof f.elementId === "string" && elementIds.has(f.elementId)
+        ? f.elementId
+        : elementId; // fallback to active element
       const key = findingKey(sectionSnake, eid);
       const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
 
@@ -155,25 +173,21 @@ export async function extractForStep(
         ...(pending.length ? { pendingTagNames: pending } : {}),
         ...(nextNote ? { note: nextNote } : {}),
       };
-
-      if (noDamage === false || sIds.size || nsIds.size) hasIssues = true;
+      touchedElements.push(eid);
     }
 
-    const prev = ins.sectionNotes[zone] ?? "";
-    const merged = prev ? `${prev}\n${cleaned}` : cleaned;
-    const nextNotes = { ...ins.sectionNotes, [zone]: merged };
-
-    // Build a human-readable reply that lists per-element findings.
-    const lines: string[] = [`Записал по зоне «${zoneLabel}»:`];
-    const zoneFindings = Object.values(nextFindings).filter(
-      (f) => f.section === sectionSnake,
-    );
-    for (const f of zoneFindings) {
-      const el = section.elements.find((x) => x.id === f.elementId);
-      if (!el) continue;
+    // Build a human-readable reply that lists per-element findings touched now.
+    const lines: string[] = [];
+    const idToName = new Map(tagCatalogue.map((t) => [t.id, t.name]));
+    const seen = new Set<string>();
+    for (const eid of touchedElements) {
+      if (seen.has(eid)) continue;
+      seen.add(eid);
+      const f = nextFindings[findingKey(sectionSnake, eid)];
+      const el = section.elements.find((x) => x.id === eid);
+      if (!f || !el) continue;
       const mark = f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
       const tags: string[] = [];
-      const idToName = new Map(tagCatalogue.map((t) => [t.id, t.name]));
       for (const id of f.seriousDamageTagIds ?? []) {
         const n = idToName.get(id);
         if (n) tags.push(`❗${n}`);
@@ -189,45 +203,27 @@ export async function extractForStep(
       const notePart = f.note ? ` · ${f.note}` : "";
       lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
     }
-    if (zoneFindings.length === 0) lines.push(cleaned);
-    if (hasIssues)
-      lines.push("\n* — теги добавятся локально и поедут при отправке как pendingTagNames.");
-
-    // Чипы: элементы зоны + теги повреждений (готовые фразы для инпута).
-    const chips: ChatChip[] = [];
-    for (const el of section.elements) {
-      chips.push({
-        label: el.label,
-        value: `${el.label}: без замечаний`,
-        group: "inspection-element",
-        single: true,
-      });
-    }
-    // Берём топ-12 тегов, чтобы не раздувать карточку.
-    for (const t of tagCatalogue.slice(0, 12)) {
-      const prefix = t.type === "serious" ? "❗" : "";
-      chips.push({
-        label: `${prefix}${t.name}`,
-        value: t.name,
-        group: "inspection-tag",
-        single: true,
-      });
-    }
+    const head = lines.length
+      ? `Записал по разделу «${section.label}»:\n${lines.join("\n")}`
+      : cleaned;
+    const tail = lines.some((l) => l.includes("*"))
+      ? "\n\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
+      : "";
 
     return {
       patch: {
         inspectionStep: {
           ...ins,
-          sectionNotes: nextNotes,
           findings: nextFindings,
           touched: true,
-          currentZone: zone,
+          currentSection: sectionSnake,
+          currentElementId: elementId,
         },
       },
-      reply: lines.filter(Boolean).join("\n"),
-      chips,
+      reply: head + tail,
     };
   }
+
 
 
   // Test-drive: AI extracts per-system flags + tags + note.
@@ -1084,31 +1080,34 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         : "";
     case "inspection": {
       const ins = draft.inspectionStep;
-      const zone = ins.currentZone ?? "body";
-      const zoneLabel = zoneById(zone)?.label ?? zone;
       const findings = Object.values(ins.findings ?? {});
-      const zoneFindings = findings.filter((f) => f.section === (ZONE_TO_SECTION[zone] ?? "body"));
-      if (!zoneFindings.length && !ins.sectionNotes[zone]) return "";
-      const section = getSection(ZONE_TO_SECTION[zone] ?? "body");
-      const lines: string[] = [`Уже зафиксировано по зоне «${zoneLabel}»:`];
-      for (const f of zoneFindings) {
-        const el = section.elements.find((x) => x.id === f.elementId);
-        if (!el) continue;
-        const mark = f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
-        const tagCount =
-          (f.seriousDamageTagIds?.length ?? 0) +
-          (f.noSeriousDamageTagIds?.length ?? 0) +
-          (f.pendingTagNames?.length ?? 0);
-        const tagPart = tagCount ? ` — тегов: ${tagCount}` : "";
-        const notePart = f.note ? ` · ${f.note}` : "";
-        lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
+      if (!findings.length) return "";
+      const bySection = new Map<string, typeof findings>();
+      for (const f of findings) {
+        const arr = bySection.get(f.section) ?? [];
+        arr.push(f);
+        bySection.set(f.section, arr);
       }
-      if (!zoneFindings.length && ins.sectionNotes[zone]) {
-        lines.push(ins.sectionNotes[zone]);
+      const lines: string[] = ["Зафиксировано по осмотру:"];
+      for (const s of INSPECTION_SECTIONS) {
+        const list = bySection.get(s.snake);
+        if (!list?.length) continue;
+        let ok = 0, minor = 0, serious = 0;
+        for (const f of list) {
+          if ((f.seriousDamageTagIds?.length ?? 0) > 0) serious += 1;
+          else if ((f.noSeriousDamageTagIds?.length ?? 0) > 0) minor += 1;
+          else if (f.noDamage === true) ok += 1;
+        }
+        const bits: string[] = [`${list.length}/${s.elements.length}`];
+        if (ok) bits.push(`✅${ok}`);
+        if (minor) bits.push(`🟡${minor}`);
+        if (serious) bits.push(`🔴${serious}`);
+        lines.push(`• ${s.label}: ${bits.join(" · ")}`);
       }
-      lines.push("\nПродолжайте, выберите другую зону или нажмите «Всё верно, далее».");
+      lines.push("\nПродолжайте по элементам или нажмите «Всё верно, далее».");
       return lines.join("\n");
     }
+
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       const has =

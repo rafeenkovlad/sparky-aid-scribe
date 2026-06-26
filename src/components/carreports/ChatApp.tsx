@@ -49,7 +49,7 @@ import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
-import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+
 import {
   INSPECTION_SECTIONS,
   type SectionSnake,

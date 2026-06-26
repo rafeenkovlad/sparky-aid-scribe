@@ -1,7 +1,10 @@
 // Defensive accessors — never crash on missing nested fields.
 
 import { FLOW_STEPS } from "./flow";
+import { INSPECTION_SECTIONS } from "./inspectionSections";
+import { sectionProgress } from "./inspectionState";
 import type { ReportDraft, StepId } from "./types";
+
 
 export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   if (!d) return false;
@@ -21,8 +24,17 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       const c = d.documentReconciliationStep ?? {};
       return typeof c.ownersCount === "number";
     }
-    case "inspection":
-      return !!d.inspectionStep?.touched;
+    case "inspection": {
+      const ins = d.inspectionStep;
+      if (!ins?.touched) return false;
+      // Считаем шаг готовым, когда у каждого раздела есть хотя бы 1 finding,
+      // или явно отмечены все элементы хотя бы одного раздела как "ок".
+      // Здесь — мягкий критерий: каждый раздел затронут.
+      return INSPECTION_SECTIONS.every(
+        (s) => sectionProgress(ins, s).filled > 0,
+      );
+    }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       return !!c.notDone || !!c.notes;
@@ -62,10 +74,18 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
         return "Номер двигателя совпадает с ПТС?";
       return null;
     }
-    case "inspection":
-      return d.inspectionStep?.touched
-        ? null
-        : "Выберите зону осмотра и опишите её состояние (или нажмите «Без замечаний»).";
+    case "inspection": {
+      const ins = d.inspectionStep;
+      if (!ins?.touched) return "Выберите раздел и элемент, поставьте вердикт или опишите состояние.";
+      // Подсказываем первый раздел без findings.
+      const empty = INSPECTION_SECTIONS.find(
+        (s) => sectionProgress(ins, s).filled === 0,
+      );
+      if (empty)
+        return `Осталось пройти раздел «${empty.label}» (${empty.elements.length} элементов).`;
+      return null;
+    }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       if (!c.notDone && !c.notes && c.testDriveIsIncluded === undefined)
@@ -121,12 +141,14 @@ export function remainingFieldLabels(id: StepId, d: ReportDraft): string[] {
     }
     case "inspection": {
       const ins = d.inspectionStep ?? { sectionNotes: {}, photos: [] };
-      if (!ins.touched) out.push("первая зона");
-      const zonesWithNotes = Object.keys(ins.sectionNotes ?? {}).length;
-      if (zonesWithNotes < 8) out.push(`ещё зон: ${8 - zonesWithNotes}`);
+      const empty = INSPECTION_SECTIONS.filter(
+        (s) => sectionProgress(ins, s).filled === 0,
+      );
+      if (empty.length) out.push(`разделов без записей: ${empty.length}`);
       if ((ins.photos?.length ?? 0) === 0) out.push("фото");
       break;
     }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       if (c.testDriveIsIncluded === undefined && !c.notDone) out.push("проводился ли тест-драйв");

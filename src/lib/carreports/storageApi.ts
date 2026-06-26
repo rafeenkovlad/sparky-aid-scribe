@@ -429,6 +429,44 @@ export async function submitReport(draft: ReportDraft): Promise<{
   note?: string;
 }> {
   try {
+    // 0) Resolve any pendingTagNames → real tag ids via Storage.AddUserTag.
+    //    Mutates `draft.inspectionStep.findings` in place: created ids are
+    //    moved into seriousDamageTagIds / noSeriousDamageTagIds; pending list
+    //    is cleared on success. Failures are logged silently — server-side
+    //    validation will surface unresolved tags via the response.
+    try {
+      const { addUserTag } = await import("./inspectionTags");
+      const findings = draft.inspectionStep?.findings ?? {};
+      for (const f of Object.values(findings)) {
+        const pending = f.pendingTagNames ?? [];
+        if (!pending.length) continue;
+        const remaining: typeof pending = [];
+        for (const p of pending) {
+          const created = await addUserTag(
+            f.section as SectionSnake,
+            p.name,
+            p.severity,
+          );
+          if (created?.id) {
+            if (p.severity === "serious") {
+              const ids = new Set(f.seriousDamageTagIds ?? []);
+              ids.add(created.id);
+              f.seriousDamageTagIds = [...ids];
+            } else {
+              const ids = new Set(f.noSeriousDamageTagIds ?? []);
+              ids.add(created.id);
+              f.noSeriousDamageTagIds = [...ids];
+            }
+          } else {
+            remaining.push(p);
+          }
+        }
+        f.pendingTagNames = remaining;
+      }
+    } catch {
+      /* keep pending names — server will report if any blocking */
+    }
+
     // Resolve modelCarId + modelGenerationRestylingFrameId on the fly if
     // missing — Doc requires one of them on characteristicsStep.
     let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null, trace: [] };
@@ -441,6 +479,7 @@ export async function submitReport(draft: ReportDraft): Promise<{
     }
 
     const payload = buildPrepareReportPayload(draft, resolved);
+
     const r = await rpc<{ result?: PrepareReportResult } | PrepareReportResult>(
       "Storage.PrepareSpecialistReport",
       { report: payload },
