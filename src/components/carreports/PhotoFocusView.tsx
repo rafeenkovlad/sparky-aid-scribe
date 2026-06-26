@@ -236,7 +236,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Sub-header */}
+      {/* Sub-header — компактный, в тон шапке шагов чата */}
       <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur border-b border-white/10 px-2.5 py-2 flex items-center gap-2">
         <button
           onClick={onClose}
@@ -270,120 +270,121 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
         </button>
       </div>
 
-      {/* Photo */}
-      <div className="relative bg-gradient-to-b from-black to-black/70 select-none">
-        {photo.dataUrl ? (
-          <img
-            src={photo.dataUrl}
-            alt=""
-            className="block w-full max-h-[42dvh] object-contain"
-          />
-        ) : (
-          <div className="h-40 flex items-center justify-center text-white/40 text-sm">
-            нет превью
+      {/* Лента-чат для осмотра элемента */}
+      <div className="px-3 py-3 space-y-3">
+        {/* 1. Фото — assistant-пузырь с миниатюрой и навигацией */}
+        <Caption>
+          Сейчас смотрим: <b className="text-white/70">{elementLabel}</b> в разделе «{section?.label ?? sectionSnake}»
+          {posInSection >= 0 && (
+            <span className="text-white/35"> · {posInSection + 1}/{siblings.length}</span>
+          )}
+        </Caption>
+        <AssistantBubble>
+          <div className="relative overflow-hidden rounded-xl bg-black/40 select-none -mx-1">
+            {photo.dataUrl ? (
+              <img
+                src={photo.dataUrl}
+                alt=""
+                className="block w-full max-h-[38dvh] object-contain"
+              />
+            ) : (
+              <div className="h-40 flex items-center justify-center text-white/40 text-sm">
+                нет превью
+              </div>
+            )}
+            <div
+              className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/15"
+            >
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictDot}`} />
+              {verdictLabel}
+            </div>
+            {siblings.length > 1 && (
+              <>
+                {posInSection > 0 && (
+                  <button
+                    onClick={goPrev}
+                    aria-label="Предыдущее фото"
+                    className="absolute left-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                )}
+                {posInSection < siblings.length - 1 && (
+                  <button
+                    onClick={goNext}
+                    aria-label="Следующее фото"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                )}
+              </>
+            )}
           </div>
-        )}
-        <div
-          className={
-            "absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2.5 py-1 text-[11px] font-medium text-white ring-1 ring-white/15"
-          }
-        >
-          <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictDot}`} />
-          {verdictLabel}
-        </div>
-        {siblings.length > 1 && (
+
+          {/* Миниатюры — внутри пузыря, как ряд чипов */}
+          {siblings.length > 1 && (
+            <div className="-mx-1 mt-2 px-1 overflow-x-auto">
+              <div className="flex gap-1.5 w-max">
+                {siblings.map((s) => {
+                  const sel = s.idx === photoIdx;
+                  return (
+                    <button
+                      key={s.idx}
+                      onClick={() => onChangePhotoIdx(s.idx)}
+                      className={
+                        "relative h-10 w-10 rounded-md overflow-hidden border shrink-0 " +
+                        (sel
+                          ? "border-orange-400 ring-1 ring-orange-400"
+                          : "border-white/10 opacity-60 hover:opacity-100")
+                      }
+                    >
+                      {s.photo.dataUrl ? (
+                        <img src={s.photo.dataUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-white/5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </AssistantBubble>
+
+        {/* 2. Элемент — chip-row внутри assistant-пузыря */}
+        {section && section.elements.length > 1 && (
           <>
-            {posInSection > 0 && (
-              <button
-                onClick={goPrev}
-                aria-label="Предыдущее фото"
-                className="absolute left-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-            )}
-            {posInSection < siblings.length - 1 && (
-              <button
-                onClick={goNext}
-                aria-label="Следующее фото"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            )}
+            <Caption>Элемент раздела</Caption>
+            <AssistantBubble>
+              <div className="-mx-1 px-1 overflow-x-auto">
+                <div className="flex gap-1.5 w-max">
+                  {section.elements.map((el) => {
+                    const sel = el.id === elementId;
+                    return (
+                      <button
+                        key={el.id}
+                        onClick={() => onChangeElement(el.id)}
+                        className={
+                          "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
+                          (sel
+                            ? "bg-orange-500 text-white border-orange-500"
+                            : "bg-white/[0.03] border-white/10 text-white/75 hover:border-orange-400/50 hover:text-white")
+                        }
+                      >
+                        {el.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </AssistantBubble>
           </>
         )}
-      </div>
 
-      {/* Thumbnails */}
-      {siblings.length > 1 && (
-        <div className="px-2 py-1.5 bg-black/40 border-b border-white/5 overflow-x-auto">
-          <div className="flex gap-1.5 w-max">
-            {siblings.map((s) => {
-              const sel = s.idx === photoIdx;
-              return (
-                <button
-                  key={s.idx}
-                  onClick={() => onChangePhotoIdx(s.idx)}
-                  className={
-                    "relative h-11 w-11 rounded-md overflow-hidden border shrink-0 " +
-                    (sel
-                      ? "border-orange-400 ring-1 ring-orange-400"
-                      : "border-white/10 opacity-60 hover:opacity-100")
-                  }
-                >
-                  {s.photo.dataUrl ? (
-                    <img
-                      src={s.photo.dataUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-white/5" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Quick actions — наследуем интерфейс шага осмотра */}
-      <div className="px-3 py-3 space-y-3">
-        {/* Элемент */}
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5">
-            Элемент
-          </div>
-          <div className="-mx-3 px-3 overflow-x-auto">
-            <div className="flex gap-1.5 w-max pb-0.5">
-              {section?.elements.map((el) => {
-                const sel = el.id === elementId;
-                return (
-                  <button
-                    key={el.id}
-                    onClick={() => onChangeElement(el.id)}
-                    className={
-                      "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
-                      (sel
-                        ? "bg-orange-500 text-white border-orange-500"
-                        : "bg-white/[0.03] border-white/10 text-white/75 hover:border-orange-400/50 hover:text-white")
-                    }
-                  >
-                    {el.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Состояние: только «Без повреждений». Если выбран — теги скрыты.
-            Если не выбран — пользователь свободно отмечает серьёзные и мелкие. */}
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5">
-            Состояние
-          </div>
+        {/* 3. Состояние элемента — один чип */}
+        <Caption>Состояние элемента?</Caption>
+        <AssistantBubble>
           <button
             onClick={() => onSetVerdict("ok")}
             className={
@@ -395,65 +396,83 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           >
             {derivedVerdict === "ok" ? "✓ Без повреждений" : "Без повреждений"}
           </button>
-        </div>
+        </AssistantBubble>
 
-        {/* Теги: оба ряда показываются одновременно, под каждым — своё «+ свой тег». */}
-        {(
-          <div className="space-y-3">
-            {tagsLoading && (
-              <div className="flex items-center gap-1.5 text-[11px] text-white/50">
-                <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-              </div>
-            )}
-            {!tagsLoading && tagsError && (
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-                {tagsError}
-              </div>
-            )}
+        {/* 4. Теги — каждый ряд = отдельный assistant-пузырь */}
+        {tagsLoading && (
+          <AssistantBubble>
+            <div className="flex items-center gap-1.5 text-[12px] text-white/60">
+              <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+            </div>
+          </AssistantBubble>
+        )}
+        {!tagsLoading && tagsError && (
+          <AssistantBubble tone="error">
+            <div className="text-[12px] text-rose-200">{tagsError}</div>
+          </AssistantBubble>
+        )}
+        {!tagsLoading && (
+          <>
+            <Caption>Серьёзные повреждения</Caption>
+            <AssistantBubble>
+              <TagRow
+                tone="serious"
+                section={sectionSnake}
+                tags={serious}
+                selected={sIds}
+                pending={pending.filter((p) => p.severity === "serious")}
+                onTap={onToggleTag}
+                onTogglePending={(name) => onTogglePendingTag(name, "serious")}
+                onAdd={(name) => onAddPendingTag(name, "serious")}
+                onCatalogChanged={() => setTokenTick((t) => t + 1)}
+              />
+            </AssistantBubble>
 
-            {!tagsLoading && (
-              <>
-                <TagRow
-                  tone="serious"
-                  label="Серьёзные"
-                  section={sectionSnake}
-                  tags={serious}
-                  selected={sIds}
-                  pending={pending.filter((p) => p.severity === "serious")}
-                  onTap={onToggleTag}
-                  onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-                  onAdd={(name) => onAddPendingTag(name, "serious")}
-                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
-                />
-                <TagRow
-                  tone="minor"
-                  label="Мелкие"
-                  section={sectionSnake}
-                  tags={minor}
-                  selected={nsIds}
-                  pending={pending.filter((p) => p.severity !== "serious")}
-                  onTap={onToggleTag}
-                  onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-                  onAdd={(name) => onAddPendingTag(name, "non_serious")}
-                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
-                />
-              </>
-            )}
-          </div>
+            <Caption>Мелкие повреждения</Caption>
+            <AssistantBubble>
+              <TagRow
+                tone="minor"
+                section={sectionSnake}
+                tags={minor}
+                selected={nsIds}
+                pending={pending.filter((p) => p.severity !== "serious")}
+                onTap={onToggleTag}
+                onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
+                onAdd={(name) => onAddPendingTag(name, "non_serious")}
+                onCatalogChanged={() => setTokenTick((t) => t + 1)}
+              />
+            </AssistantBubble>
+          </>
         )}
 
+        {/* 5. Заметка — user-пузырь если есть, иначе assistant-подсказка */}
+        <Caption>Заметка к фото</Caption>
+        {finding?.note ? (
+          <UserBubble>{finding.note}</UserBubble>
+        ) : (
+          <AssistantBubble tone="hint">
+            <div className="text-[12px] text-white/55">
+              💬 Напишите заметку в композере ниже — Enter сохранит её к этому фото.
+            </div>
+          </AssistantBubble>
+        )}
 
-
-        {/* Заметка */}
-        <NoteBlock
-          note={finding?.note}
-          proposal={noteProposal}
-          onPickOriginal={onPickNoteOriginal}
-          onPickAi={onPickNoteAi}
-          onDismiss={onDismissNoteProposal}
-        />
-      </div>
-    </div>
+        {/* 6. AI-вариант заметки — отдельный «proposal»-пузырь */}
+        {noteProposal && (
+          <>
+            <Caption>
+              <Sparkles className="inline h-3 w-3 -mt-0.5" /> Вариант ИИ
+            </Caption>
+            <AssistantBubble tone="ai">
+              <NoteProposalContent
+                proposal={noteProposal}
+                onPickOriginal={onPickNoteOriginal}
+                onPickAi={onPickNoteAi}
+                onDismiss={onDismissNoteProposal}
+              />
+            </AssistantBubble>
+          </>
+        )}
   );
 }
 
