@@ -416,22 +416,26 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <TagRow
                   tone="serious"
                   label="Серьёзные"
+                  section={sectionSnake}
                   tags={serious}
                   selected={sIds}
                   pending={pending.filter((p) => p.severity === "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "serious")}
                   onAdd={(name) => onAddPendingTag(name, "serious")}
+                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
                 />
                 <TagRow
                   tone="minor"
                   label="Мелкие"
+                  section={sectionSnake}
                   tags={minor}
                   selected={nsIds}
                   pending={pending.filter((p) => p.severity !== "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
                   onAdd={(name) => onAddPendingTag(name, "non_serious")}
+                  onCatalogChanged={() => setTokenTick((t) => t + 1)}
                 />
               </>
             )}
