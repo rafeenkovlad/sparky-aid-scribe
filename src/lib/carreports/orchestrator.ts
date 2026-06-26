@@ -51,6 +51,9 @@ export async function extractForStep(
   step: StepId,
   text: string,
   thread: Thread,
+  opts?: {
+    onClarify?: (entry: { kind: "ai" | "web"; label: string; detail?: string }) => void;
+  },
 ): Promise<{
   patch: Partial<Thread["draft"]>;
   reply: string;
@@ -443,6 +446,7 @@ export async function extractForStep(
             charPatch.modelCarName,
             text,
             thread,
+            opts?.onClarify,
           );
           if (inferred?.brandName) {
             charPatch.brandName = inferred.brandName;
@@ -509,6 +513,7 @@ export async function extractForStep(
             year: resolveYear,
             brandName: charPatch.brandName,
             modelCarName: charPatch.modelCarName,
+            onTrace: opts?.onClarify,
           });
         } else {
           const { resolveCar } = await import("./carCatalog");
@@ -516,7 +521,7 @@ export async function extractForStep(
             charPatch.brandName,
             charPatch.modelCarName,
             resolveYear,
-            { thread, userText: text, generationHint: resolveHint },
+            { thread, userText: text, generationHint: resolveHint, onTrace: opts?.onClarify },
           );
         }
         if (resolved.modelCarId) {
@@ -615,15 +620,7 @@ export async function extractForStep(
           catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
 
-        // Показать в чате уточняющие запросы нейросети (доп. AI/web вызовы).
-        try {
-          const { formatClarifyTrace, resolvedTraceToClarify } = await import("./carCatalog");
-          const fullClarify = [...clarifyLog, ...resolvedTraceToClarify(resolved)];
-          const note = formatClarifyTrace(fullClarify);
-          if (note) catalogNote = note + catalogNote;
-        } catch {
-          /* ignore — трейс необязателен */
-        }
+        // Уточняющие запросы стримятся отдельными сообщениями через onClarify.
 
         // Если pendingHint был применён — очищаем.
         if (!deferGeneration && pendingHint) charPatch.pendingGenerationHint = null;
@@ -697,6 +694,7 @@ export async function extractForStep(
             merged.modelCarName,
             text,
             thread,
+            opts?.onClarify,
           );
           if (inferred?.brandName) {
             merged.brandName = inferred.brandName;
@@ -762,6 +760,7 @@ export async function extractForStep(
               year: resolveYear,
               brandName: merged.brandName,
               modelCarName: merged.modelCarName,
+              onTrace: opts?.onClarify,
             });
           } else {
             const { resolveCar } = await import("./carCatalog");
@@ -769,6 +768,7 @@ export async function extractForStep(
               thread,
               userText: text,
               generationHint: resolveHint,
+              onTrace: opts?.onClarify,
             });
           }
           if (resolved.modelCarId) {
@@ -869,15 +869,7 @@ export async function extractForStep(
             catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
           }
 
-          // Показать в чате уточняющие запросы нейросети (доп. AI/web вызовы).
-          try {
-            const { formatClarifyTrace, resolvedTraceToClarify } = await import("./carCatalog");
-            const fullClarify = [...clarifyLog, ...resolvedTraceToClarify(resolved)];
-            const note = formatClarifyTrace(fullClarify);
-            if (note) catalogNote = note + catalogNote;
-          } catch {
-            /* ignore — трейс необязателен */
-          }
+          // Уточняющие запросы стримятся отдельными сообщениями через onClarify.
 
           if (!deferGeneration && pendingHint) merged.pendingGenerationHint = null;
         }

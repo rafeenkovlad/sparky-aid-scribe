@@ -449,12 +449,22 @@ export async function resolveCar(
   brandHintOrName: string | undefined,
   modelHintOrName: string | undefined,
   year?: number,
-  opts?: { thread?: Thread; userText?: string; generationHint?: string },
+  opts?: {
+    thread?: Thread;
+    userText?: string;
+    generationHint?: string;
+    onTrace?: (entry: ClarifyTraceEntry) => void;
+  },
 ): Promise<ResolvedCar> {
   const empty: ResolvedCar = {
     modelCarId: null,
     modelGenerationRestylingFrameId: null,
     trace: [],
+  };
+  const emitResolved = (t: ResolvedCar["trace"][number]) => {
+    try {
+      for (const e of resolvedTraceEntryToClarify(t)) opts?.onTrace?.(e);
+    } catch { /* ignore */ }
   };
   try {
     if (!brandHintOrName || !modelHintOrName) return empty;
@@ -549,14 +559,18 @@ export async function resolveCar(
       brand = bestMatch(brands, brandHintOrName);
       brandConf = brand ? 0.4 : 0;
     }
-    trace.push({
-      step: "brand",
-      candidates: brands.length,
-      pickedId: brand?.id ?? null,
-      confidence: brandConf,
-      needsWeb: brandWebUsed,
-      reason: brandReason,
-    });
+    {
+      const entry = {
+        step: "brand" as const,
+        candidates: brands.length,
+        pickedId: brand?.id ?? null,
+        confidence: brandConf,
+        needsWeb: brandWebUsed,
+        reason: brandReason,
+      };
+      trace.push(entry);
+      emitResolved(entry);
+    }
     if (!brand) return { ...empty, trace };
 
     // [2] Model
@@ -650,14 +664,18 @@ export async function resolveCar(
       model = bestMatch(models, modelHintOrName);
       modelConf = model ? 0.4 : 0;
     }
-    trace.push({
-      step: "model",
-      candidates: models.length,
-      pickedId: model?.id ?? null,
-      confidence: modelConf,
-      needsWeb: modelWebUsed,
-      reason: modelReason,
-    });
+    {
+      const entry = {
+        step: "model" as const,
+        candidates: models.length,
+        pickedId: model?.id ?? null,
+        confidence: modelConf,
+        needsWeb: modelWebUsed,
+        reason: modelReason,
+      };
+      trace.push(entry);
+      emitResolved(entry);
+    }
     if (!model) return { ...empty, trace, brandName: brand.name };
 
     const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
@@ -703,6 +721,7 @@ export async function resolveCar(
       year,
       thread,
       trace,
+      onTrace: opts?.onTrace,
     });
   } catch {
     return empty;
@@ -724,9 +743,10 @@ async function pickGenerationForModel(
     year?: number;
     thread?: Thread;
     trace: ResolvedCar["trace"];
+    onTrace?: (entry: ClarifyTraceEntry) => void;
   },
 ): Promise<ResolvedCar> {
-  const { userText, generationHint, year, thread, trace } = opts;
+  const { userText, generationHint, year, thread, trace, onTrace } = opts;
 
   // Optional: skip entirely if we have nothing to go on (called only from
   // resolveCar's normal path — by-id fast-path always supplies a hint/year).
@@ -883,14 +903,20 @@ async function pickGenerationForModel(
       }
     }
   }
-  trace.push({
-    step: "generation",
-    candidates: frames.length,
-    pickedId: frame?.frameId ?? null,
-    confidence: frameConf,
-    needsWeb: frameWebUsed,
-    reason: frameReason,
-  });
+  {
+    const entry = {
+      step: "generation" as const,
+      candidates: frames.length,
+      pickedId: frame?.frameId ?? null,
+      confidence: frameConf,
+      needsWeb: frameWebUsed,
+      reason: frameReason,
+    };
+    trace.push(entry);
+    try {
+      for (const e of resolvedTraceEntryToClarify(entry)) onTrace?.(e);
+    } catch { /* ignore */ }
+  }
 
   const buildGenChips = (): CatalogSuggestion[] => {
     const out: CatalogSuggestion[] = [];
@@ -1023,6 +1049,7 @@ export async function resolveGenerationByModelId(
     modelCarName?: string;
     brandImage?: string;
     modelImage?: string;
+    onTrace?: (entry: ClarifyTraceEntry) => void;
   },
 ): Promise<ResolvedCar> {
   const trace: ResolvedCar["trace"] = [];
@@ -1042,6 +1069,7 @@ export async function resolveGenerationByModelId(
       year: opts.year,
       thread: opts.thread,
       trace,
+      onTrace: opts.onTrace,
     });
   } catch {
     return partial;
@@ -1160,9 +1188,14 @@ export async function inferBrandFromModelName(
   modelHint: string,
   userText: string,
   thread?: Thread,
+  onTrace?: (entry: ClarifyTraceEntry) => void,
 ): Promise<InferBrandResult | null> {
   if (!thread || !modelHint.trim()) return null;
   const trace: ClarifyTraceEntry[] = [];
+  const emit = (e: ClarifyTraceEntry) => {
+    trace.push(e);
+    try { onTrace?.(e); } catch { /* ignore */ }
+  };
   const ask = async (webCtx?: string) =>
     aiPick<{
       brandName: string | null;
@@ -1192,13 +1225,13 @@ export async function inferBrandFromModelName(
       },
     );
 
-  trace.push({
+  emit({
     kind: "ai",
     label: `Определяю марку по модели «${modelHint}»`,
   });
   let pick = await ask();
   if (!pick?.brandName || pick.confidence < LOW_CONF || pick.needsWeb) {
-    trace.push({
+    emit({
       kind: "web",
       label: `Уточняю в вебе: «какая марка ${modelHint}»`,
     });
@@ -1207,7 +1240,7 @@ export async function inferBrandFromModelName(
       5,
     );
     if (ctx) {
-      trace.push({
+      emit({
         kind: "ai",
         label: `Повторно спрашиваю модель марки с веб-контекстом`,
       });
@@ -1218,7 +1251,7 @@ export async function inferBrandFromModelName(
     }
   }
   if (!pick?.brandName) return null;
-  trace.push({
+  emit({
     kind: "ai",
     label: `Марка определена: ${pick.brandName} (модель: ${pick.modelCarName || modelHint})`,
   });
@@ -1237,31 +1270,37 @@ export function formatClarifyTrace(entries: ClarifyTraceEntry[]): string {
   return `\n🔁 Уточняющие запросы нейросети:\n${lines.join("\n")}`;
 }
 
-/** Trace builder из ResolvedCar.trace (steps brand/model/generation). */
-export function resolvedTraceToClarify(
-  resolved: ResolvedCar,
+/** Convert a single ResolvedCar trace entry to ClarifyTraceEntry list. */
+export function resolvedTraceEntryToClarify(
+  t: ResolvedCar["trace"][number],
 ): ClarifyTraceEntry[] {
-  const out: ClarifyTraceEntry[] = [];
   const stepLabel: Record<string, string> = {
     brand: "марку",
     model: "модель",
     generation: "поколение/рестайлинг",
   };
-  for (const t of resolved.trace) {
-    const conf = Math.round(t.confidence * 100);
-    out.push({
+  const conf = Math.round(t.confidence * 100);
+  const out: ClarifyTraceEntry[] = [
+    {
       kind: "ai",
       label: `Подбираю ${stepLabel[t.step] ?? t.step} из каталога (${t.candidates} вариантов, уверенность ${conf}%)`,
       ...(t.reason ? { detail: t.reason } : {}),
+    },
+  ];
+  if (t.needsWeb) {
+    out.push({
+      kind: "web",
+      label: `Веб-фолбэк: уточняю ${stepLabel[t.step] ?? t.step} поиском`,
     });
-    if (t.needsWeb) {
-      out.push({
-        kind: "web",
-        label: `Веб-фолбэк: уточняю ${stepLabel[t.step] ?? t.step} поиском`,
-      });
-    }
   }
   return out;
+}
+
+/** Trace builder из ResolvedCar.trace (steps brand/model/generation). */
+export function resolvedTraceToClarify(
+  resolved: ResolvedCar,
+): ClarifyTraceEntry[] {
+  return resolved.trace.flatMap(resolvedTraceEntryToClarify);
 }
 
 
