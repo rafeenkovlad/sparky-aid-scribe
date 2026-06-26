@@ -496,8 +496,12 @@ export function ChatApp({ threadId }: Props) {
         }
         // Уточняющий вопрос / подтверждение шага — отдельным сообщением.
         const nextAsk = nextMissingPrompt(currentStep, t.draft);
+        const remaining = remainingFieldLabels(currentStep, t.draft);
+        const remainingHint = remaining.length
+          ? `\n📋 Ещё не заполнено: ${remaining.slice(0, 6).join(", ")}${remaining.length > 6 ? "…" : ""}.`
+          : "";
         const tailLine = nextAsk
-          ? `➡️ ${nextAsk}`
+          ? `➡️ ${nextAsk}${remainingHint}`
           : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
         if (tailLine) {
           pushMsg(t, currentStep, {
