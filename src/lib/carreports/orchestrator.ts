@@ -482,6 +482,7 @@ export async function extractForStep(
       const attachments: MessageAttachment[] = [];
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
+        const modelMentionedThisTurn = typeof data.modelCarName === "string" && data.modelCarName.trim().length > 0;
 
         const brandModelChanged =
           prevChar.brandName !== charPatch.brandName ||
@@ -499,7 +500,7 @@ export async function extractForStep(
         const resolveYear = deferGeneration ? undefined : charPatch.year;
 
         let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
-        if (!deferGeneration && mentionsGen && knownModelCarId) {
+        if (!deferGeneration && mentionsGen && knownModelCarId && !modelMentionedThisTurn) {
           const { resolveGenerationByModelId } = await import("./carCatalog");
           resolved = await resolveGenerationByModelId(knownModelCarId, {
             thread,
@@ -728,6 +729,7 @@ export async function extractForStep(
       const chips: ChatChip[] = [];
       if (merged.brandName && merged.modelCarName) {
         const prev = thread.draft.characteristicsStep;
+        const modelMentionedThisTurn = typeof data.modelCarName === "string" && data.modelCarName.trim().length > 0;
         const brandModelChanged =
           prev.brandName !== merged.brandName || prev.modelCarName !== merged.modelCarName;
         const needsResolve =
@@ -751,7 +753,7 @@ export async function extractForStep(
           const resolveYear = deferGeneration ? undefined : merged.year;
 
           let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
-          if (!deferGeneration && (mentionsGen || pendingHint) && knownModelCarId) {
+          if (!deferGeneration && (mentionsGen || pendingHint) && knownModelCarId && !modelMentionedThisTurn) {
             const { resolveGenerationByModelId } = await import("./carCatalog");
             resolved = await resolveGenerationByModelId(knownModelCarId, {
               thread,
