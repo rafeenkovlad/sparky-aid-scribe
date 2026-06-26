@@ -256,6 +256,49 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  /** Гарантирует наличие upload-prompt + collage сообщений для раздела. */
+  const ensureSectionMessages = useCallback(
+    (snake: SectionSnake) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        const promptId = `insp-prompt-${snake}`;
+        const collageId = `insp-collage-${snake}`;
+        // Сохраняем существующие, иначе создаём; в любом случае поднимаем в конец.
+        const list = t.messages.inspection;
+        const existingPrompt = list.find((m) => m.id === promptId);
+        const existingCollage = list.find((m) => m.id === collageId);
+        t.messages.inspection = list.filter(
+          (m) => m.id !== promptId && m.id !== collageId,
+        );
+        const now = Date.now();
+        pushMsg(t, "inspection", {
+          ...(existingPrompt ?? {
+            id: promptId,
+            role: "assistant",
+            text: "",
+            step: "inspection",
+            kind: "inspectionUploadPrompt",
+            sectionSnake: snake,
+            createdAt: now,
+          }),
+          createdAt: now,
+        });
+        pushMsg(t, "inspection", {
+          ...(existingCollage ?? {
+            id: collageId,
+            role: "assistant",
+            text: "",
+            step: "inspection",
+            kind: "inspectionCollage",
+            sectionSnake: snake,
+            createdAt: now + 1,
+          }),
+          createdAt: now + 1,
+        });
+      });
+    },
+    [thread],
+  );
 
   const selectSection = useCallback(
     (snake: SectionSnake) => {
@@ -264,11 +307,15 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.currentSection = snake;
         const sec = INSPECTION_SECTIONS.find((s) => s.snake === snake);
         t.draft.inspectionStep.currentElementId = sec?.elements[0].id;
+        t.draft.inspectionStep.touched = true;
       });
+      ensureSectionMessages(snake);
       textareaRef.current?.focus();
     },
-    [thread],
+    [thread, ensureSectionMessages],
   );
+
+
 
   const selectElement = useCallback(
     (elementId: string) => {
