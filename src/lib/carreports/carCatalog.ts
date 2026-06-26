@@ -449,12 +449,22 @@ export async function resolveCar(
   brandHintOrName: string | undefined,
   modelHintOrName: string | undefined,
   year?: number,
-  opts?: { thread?: Thread; userText?: string; generationHint?: string },
+  opts?: {
+    thread?: Thread;
+    userText?: string;
+    generationHint?: string;
+    onTrace?: (entry: ClarifyTraceEntry) => void;
+  },
 ): Promise<ResolvedCar> {
   const empty: ResolvedCar = {
     modelCarId: null,
     modelGenerationRestylingFrameId: null,
     trace: [],
+  };
+  const emitResolved = (t: ResolvedCar["trace"][number]) => {
+    try {
+      for (const e of resolvedTraceEntryToClarify(t)) opts?.onTrace?.(e);
+    } catch { /* ignore */ }
   };
   try {
     if (!brandHintOrName || !modelHintOrName) return empty;
