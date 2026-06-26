@@ -290,7 +290,15 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       {/* Паспорт-стайл шапка */}
       <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.06]">
         <div className="flex items-baseline justify-between mb-0.5">
-          <span className="text-white/70 font-medium text-[13px]">Паспорт элемента</span>
+          <span className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5">
+            Паспорт элемента
+            {aiUpdating && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                ИИ обновляет…
+              </span>
+            )}
+          </span>
           <span
             className={
               "text-[11px] tabular-nums " +
