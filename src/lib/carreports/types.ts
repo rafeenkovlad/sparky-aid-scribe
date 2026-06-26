@@ -192,6 +192,7 @@ export interface ChatMessage {
   kind?:
     | "passport"
     | "docsPassport"
+    | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
     | "inspectionCollage";
