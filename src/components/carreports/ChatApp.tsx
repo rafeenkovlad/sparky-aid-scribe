@@ -146,7 +146,15 @@ export function ChatApp({ threadId }: Props) {
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
-    Array<{ id: string; dataUrl: string; blob: Blob; filename: string }>
+    Array<{
+      id: string;
+      dataUrl: string;
+      blob: Blob;
+      filename: string;
+      /** Оригинальный файл — без сжатия; используется для постоянной загрузки. */
+      originalBlob: Blob;
+      originalFilename: string;
+    }>
   >([]);
   const [analyzing, setAnalyzing] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
@@ -739,6 +747,8 @@ export function ChatApp({ threadId }: Props) {
           dataUrl: prepared.dataUrl,
           blob: prepared.blob,
           filename: prepared.filename,
+          originalBlob: file,
+          originalFilename: file.name || prepared.filename,
         },
       ]);
     } catch (e) {
@@ -898,8 +908,8 @@ export function ChatApp({ threadId }: Props) {
           let up: { url: string; filename: string } | null = null;
           try {
             up = await uploadTemporary({
-              filename: a.filename,
-              blob: a.blob,
+              filename: a.originalFilename,
+              blob: a.originalBlob,
               dataUrl: a.dataUrl,
             });
           } catch (e) {
