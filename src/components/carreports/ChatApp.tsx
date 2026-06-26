@@ -1299,9 +1299,22 @@ function MessageBubble({
       </div>
       <div className="max-w-[85%] space-y-2">
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
-        <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
-          {msg.text}
-        </div>
+        {msg.kind === "passport" && draft ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
+            <CarChecklist draft={draft} />
+            {msg.text && (
+              <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+            )}
+          </div>
+        ) : (
+          msg.text && (
+            <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
+              {msg.text}
+            </div>
+          )
+        )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
           // марки/модели/поколения — оставляем только мелкие миниатюры (если есть).
