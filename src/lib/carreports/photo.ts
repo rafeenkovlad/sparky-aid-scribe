@@ -27,7 +27,8 @@ export async function preparePhoto(
   opts: { maxBytes?: number } = {},
 ): Promise<PreparedPhoto> {
   const maxBytes = opts.maxBytes ?? MAX_BYTES;
-  const bitmap = await readImage(file);
+  const decoded = await ensureDecodable(file);
+  const bitmap = await readImage(decoded);
 
   // Iteratively reduce quality, then dimensions, until under maxBytes.
   let edge = DEFAULT_MAX_EDGE;
