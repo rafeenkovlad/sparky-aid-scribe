@@ -1802,12 +1802,47 @@ export function ChatApp({ threadId }: Props) {
             <div className="w-full">
               <div
                 className={
-                  "flex items-end gap-2 rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
-                  (isExpanded
-                    ? "border-white/15 p-2"
-                    : "border-white/10 p-1.5")
+                  "rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
+                  (isExpanded ? "border-white/15" : "border-white/10")
                 }
               >
+                {isExpanded && (
+                  <div
+                    role="separator"
+                    aria-label="Потяните, чтобы изменить высоту"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+                      const cur = composerHeight ?? (textareaRef.current?.offsetHeight ?? 44);
+                      composerDragRef.current = { startY: e.clientY, startH: cur };
+                    }}
+                    onPointerMove={(e) => {
+                      const d = composerDragRef.current;
+                      if (!d) return;
+                      const next = Math.min(
+                        Math.max(44, d.startH + (d.startY - e.clientY)),
+                        window.innerHeight - 80,
+                      );
+                      setComposerHeight(next);
+                    }}
+                    onPointerUp={(e) => {
+                      composerDragRef.current = null;
+                      try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+                    }}
+                    onPointerCancel={() => { composerDragRef.current = null; }}
+                    onDoubleClick={() => setComposerHeight(null)}
+                    className="flex items-center justify-center cursor-ns-resize touch-none py-1.5 -mb-1 select-none"
+                    title="Перетащите, чтобы изменить высоту. Двойной клик — сброс"
+                  >
+                    <span className="h-1 w-10 rounded-full bg-white/25" />
+                  </div>
+                )}
+                <div
+                  className={
+                    "flex items-end gap-2 transition-all duration-300 " +
+                    (isExpanded ? "p-2" : "p-1.5")
+                  }
+                >
                 {/* Универсальная кнопка вложения — скрыта в свёрнутом состоянии. */}
                 <input
                   ref={attachInputRef}
