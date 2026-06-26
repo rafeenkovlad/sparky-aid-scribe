@@ -830,6 +830,38 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
+        {(() => {
+          if (!lastOptionsMsgId) return null;
+          const optMsg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
+          const sel = optMsg?.selectedChipValues ?? [];
+          if (!sel.length) return null;
+          const chipByValue = new Map((optMsg?.chips ?? []).map((c) => [c.value, c] as const));
+          return (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {sel.map((v) => {
+                const c = chipByValue.get(v);
+                if (!c) return null;
+                return (
+                  <span
+                    key={v}
+                    className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 border border-orange-500/50 text-orange-100 text-xs px-2 py-1"
+                    title="Выбрано — будет отправлено вместе с сообщением"
+                  >
+                    <span className="select-none">{c.label}</span>
+                    <button
+                      type="button"
+                      aria-label="Убрать"
+                      onClick={() => insertChip(lastOptionsMsgId, c)}
+                      className="text-orange-200/80 hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
           {currentStep === "inspection" && (
             <>
