@@ -974,10 +974,21 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const hint = composer.trim();
+      const usableUrl = await ensurePhotoAccessible({
+        url: photoFocus.url,
+        dataUrl: photoFocus.dataUrl,
+        filename: photoFocus.filename,
+      });
+      if (usableUrl && usableUrl !== photoFocus.url) {
+        updateThread(thread.id, (t) => {
+          const pp = t.draft.inspectionStep.photos[photoFocusIdx];
+          if (pp) pp.url = usableUrl;
+        });
+      }
       const r = await analyzeInspectionPhoto(
         fresh,
         photoFocus.section as SectionSnake,
-        photoFocus.url,
+        usableUrl ?? photoFocus.url,
         hint || undefined,
       );
       updateThread(thread.id, (t) => {
