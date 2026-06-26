@@ -19,7 +19,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -115,6 +115,7 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
+  const [passportOpen, setPassportOpen] = useState(false);
   const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
@@ -857,6 +858,13 @@ export function ChatApp({ threadId }: Props) {
             ИИ-ассистент думает…
           </div>
         )}
+        {currentStep === "car" && passportOpen && (
+          <div className="flex justify-start">
+            <div className="max-w-[92%] w-full sm:max-w-[420px] rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
+              <CarChecklist draft={thread.draft} />
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </main>
 
@@ -983,28 +991,24 @@ export function ChatApp({ threadId }: Props) {
           </button>
         )}
         {currentStep === "car" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label="Паспорт авто"
-                title="Паспорт авто"
-                className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
-              >
-                <ClipboardCheck className="h-4 w-4 text-emerald-400" />
-                <span className="text-xs tabular-nums">
-                  {countCarPassport(thread.draft)}/10
-                </span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              side="top"
-              align="end"
-              className="w-[320px] max-w-[88vw] p-0 bg-zinc-950 border-white/10 text-white"
-            >
-              <CarChecklist draft={thread.draft} />
-            </PopoverContent>
-          </Popover>
+          <button
+            type="button"
+            onClick={() => setPassportOpen((v) => !v)}
+            aria-label="Паспорт авто"
+            title="Паспорт авто"
+            aria-pressed={passportOpen}
+            className={
+              "h-8 rounded-full flex items-center gap-1.5 px-2.5 transition-colors " +
+              (passportOpen
+                ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/40"
+                : "bg-white/5 hover:bg-white/10 text-white/80")
+            }
+          >
+            <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+            <span className="text-xs tabular-nums">
+              {countCarPassport(thread.draft)}/10
+            </span>
+          </button>
         )}
         <button
           onClick={() => {
