@@ -1657,7 +1657,7 @@ function MessageBubble({
           <SectionPickerCard
             ins={inspectionDraft}
             currentSection={inspectionCursor?.section.snake}
-            interactive={interactive}
+            interactive
             onPick={onSelectSection ?? (() => {})}
           />
         )}
