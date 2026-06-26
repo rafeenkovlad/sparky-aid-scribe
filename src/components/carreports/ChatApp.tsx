@@ -1962,6 +1962,7 @@ export function ChatApp({ threadId }: Props) {
                 >
                   <ArrowUp className={isExpanded ? "h-5 w-5" : "h-4 w-4"} />
                 </button>
+                </div>
               </div>
             </div>
           );
