@@ -471,22 +471,14 @@ function TagsArea({
   onToggleTag,
   onAddPendingTag,
 }: TagsAreaProps) {
-  const [showOther, setShowOther] = useState(false);
-
-  // Primary bucket follows verdict; "other" is the opposite list.
+  // Show only the bucket matching the active verdict — no cross-severity reveal.
   const primaryIsSerious = verdict === "serious";
   const primary = primaryIsSerious ? serious : minor;
   const primarySelected = primaryIsSerious ? selectedSerious : selectedMinor;
-  const other = primaryIsSerious ? minor : serious;
-  const otherSelected = primaryIsSerious ? selectedMinor : selectedSerious;
-  const otherActiveCount = other.filter((t) => otherSelected.has(t.id)).length;
-
   const primaryPending = pending.filter((p) =>
     primaryIsSerious ? p.severity === "serious" : p.severity !== "serious",
   );
-  const otherPending = pending.filter((p) =>
-    primaryIsSerious ? p.severity !== "serious" : p.severity === "serious",
-  );
+
 
   if (loading) {
     return (
@@ -521,45 +513,10 @@ function TagsArea({
         />
       )}
 
-      {/* Opposite-severity bucket, collapsed by default */}
-      {(other.length > 0 || otherPending.length > 0) && (
-        <div className="pt-1 border-t border-white/[0.06]">
-          {!showOther ? (
-            <button
-              onClick={() => setShowOther(true)}
-              className="text-[11px] text-white/45 hover:text-white/80 inline-flex items-center gap-1"
-            >
-              + {primaryIsSerious ? "Мелкие замечания" : "Серьёзные дефекты"}
-              {otherActiveCount > 0 && (
-                <span className="ml-1 rounded-full bg-white/10 px-1.5 text-[10px] text-white/70">
-                  {otherActiveCount}
-                </span>
-              )}
-            </button>
-          ) : (
-            <div className="pt-1.5 space-y-1">
-              <TagBucket
-                label={primaryIsSerious ? "Мелкие замечания" : "Серьёзные дефекты"}
-                tone={primaryIsSerious ? "minor" : "serious"}
-                tags={other}
-                selected={otherSelected}
-                pending={otherPending}
-                interactive={interactive}
-                onTap={onToggleTag}
-              />
-              <button
-                onClick={() => setShowOther(false)}
-                className="text-[10px] text-white/35 hover:text-white/60"
-              >
-                Скрыть
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
+
 
 // ─── Tag bucket ───────────────────────────────────────────────────────────
 
