@@ -722,6 +722,28 @@ export function ChatApp({ threadId }: Props) {
     });
     setComposer("");
     setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
+
+    // 1) В ленту чата сразу попадают: реплика пользователя и «рассуждения» ИИ.
+    const statusId = msgId();
+    if (thread) {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "inspection", {
+          id: msgId(),
+          role: "user",
+          text,
+          step: "inspection",
+          createdAt: Date.now(),
+        });
+        pushMsg(t, "inspection", {
+          id: statusId,
+          role: "assistant",
+          text: "🧠 Анализирую заметку…\n• уточняю элемент\n• подбираю теги из каталога\n• оцениваю серьёзность",
+          step: "inspection",
+          createdAt: Date.now(),
+        });
+      });
+    }
+
     (async () => {
       try {
         if (!thread || !photoFocus) {
@@ -765,14 +787,23 @@ export function ChatApp({ threadId }: Props) {
           resultElementId = n.elementId;
         }
         // Авто-применяем результат: заметка ИИ + теги + классификация.
+        const sectionDef = getSection(sec);
+        let elementLabelForSummary = "";
+        let appliedSerious: number[] = [];
+        let appliedNonSerious: number[] = [];
+        let appliedPending: PendingTagName[] = [];
+        let appliedNote = "";
+        let appliedNoDamage = false;
+
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
           const p = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
           if (!p) return;
-          // Элемент мог измениться по результату ИИ (если эксперт упомянул другой).
           if (resultElementId) p.elementId = resultElementId;
           const elId = p.elementId ?? resultElementId ?? elIdInitial;
           if (!elId) return;
+          elementLabelForSummary =
+            sectionDef?.elements.find((e) => e.id === elId)?.label ?? elId;
           upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
             const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
             const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
@@ -788,9 +819,63 @@ export function ChatApp({ threadId }: Props) {
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
+            appliedSerious = [...sSet];
+            appliedNonSerious = [...nsSet];
+            appliedPending = [...existing];
+            appliedNote = f.note ?? "";
+            appliedNoDamage = f.noDamage === true;
           });
           t.draft.inspectionStep.touched = true;
+
+          // 2) Обновляем «рассуждение»: показываем итог компактно текстом.
+          const arr = t.messages.inspection;
+          const status = arr.find((m) => m.id === statusId);
+          const verdict = appliedNoDamage
+            ? "без замечаний"
+            : appliedSerious.length
+              ? "серьёзное повреждение"
+              : appliedNonSerious.length
+                ? "мелкое повреждение"
+                : "не оценено";
+          const summaryLines = [
+            `✅ Готово`,
+            `• Элемент: ${elementLabelForSummary}`,
+            `• Состояние: ${verdict}`,
+            appliedSerious.length || appliedPending.filter((p) => p.severity === "serious").length
+              ? `• Серьёзные теги: ${
+                  appliedSerious.length +
+                  appliedPending.filter((p) => p.severity === "serious").length
+                }`
+              : "",
+            appliedNonSerious.length || appliedPending.filter((p) => p.severity !== "serious").length
+              ? `• Мелкие теги: ${
+                  appliedNonSerious.length +
+                  appliedPending.filter((p) => p.severity !== "serious").length
+                }`
+              : "",
+            appliedNote ? `• Заметка: ${appliedNote}` : "",
+          ].filter(Boolean);
+          if (status) status.text = summaryLines.join("\n");
+
+          // 3) Переносим карточку «Паспорт элемента» в конец ленты, чтобы
+          // итог появился сразу после рассуждений ИИ.
+          const focusIdx = arr.findIndex((m) => m.kind === "inspectionElementFocus");
+          if (focusIdx >= 0) {
+            const [focus] = arr.splice(focusIdx, 1);
+            focus.createdAt = Date.now();
+            arr.push(focus);
+          } else if (photoFocusIdx !== null) {
+            pushMsg(t, "inspection", {
+              id: msgId(),
+              role: "assistant",
+              text: "",
+              kind: "inspectionElementFocus",
+              photoIdx: photoFocusIdx,
+              createdAt: Date.now(),
+            });
+          }
         });
+
         setNoteProposal((prev) =>
           prev && prev.original === text
             ? {
@@ -805,7 +890,14 @@ export function ChatApp({ threadId }: Props) {
               }
             : prev,
         );
-      } catch {
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        if (thread) {
+          updateThread(thread.id, (t) => {
+            const status = t.messages.inspection.find((m) => m.id === statusId);
+            if (status) status.text = `⚠️ Не удалось проанализировать заметку: ${errMsg}`;
+          });
+        }
         setNoteProposal((prev) =>
           prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
         );
