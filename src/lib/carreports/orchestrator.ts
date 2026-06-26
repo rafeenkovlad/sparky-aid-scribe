@@ -702,6 +702,7 @@ export async function extractForStep(
             merged.modelCarName,
             text,
             thread,
+            opts?.onClarify,
           );
           if (inferred?.brandName) {
             merged.brandName = inferred.brandName;
