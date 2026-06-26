@@ -908,8 +908,8 @@ export function ChatApp({ threadId }: Props) {
           let up: { url: string; filename: string } | null = null;
           try {
             up = await uploadTemporary({
-              filename: a.filename,
-              blob: a.blob,
+              filename: a.originalFilename,
+              blob: a.originalBlob,
               dataUrl: a.dataUrl,
             });
           } catch (e) {
