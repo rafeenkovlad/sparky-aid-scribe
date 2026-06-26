@@ -2247,6 +2247,7 @@ function MessageBubble({
               onPickInspectionPhotos?.(msg.sectionSnake as SectionSnake, files)
             }
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
+            onDeletePhoto={(idx) => onDeleteInspectionPhoto?.(idx)}
           />
         )}
         {msg.kind === "inspectionElementFocus" &&
