@@ -513,6 +513,7 @@ export async function extractForStep(
             year: resolveYear,
             brandName: charPatch.brandName,
             modelCarName: charPatch.modelCarName,
+            onTrace: opts?.onClarify,
           });
         } else {
           const { resolveCar } = await import("./carCatalog");
@@ -520,7 +521,7 @@ export async function extractForStep(
             charPatch.brandName,
             charPatch.modelCarName,
             resolveYear,
-            { thread, userText: text, generationHint: resolveHint },
+            { thread, userText: text, generationHint: resolveHint, onTrace: opts?.onClarify },
           );
         }
         if (resolved.modelCarId) {
