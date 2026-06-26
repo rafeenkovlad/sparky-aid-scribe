@@ -231,32 +231,71 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           ? "Без замечаний"
           : "Не оценено";
 
+  // ─── Паспортная сводка по элементу (как «Паспорт авто» в 1 шаге) ──────
+  const seriousCount = sIds.size + pending.filter((p) => p.severity === "serious").length;
+  const minorCount = nsIds.size + pending.filter((p) => p.severity !== "serious").length;
+  const hasNote = !!finding?.note?.trim();
+
+  const passportRows: { label: string; filled: boolean; value?: string }[] = [
+    { label: "Элемент", filled: true, value: elementLabel },
+    {
+      label: "Состояние",
+      filled: derivedVerdict !== null,
+      value: derivedVerdict !== null ? verdictLabel : undefined,
+    },
+    {
+      label: "Серьёзные",
+      filled: seriousCount > 0,
+      value: seriousCount > 0 ? String(seriousCount) : undefined,
+    },
+    {
+      label: "Мелкие",
+      filled: minorCount > 0,
+      value: minorCount > 0 ? String(minorCount) : undefined,
+    },
+    {
+      label: "Заметка",
+      filled: hasNote,
+      value: hasNote ? "есть" : undefined,
+    },
+  ];
+  const filledCount = passportRows.filter((r) => r.filled).length;
+  const allFilled = filledCount === passportRows.length;
+
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 overflow-hidden">
-      {/* Компактная шапка карточки */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-[0.08em] text-white/40 truncate">
+      {/* Паспорт-стайл шапка */}
+      <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.06]">
+        <div className="flex items-baseline justify-between mb-0.5">
+          <span className="text-white/70 font-medium text-[13px]">Паспорт элемента</span>
+          <span
+            className={
+              "text-[11px] tabular-nums " +
+              (allFilled ? "text-emerald-400/80" : "text-white/40")
+            }
+          >
+            {filledCount}/{passportRows.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-[10px] uppercase tracking-[0.08em] text-white/40 truncate min-w-0 flex-1">
             {section?.label ?? sectionSnake}
             {posInSection >= 0 && siblings.length > 1 && (
-              <span className="text-white/25"> · {posInSection + 1}/{siblings.length}</span>
+              <span className="text-white/25"> · фото {posInSection + 1}/{siblings.length}</span>
             )}
           </div>
-          <div className="text-[13px] font-semibold truncate text-white leading-tight">
-            {elementLabel}
-          </div>
+          {onDeletePhoto && (
+            <button
+              onClick={() => {
+                if (confirm("Удалить это фото?")) onDeletePhoto();
+              }}
+              aria-label="Удалить фото"
+              className="h-6 w-6 rounded-full hover:bg-rose-500/15 text-rose-300/70 hover:text-rose-300 flex items-center justify-center shrink-0 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
         </div>
-        {onDeletePhoto && (
-          <button
-            onClick={() => {
-              if (confirm("Удалить это фото?")) onDeletePhoto();
-            }}
-            aria-label="Удалить фото"
-            className="h-7 w-7 rounded-full hover:bg-rose-500/15 text-rose-300/70 hover:text-rose-300 flex items-center justify-center shrink-0 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
       </div>
 
       {/* Hero-фото умеренной высоты, чтобы карточка вписывалась в ленту чата */}
@@ -318,8 +357,20 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
         )}
       </div>
 
+      {/* Паспортная сводка по элементу */}
+      <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
+        <ul className="space-y-0.5 text-[13px] leading-tight">
+          {passportRows.map((it) => (
+            <PassportRow key={it.label} item={it} />
+          ))}
+        </ul>
+      </div>
+
       {/* Тело: плотный inline-слой без карточек */}
       <div className="px-3 pt-3 pb-3 space-y-4">
+        <div className="text-[10px] uppercase tracking-[0.1em] text-white/35 font-medium">
+          Заполнить
+        </div>
 
         {/* Элемент раздела — только если есть выбор */}
         {section && section.elements.length > 1 && (
