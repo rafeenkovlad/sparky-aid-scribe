@@ -381,106 +381,23 @@ function ElementBlock({
 
       {/* Tags */}
       {verdict !== "ok" && (
-        <div className="space-y-2">
-          {loading && (
-            <div className="flex items-center gap-1.5 text-[11px] text-white/50">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Загружаем теги раздела…
-            </div>
-          )}
-          {!loading && (serious.length > 0 || minor.length > 0) && (
-            <>
-              {serious.length > 0 && (
-                <TagGroup
-                  label="Серьёзные"
-                  tags={serious}
-                  selected={selectedSerious}
-                  interactive={interactive}
-                  onTap={onToggleTag}
-                />
-              )}
-              {minor.length > 0 && (
-                <TagGroup
-                  label="Мелкие"
-                  tags={minor}
-                  selected={selectedMinor}
-                  interactive={interactive}
-                  onTap={onToggleTag}
-                />
-              )}
-            </>
-          )}
-          {pending.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-[10px] uppercase tracking-wide text-white/45">
-                Новые теги (создадутся при отправке)
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {pending.map((p) => (
-                  <span
-                    key={`${p.severity ?? "_"}:${p.name}`}
-                    className="rounded-full border border-violet-400/40 bg-violet-500/10 px-2.5 py-1 text-xs text-violet-100"
-                  >
-                    ✨ {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {interactive && (
-            <div>
-              {!addOpen ? (
-                <button
-                  onClick={() => setAddOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-xs text-white/70 hover:text-white hover:border-white/40"
-                >
-                  <Plus className="h-3 w-3" /> Свой тег
-                </button>
-              ) : (
-                <form
-                  className="flex items-center gap-1.5"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const name = addName.trim();
-                    if (!name) return;
-                    onAddPendingTag(name, activeBucket);
-                    setAddName("");
-                    setAddOpen(false);
-                  }}
-                >
-                  <input
-                    autoFocus
-                    value={addName}
-                    onChange={(e) => setAddName(e.target.value)}
-                    placeholder={
-                      activeBucket === "serious"
-                        ? "Новый тег (серьёзный)"
-                        : "Новый тег (мелкий)"
-                    }
-                    className="flex-1 rounded-md bg-white/[0.06] border border-white/15 px-2 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-orange-400/60"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-md bg-orange-500 hover:bg-orange-600 px-2 py-1 text-xs text-white"
-                  >
-                    <Check className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddOpen(false);
-                      setAddName("");
-                    }}
-                    className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/70 hover:text-white"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
+        <TagsArea
+          loading={loading}
+          verdict={verdict}
+          serious={serious}
+          minor={minor}
+          selectedSerious={selectedSerious}
+          selectedMinor={selectedMinor}
+          pending={pending}
+          interactive={interactive}
+          activeBucket={activeBucket}
+          addOpen={addOpen}
+          addName={addName}
+          setAddOpen={setAddOpen}
+          setAddName={setAddName}
+          onToggleTag={onToggleTag}
+          onAddPendingTag={onAddPendingTag}
+        />
       )}
 
       {interactive && (
