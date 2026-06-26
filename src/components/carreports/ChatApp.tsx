@@ -1291,8 +1291,8 @@ export function ChatApp({ threadId }: Props) {
             placeholder={
               askMode
                 ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
-                : currentStep === "inspection"
-                  ? `Заметки по зоне «${currentZone.label}»… (Enter — сохранить)`
+                : currentStep === "inspection" && cursor
+                  ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
                   : STEP_PLACEHOLDERS[currentStep]
             }
             className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
