@@ -1080,31 +1080,34 @@ export function summarizeStepDraft(step: StepId, draft: Thread["draft"]): string
         : "";
     case "inspection": {
       const ins = draft.inspectionStep;
-      const zone = ins.currentZone ?? "body";
-      const zoneLabel = zoneById(zone)?.label ?? zone;
       const findings = Object.values(ins.findings ?? {});
-      const zoneFindings = findings.filter((f) => f.section === (ZONE_TO_SECTION[zone] ?? "body"));
-      if (!zoneFindings.length && !ins.sectionNotes[zone]) return "";
-      const section = getSection(ZONE_TO_SECTION[zone] ?? "body");
-      const lines: string[] = [`Уже зафиксировано по зоне «${zoneLabel}»:`];
-      for (const f of zoneFindings) {
-        const el = section.elements.find((x) => x.id === f.elementId);
-        if (!el) continue;
-        const mark = f.noDamage === true ? "✅" : f.noDamage === false ? "⚠️" : "•";
-        const tagCount =
-          (f.seriousDamageTagIds?.length ?? 0) +
-          (f.noSeriousDamageTagIds?.length ?? 0) +
-          (f.pendingTagNames?.length ?? 0);
-        const tagPart = tagCount ? ` — тегов: ${tagCount}` : "";
-        const notePart = f.note ? ` · ${f.note}` : "";
-        lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
+      if (!findings.length) return "";
+      const bySection = new Map<string, typeof findings>();
+      for (const f of findings) {
+        const arr = bySection.get(f.section) ?? [];
+        arr.push(f);
+        bySection.set(f.section, arr);
       }
-      if (!zoneFindings.length && ins.sectionNotes[zone]) {
-        lines.push(ins.sectionNotes[zone]);
+      const lines: string[] = ["Зафиксировано по осмотру:"];
+      for (const s of INSPECTION_SECTIONS) {
+        const list = bySection.get(s.snake);
+        if (!list?.length) continue;
+        let ok = 0, minor = 0, serious = 0;
+        for (const f of list) {
+          if ((f.seriousDamageTagIds?.length ?? 0) > 0) serious += 1;
+          else if ((f.noSeriousDamageTagIds?.length ?? 0) > 0) minor += 1;
+          else if (f.noDamage === true) ok += 1;
+        }
+        const bits: string[] = [`${list.length}/${s.elements.length}`];
+        if (ok) bits.push(`✅${ok}`);
+        if (minor) bits.push(`🟡${minor}`);
+        if (serious) bits.push(`🔴${serious}`);
+        lines.push(`• ${s.label}: ${bits.join(" · ")}`);
       }
-      lines.push("\nПродолжайте, выберите другую зону или нажмите «Всё верно, далее».");
+      lines.push("\nПродолжайте по элементам или нажмите «Всё верно, далее».");
       return lines.join("\n");
     }
+
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       const has =
