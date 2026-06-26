@@ -164,7 +164,26 @@ async function fetchModels(brandId: number): Promise<ModelRow[]> {
   const hit = modelCache.get(brandId);
   if (hit) return hit;
   const r = await rpc<unknown>("Storage.GetModelCar", { brandId });
-  const list = unwrap<ModelRow>(r);
+  const raw = unwrap<Record<string, unknown>>(r);
+  // API возвращает имя модели в поле `model` (англ.) и `modelRus` (рус.),
+  // а не `name`. Нормализуем к ModelRow с полем `name`, иначе AI-подбор
+  // получает список со всеми name=undefined и не может выбрать модель —
+  // в итоге fallback `bestMatch` возвращает первую модель (Polo) и далее
+  // поколения подгружаются для неё.
+  const list: ModelRow[] = raw.map((row) => {
+    const name =
+      (typeof row.name === "string" && row.name) ||
+      (typeof row.model === "string" && row.model) ||
+      (typeof row.modelRus === "string" && row.modelRus) ||
+      "";
+    const urlImage =
+      typeof row.urlImage === "string" ? row.urlImage : undefined;
+    return {
+      id: Number(row.id),
+      name: String(name),
+      ...(urlImage ? { urlImage } : {}),
+    } as ModelRow;
+  });
   modelCache.set(brandId, list);
   return list;
 }
