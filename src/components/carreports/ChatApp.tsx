@@ -19,7 +19,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
