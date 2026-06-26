@@ -3,7 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
   Camera,
+  Check,
   CheckCheck,
+  Copy,
   HelpCircle,
   Loader2,
   Menu,
@@ -1264,9 +1266,14 @@ function MessageBubble({
             </div>
           )}
           {msg.text && (
-            <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
-              {msg.text}
-            </div>
+            <>
+              <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+              <div className="flex justify-end">
+                <CopyButton text={msg.text} />
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1296,9 +1303,12 @@ function MessageBubble({
           </div>
         ) : (
           msg.text && (
-            <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
-              {msg.text}
-            </div>
+            <>
+              <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
+                {msg.text}
+              </div>
+              <CopyButton text={msg.text} />
+            </>
           )
         )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
@@ -1454,6 +1464,39 @@ function MessageBubble({
 
       </div>
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        } catch {
+          /* noop */
+        }
+      }}
+      aria-label="Скопировать сообщение"
+      title={copied ? "Скопировано" : "Скопировать"}
+      className="inline-flex items-center gap-1 text-[11px] text-white/40 hover:text-white/80 transition-colors px-1.5 py-0.5 rounded"
+    >
+      {copied ? (
+        <>
+          <Check className="h-3 w-3" />
+          Скопировано
+        </>
+      ) : (
+        <>
+          <Copy className="h-3 w-3" />
+          Копировать
+        </>
+      )}
+    </button>
   );
 }
 
