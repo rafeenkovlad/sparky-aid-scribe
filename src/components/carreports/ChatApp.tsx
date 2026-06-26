@@ -830,6 +830,38 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Composer */}
       <div className="px-3 pb-3 pt-2 shrink-0">
+        {(() => {
+          if (!lastOptionsMsgId) return null;
+          const optMsg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
+          const sel = optMsg?.selectedChipValues ?? [];
+          if (!sel.length) return null;
+          const chipByValue = new Map((optMsg?.chips ?? []).map((c) => [c.value, c] as const));
+          return (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {sel.map((v) => {
+                const c = chipByValue.get(v);
+                if (!c) return null;
+                return (
+                  <span
+                    key={v}
+                    className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 border border-orange-500/50 text-orange-100 text-xs px-2 py-1"
+                    title="Выбрано — будет отправлено вместе с сообщением"
+                  >
+                    <span className="select-none">{c.label}</span>
+                    <button
+                      type="button"
+                      aria-label="Убрать"
+                      onClick={() => insertChip(lastOptionsMsgId, c)}
+                      className="text-orange-200/80 hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
           {currentStep === "inspection" && (
             <>
@@ -976,9 +1008,16 @@ function MessageBubble({
           {msg.text}
         </div>
         {msg.attachments && msg.attachments.length > 0 && (() => {
-          const big = msg.attachments.find((a) => a.kind === "generation")
-            ?? msg.attachments.find((a) => a.kind === "model");
-          const small = msg.attachments.filter((a) => a !== big);
+          const hasGenChips = (msg.chips ?? []).some((c) => c.group === "generation" && c.image);
+          // Если есть плашки с вариантами поколений — не показываем «текущее» крупное фото.
+          const atts = hasGenChips
+            ? msg.attachments.filter((a) => a.kind !== "generation" && a.kind !== "model")
+            : msg.attachments;
+          if (!atts.length) return null;
+          const big = !hasGenChips
+            ? (atts.find((a) => a.kind === "generation") ?? atts.find((a) => a.kind === "model"))
+            : undefined;
+          const small = atts.filter((a) => a !== big);
           return (
             <div className="flex flex-col gap-2">
               {big && (
