@@ -757,7 +757,8 @@ export function ChatApp({ threadId }: Props) {
         if (!fresh) return;
         const sec = photoFocus.section as SectionSnake;
         const elIdInitial = photoFocus.elementId ?? null;
-        // Если фото загружено — используем vision; иначе анализируем только текст.
+        // Приоритет — текст заметки. Фото подключаем только если элемент
+        // раздела ещё не определён и без vision его не угадать.
         let resultElementId: string | undefined;
         let r: {
           noDamage: boolean;
@@ -766,7 +767,8 @@ export function ChatApp({ threadId }: Props) {
           pendingTags: PendingTagName[];
           note: string;
         };
-        if (photoFocus.url) {
+        const needVisionForElement = !elIdInitial && !!photoFocus.url;
+        if (needVisionForElement) {
           // Проверяем, что фото всё ещё доступно по presigned URL — иначе
           // перезаливаем во временное хранилище из локального превью.
           const usableUrl = await ensurePhotoAccessible({
@@ -783,7 +785,7 @@ export function ChatApp({ threadId }: Props) {
           const v = await analyzeInspectionPhoto(
             fresh,
             sec,
-            usableUrl ?? photoFocus.url,
+            usableUrl ?? photoFocus.url!,
             text,
           );
           r = {
@@ -795,6 +797,7 @@ export function ChatApp({ threadId }: Props) {
           };
           resultElementId = v.elementId;
         } else {
+          // Элемент уже известен (или фото нет) — работаем только по тексту.
           const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
           r = {
             noDamage: n.noDamage,
