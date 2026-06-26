@@ -243,10 +243,8 @@ export function ChatApp({ threadId }: Props) {
     () => (thread ? getCursor(thread.draft) : null),
     [thread],
   );
-  // Legacy «zone» pointers — used by free-form notes & older AI prompt.
-  const currentZoneId =
-    thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
-  const currentZone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const selectSection = useCallback(
