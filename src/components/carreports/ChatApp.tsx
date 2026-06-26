@@ -498,6 +498,38 @@ export function ChatApp({ threadId }: Props) {
     [thread, ensureSectionMessages],
   );
 
+  /** Закрепить ожидающее фото из чата за выбранным разделом. */
+  const assignPendingPhoto = useCallback(
+    (messageId: string, sectionSnake: SectionSnake) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const m = t.messages[key].find((x) => x.id === messageId);
+          if (!m || !m.pendingPhoto || m.pendingPhoto.assignedSection) continue;
+          const photo = m.pendingPhoto;
+          t.draft.inspectionStep.photos.push({
+            section: sectionSnake,
+            filename: photo.filename,
+            dataUrl: photo.dataUrl,
+            url: photo.url,
+            remote: photo.remote === true,
+            addedAt: Date.now(),
+          });
+          t.draft.inspectionStep.touched = true;
+          const label =
+            INSPECTION_SECTIONS.find((s) => s.snake === sectionSnake)?.label ??
+            sectionSnake;
+          m.pendingPhoto = { ...photo, assignedSection: sectionSnake };
+          m.text = `📌 Закреплено в разделе «${label}»`;
+          ensureSectionMessages(sectionSnake);
+          break;
+        }
+      });
+    },
+    [thread, ensureSectionMessages],
+  );
+
+
   const annotatorPhoto =
     annotatorPhotoIdx !== null && thread
       ? thread.draft.inspectionStep.photos[annotatorPhotoIdx] ?? null
@@ -854,21 +886,107 @@ export function ChatApp({ threadId }: Props) {
           createdAt: Date.now(),
         });
       });
-      const recognized = await analyzeAttachments(atts, currentStep, combined);
-      setAnalyzing(false);
-      if (recognized) {
-        updateThread(thread.id, (t) => {
-          pushMsg(t, currentStep, {
-            id: msgId(),
-            role: "assistant",
-            text: `📄 Распознано с фото:\n${recognized}`,
-            step: currentStep,
-            createdAt: Date.now(),
+
+      if (currentStep === "inspection") {
+        // Для шага «Осмотр»: загружаем фото в постоянное хранилище и просим AI
+        // определить раздел. Найденные — сразу закрепляем за разделом. Не
+        // определённые — выводим чипы выбора раздела в чат.
+        const { classifyInspectionPhotoSection } = await import(
+          "@/lib/carreports/orchestrator"
+        );
+        for (const a of atts) {
+          let up: { url: string; filename: string } | null = null;
+          try {
+            up = await uploadTemporary({
+              filename: a.filename,
+              blob: a.blob,
+              dataUrl: a.dataUrl,
+            });
+          } catch (e) {
+            updateThread(thread.id, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `⚠️ Не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}`,
+                createdAt: Date.now(),
+              });
+            });
+            continue;
+          }
+          const uploaded = up;
+
+          const fresh = getThread(thread.id);
+          const section = fresh
+            ? await classifyInspectionPhotoSection(fresh, uploaded.url)
+            : null;
+          if (fresh) {
+            updateThread(thread.id, (t) => {
+              t.aiChatIds = fresh.aiChatIds;
+            });
+          }
+
+
+
+          if (section) {
+            const sectionLabel =
+              INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ?? section;
+            updateThread(thread.id, (t) => {
+              t.draft.inspectionStep.photos.push({
+                section,
+                filename: uploaded.filename,
+                dataUrl: a.dataUrl,
+                url: uploaded.url,
+                remote: true,
+                addedAt: Date.now(),
+              });
+              t.draft.inspectionStep.touched = true;
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `📌 Закреплено в разделе «${sectionLabel}»`,
+                step: "inspection",
+                attachments: [{ url: uploaded.url, label: a.filename }],
+                createdAt: Date.now(),
+              });
+            });
+          } else {
+            updateThread(thread.id, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: "Не смог определить раздел — выберите вручную:",
+                step: "inspection",
+                kind: "inspectionAttachAssign",
+                pendingPhoto: {
+                  url: uploaded.url,
+                  dataUrl: a.dataUrl,
+                  filename: uploaded.filename,
+                  remote: true,
+                },
+                createdAt: Date.now(),
+              });
+            });
+          }
+        }
+        setAnalyzing(false);
+      } else {
+        const recognized = await analyzeAttachments(atts, currentStep, combined);
+        setAnalyzing(false);
+        if (recognized) {
+          updateThread(thread.id, (t) => {
+            pushMsg(t, currentStep, {
+              id: msgId(),
+              role: "assistant",
+              text: `📄 Распознано с фото:\n${recognized}`,
+              step: currentStep,
+              createdAt: Date.now(),
+            });
           });
-        });
-        textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+          textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+        }
       }
     }
+
 
 
     // Q&A mode: free-form question, no draft mutation.
@@ -1184,6 +1302,7 @@ export function ChatApp({ threadId }: Props) {
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={setAnnotatorPhotoIdx}
+            onAssignPendingPhoto={assignPendingPhoto}
           />
 
         ))}
@@ -1548,6 +1667,7 @@ interface BubbleProps {
   onNextElement?: () => void;
   onPickInspectionPhotos?: (snake: SectionSnake, files: File[]) => void;
   onOpenAnnotator?: (photoIdx: number) => void;
+  onAssignPendingPhoto?: (msgId: string, snake: SectionSnake) => void;
 }
 
 function MessageBubble({
@@ -1571,6 +1691,7 @@ function MessageBubble({
   onNextElement,
   onPickInspectionPhotos,
   onOpenAnnotator,
+  onAssignPendingPhoto,
 }: BubbleProps) {
 
 
@@ -1696,6 +1817,46 @@ function MessageBubble({
             onOpenPhoto={(idx) => onOpenAnnotator?.(idx)}
           />
         )}
+        {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <img
+                src={msg.pendingPhoto.dataUrl || msg.pendingPhoto.url}
+                alt={msg.pendingPhoto.filename}
+                className="h-12 w-12 rounded-lg object-cover border border-white/10"
+              />
+              <div className="text-[12px] text-white/70 leading-tight truncate">
+                {msg.pendingPhoto.assignedSection
+                  ? `Закреплено в разделе «${
+                      INSPECTION_SECTIONS.find(
+                        (s) => s.snake === msg.pendingPhoto!.assignedSection,
+                      )?.label ?? msg.pendingPhoto.assignedSection
+                    }»`
+                  : "Выберите раздел, к которому относится фото:"}
+              </div>
+            </div>
+            {!msg.pendingPhoto.assignedSection && (
+              <div className="flex flex-wrap gap-1.5">
+                {INSPECTION_SECTIONS.map((s) => (
+                  <button
+                    key={s.snake}
+                    disabled={!interactive}
+                    onClick={() => onAssignPendingPhoto?.(msg.id, s.snake)}
+                    className={
+                      "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
+                      (interactive
+                        ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                        : "border-white/10 text-white/40 cursor-default")
+                    }
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
 
 
         {msg.attachments && msg.attachments.length > 0 && (() => {

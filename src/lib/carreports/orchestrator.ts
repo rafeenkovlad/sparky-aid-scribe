@@ -1080,6 +1080,45 @@ export async function analyzeInspectionPhoto(
   };
 }
 
+/**
+ * Определить, к какому разделу осмотра относится фото.
+ * Возвращает snake-имя раздела или `null`, если уверенности нет.
+ */
+export async function classifyInspectionPhotoSection(
+  thread: Thread,
+  photoUrl: string,
+): Promise<SectionSnake | null> {
+  const id = aiChatIdFor(thread, `vision:section:${photoUrl.slice(-12)}`);
+  const sectionsList = INSPECTION_SECTIONS.map(
+    (s) => `- ${s.snake}: ${s.label}`,
+  ).join("\n");
+  const cliche =
+    "Ты — ассистент эксперта по осмотру авто. Тебе показывают одно фото. " +
+    "Определи, к какому из разделов осмотра оно относится. " +
+    "Разделы (snake_case: человекочитаемое название):\n" +
+    sectionsList +
+    "\n\nОтветь СТРОГО валидным JSON: {\"section\": \"<snake>\"} или " +
+    "{\"section\": null}, если ни один раздел не подходит уверенно. " +
+    "Никакого текста вокруг JSON.\n\n{text}";
+
+  try {
+    const res = await chatCompletions({
+      id,
+      text: "Определи раздел осмотра по этому фото.",
+      cliche,
+      fileUrls: [photoUrl],
+    });
+    const raw = parseJsonResponse<{ section?: string | null }>(res.content) ?? {};
+    const s = typeof raw.section === "string" ? raw.section.trim() : "";
+    if (!s) return null;
+    const known = INSPECTION_SECTIONS.find((x) => x.snake === s);
+    return known ? known.snake : null;
+  } catch {
+    return null;
+  }
+}
+
+
 
 /**
  * Build a short recap of what's already filled for a given step. Returns an
