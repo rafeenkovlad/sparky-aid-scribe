@@ -843,8 +843,16 @@ export function ChatApp({ threadId }: Props) {
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {currentStepMessages.map((m) =>
           m.kind === "passport" ? (
-            <div key={m.id} className="max-w-[85%]">
-              <CarChecklist draft={thread.draft} />
+            <div key={m.id} className="flex gap-2 items-start">
+              <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+                <img src={logo} alt="" className="h-4 w-4 invert" />
+              </div>
+              <div className="max-w-[85%] space-y-2 min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
+                <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white">
+                  <CarChecklist draft={thread.draft} />
+                </div>
+              </div>
             </div>
           ) : (
             <MessageBubble
