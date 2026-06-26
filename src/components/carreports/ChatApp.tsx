@@ -578,14 +578,16 @@ export function ChatApp({ threadId }: Props) {
           setComposer(f?.note ?? "");
         }
       }
-      // Append (or refresh) an inspectionElementFocus message in the inspection thread.
+      // Перетаскиваем (или создаём) единственное сообщение фокус-элемента в конец ленты.
       if (thread) {
         updateThread(thread.id, (t) => {
           const arr = t.messages.inspection;
-          const last = arr[arr.length - 1];
-          if (last && last.kind === "inspectionElementFocus") {
-            last.photoIdx = idx;
-            last.createdAt = Date.now();
+          const existingIdx = arr.findIndex((m) => m.kind === "inspectionElementFocus");
+          if (existingIdx >= 0) {
+            const [existing] = arr.splice(existingIdx, 1);
+            existing.photoIdx = idx;
+            existing.createdAt = Date.now();
+            arr.push(existing);
           } else {
             pushMsg(t, "inspection", {
               id: msgId(),
