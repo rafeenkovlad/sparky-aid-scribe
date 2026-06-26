@@ -21,6 +21,8 @@ import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSectio
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
 import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import { subscribeToken } from "@/lib/carreports/tokenStore";
+
 
 type Verdict = "ok" | "minor" | "serious";
 
