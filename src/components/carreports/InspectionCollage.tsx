@@ -2,8 +2,8 @@
 // Используется в сообщении ассистента с kind="inspectionCollage" и в карточке
 // upload-приглашения kind="inspectionUploadPrompt".
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, Image as ImageIcon, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { useMemo, useRef } from "react";
+import { Camera, Image as ImageIcon, Plus } from "lucide-react";
 import {
   getSection,
   type SectionSnake,
@@ -13,8 +13,7 @@ import {
   getFinding,
   photosForSection,
 } from "@/lib/carreports/inspectionState";
-import type { InspectionPhoto, InspectionStep, PendingTagName } from "@/lib/carreports/types";
-import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import type { InspectionStep } from "@/lib/carreports/types";
 
 type Verdict = "ok" | "minor" | "serious";
 
