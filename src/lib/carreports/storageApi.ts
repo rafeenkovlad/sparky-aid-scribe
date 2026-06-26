@@ -310,7 +310,7 @@ function buildPrepareReportPayload(
     .join("\n\n");
 
   const modelCarId = ch.modelCarId ?? resolved.modelCarId ?? undefined;
-  const frameId = resolved.modelGenerationRestylingFrameId ?? undefined;
+  const frameId = ch.modelGenerationRestylingFrameId ?? resolved.modelGenerationRestylingFrameId ?? undefined;
 
   const tdIncluded =
     typeof td.testDriveIsIncluded === "boolean"
