@@ -44,7 +44,7 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
     case "car": {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
-      if (!c.vin) return "Продиктуйте VIN автомобиля (17 символов). Если VIN нечитаемый — назовите госномер, подтянем VIN автоматически.";
+      if (!c.vin) return "Продиктуйте VIN автомобиля (17 символов). Если VIN нечитаемый — назовите госномер, подтянем VIN автоматически. Либо загрузите фото документа (СТС или ПТС) — распознаем VIN и характеристики авто.";
       if (!ch.brandName || !ch.modelCarName) return "Назовите марку и модель автомобиля.";
       if (!c.mileage) return "Какой пробег по одометру? (км)";
       if (!c.cityInspection) return "В каком городе проводится осмотр?";
