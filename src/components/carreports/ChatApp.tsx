@@ -1688,6 +1688,39 @@ export function ChatApp({ threadId }: Props) {
             ))}
           </div>
         )}
+        {photoFocusIdx !== null && photoFocus && (() => {
+          const sec = photoFocus.section as SectionSnake;
+          const secLabel = INSPECTION_SECTIONS.find((s) => s.snake === sec)?.label ?? sec;
+          const elId =
+            photoFocus.elementId ??
+            INSPECTION_SECTIONS.find((s) => s.snake === sec)?.elements[0]?.id;
+          const elLabel = elId
+            ? INSPECTION_SECTIONS.find((s) => s.snake === sec)?.elements.find((e) => e.id === elId)?.label
+            : null;
+          return (
+            <div className="mb-2 flex items-center gap-2 rounded-xl bg-orange-500/10 border border-orange-500/40 px-2.5 py-1.5">
+              {photoFocus.dataUrl && (
+                <img
+                  src={photoFocus.dataUrl}
+                  alt=""
+                  className="h-8 w-8 rounded object-cover border border-white/20 shrink-0"
+                />
+              )}
+              <div className="min-w-0 flex-1 text-[12px] leading-tight">
+                <div className="text-orange-100 truncate">📎 Заметка к фото · {elLabel ?? "—"}</div>
+                <div className="text-orange-200/60 truncate">Раздел «{secLabel}»</div>
+              </div>
+              <button
+                type="button"
+                onClick={exitPhotoFocus}
+                aria-label="Снять режим"
+                className="h-6 w-6 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })()}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
           {/* Универсальная кнопка вложения — для всех шагов. */}
           <input
