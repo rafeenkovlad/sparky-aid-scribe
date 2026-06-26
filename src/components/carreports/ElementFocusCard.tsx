@@ -265,6 +265,26 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   const filledCount = passportRows.filter((r) => r.filled).length;
   const allFilled = filledCount === passportRows.length;
 
+  // Подсветка строк, значение которых только что изменилось (после ответа ИИ).
+  const prevValuesRef = useRef<Record<string, string>>({});
+  const [flashed, setFlashed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (aiUpdating) return; // ждём окончания запроса
+    const changed = new Set<string>();
+    for (const r of passportRows) {
+      const v = r.value ?? "";
+      if (prevValuesRef.current[r.label] !== undefined && prevValuesRef.current[r.label] !== v) {
+        changed.add(r.label);
+      }
+      prevValuesRef.current[r.label] = v;
+    }
+    if (changed.size === 0) return;
+    setFlashed(changed);
+    const t = window.setTimeout(() => setFlashed(new Set()), 1400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiUpdating, passportRows.map((r) => r.value ?? "").join("|")]);
+
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 overflow-hidden">
       {/* Паспорт-стайл шапка */}
