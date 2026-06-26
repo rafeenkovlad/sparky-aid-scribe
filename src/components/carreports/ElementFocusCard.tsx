@@ -512,10 +512,25 @@ function Section(props: {
     </div>
   );
 }
-function PassportRow({ item }: { item: { label: string; filled: boolean; value?: string } }) {
+function PassportRow({
+  item,
+  updating,
+  flashing,
+}: {
+  item: { label: string; filled: boolean; value?: string };
+  updating?: boolean;
+  flashing?: boolean;
+}) {
   return (
-    <li className="flex items-baseline gap-2 min-w-0">
-      {item.filled ? (
+    <li
+      className={
+        "flex items-baseline gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      {updating ? (
+        <Loader2 className="h-3 w-3 shrink-0 translate-y-0.5 animate-spin text-orange-300/80" />
+      ) : item.filled ? (
         <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
       ) : (
         <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
@@ -524,7 +539,14 @@ function PassportRow({ item }: { item: { label: string; filled: boolean; value?:
       <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
       <span
         className={
-          "text-right break-all min-w-0 " + (item.filled ? "text-white/85" : "text-white/30")
+          "text-right break-all min-w-0 " +
+          (updating
+            ? "text-white/40 animate-pulse"
+            : flashing
+              ? "text-orange-100"
+              : item.filled
+                ? "text-white/85"
+                : "text-white/30")
         }
         title={item.value ?? ""}
       >
