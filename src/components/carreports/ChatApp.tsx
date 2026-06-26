@@ -1307,69 +1307,98 @@ function MessageBubble({
             </div>
           );
         })()}
-        {msg.chips && msg.chips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {msg.chips.map((c) => {
-              const isSel = selected.has(c.value);
-              const hasImage = !!c.image;
-              if (hasImage) {
-                return (
-                  <button
-                    key={c.label}
-                    disabled={!interactive}
-                    onClick={() => onChipTap(c)}
-                    className={
-                      "flex flex-col items-stretch w-[112px] rounded-lg overflow-hidden border transition-colors text-left " +
-                      (isSel
-                        ? "bg-orange-500/10 border-orange-500"
-                        : interactive
-                          ? "border-white/15 hover:border-orange-400/60"
-                          : "border-white/10 opacity-60 cursor-default")
-                    }
-                  >
-                    <img
-                      src={c.image}
-                      alt={c.label}
-                      loading="lazy"
-                      className="block w-full h-16 object-contain bg-white/5"
-                    />
-                    <div className="px-1.5 py-1">
-                      <div className={"text-[11px] leading-tight " + (isSel ? "text-white" : "text-white/85")}>
-                        {isSel ? "✓ " : ""}
-                        {c.label}
-                      </div>
-                      {c.description && (
-                        <div className="text-[10px] text-white/55 truncate">{c.description}</div>
-                      )}
-                    </div>
-                  </button>
-                );
-              }
+        {interactive && msg.step === "car" && <CarChecklist draft={draft} />}
+        {msg.chips && msg.chips.length > 0 && (() => {
+          // Group chips by groupLabel (chips without a label fall into "").
+          const groups: Array<{ label: string; items: ChatChip[] }> = [];
+          for (const c of msg.chips) {
+            const key = c.groupLabel ?? "";
+            let g = groups.find((x) => x.label === key);
+            if (!g) {
+              g = { label: key, items: [] };
+              groups.push(g);
+            }
+            g.items.push(c);
+          }
+          const renderChip = (c: ChatChip) => {
+            const isSel = selected.has(c.value);
+            const hasImage = !!c.image;
+            if (hasImage) {
               return (
                 <button
                   key={c.label}
                   disabled={!interactive}
                   onClick={() => onChipTap(c)}
                   className={
-                    "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                    "flex flex-col items-stretch w-[112px] rounded-lg overflow-hidden border transition-colors text-left " +
                     (isSel
-                      ? "bg-orange-500 text-white border-orange-500"
+                      ? "bg-orange-500/10 border-orange-500"
                       : interactive
-                        ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
-                        : "border-white/10 text-white/40 cursor-default")
+                        ? "border-white/15 hover:border-orange-400/60"
+                        : "border-white/10 opacity-60 cursor-default")
                   }
                 >
-                  {isSel ? "✓ " : ""}
-                  {c.label}
-                  {c.description ? ` · ${c.description}` : ""}
+                  <img
+                    src={c.image}
+                    alt={c.label}
+                    loading="lazy"
+                    className="block w-full h-16 object-contain bg-white/5"
+                  />
+                  <div className="px-1.5 py-1">
+                    <div className={"text-[11px] leading-tight " + (isSel ? "text-white" : "text-white/85")}>
+                      {isSel ? "✓ " : ""}
+                      {c.label}
+                    </div>
+                    {c.description && (
+                      <div className="text-[10px] text-white/55 truncate">{c.description}</div>
+                    )}
+                  </div>
                 </button>
               );
-            })}
-          </div>
-        )}
+            }
+            return (
+              <button
+                key={c.label}
+                disabled={!interactive}
+                onClick={() => onChipTap(c)}
+                className={
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                  (isSel
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : interactive
+                      ? "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white"
+                      : "border-white/10 text-white/40 cursor-default")
+                }
+              >
+                {isSel ? "✓ " : ""}
+                {c.label}
+                {c.description ? ` · ${c.description}` : ""}
+              </button>
+            );
+          };
+          // If there are no labeled groups, fall back to the flat layout.
+          if (groups.length === 1 && groups[0].label === "") {
+            return <div className="flex flex-wrap gap-2">{groups[0].items.map(renderChip)}</div>;
+          }
+          return (
+            <div className="space-y-2">
+              {groups.map((g) => (
+                <div key={g.label || "_"} className="space-y-1">
+                  {g.label && (
+                    <div className="text-[10px] uppercase tracking-wide text-white/45">
+                      {g.label}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">{g.items.map(renderChip)}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {showDate && (
           <InspectionDateField value={inspectionDateValue} onChange={onInspectionDateChange} />
         )}
+
       </div>
     </div>
   );
