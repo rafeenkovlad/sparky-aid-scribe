@@ -706,19 +706,21 @@ export function ChatApp({ threadId }: Props) {
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
   /**
-   * Сохранить текст композера как заметку к фото. Параллельно ИИ:
-   * — формулирует чистую заметку специалиста (без рекомендаций);
-   * — подбирает релевантные теги из каталога раздела как ПРЕДЛОЖЕНИЯ
-   *   (применяются только по подтверждению пользователя).
+   * Сохранить текст композера как заметку к фото. ИИ автоматически:
+   * — переформулирует заметку чище и короче;
+   * — подбирает подходящие теги из каталога раздела, либо создаёт новые;
+   * — определяет, серьёзное это повреждение или нет.
+   * Всё применяется к finding автоматически, без подтверждения пользователя.
    */
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
     if (!text) return;
+    // Пишем оригинал сразу — пользователь видит свой текст, пока ИИ думает.
     mutatePhotoFinding((f) => {
       f.note = text;
     });
     setComposer("");
-    setNoteProposal({ original: text, ai: null, loading: true, picked: "original" });
+    setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
     (async () => {
       try {
         if (!thread || !photoFocus?.url) {
@@ -735,8 +737,34 @@ export function ChatApp({ threadId }: Props) {
           photoFocus.url,
           text,
         );
+        // Авто-применяем результат: заменяем заметку на формулировку ИИ,
+        // добавляем теги (existing + новые pending), классифицируем серьёзность.
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
+          const p = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
+          if (!p) return;
+          if (!p.elementId && r.elementId) p.elementId = r.elementId;
+          const sec = p.section as SectionSnake;
+          const elId = p.elementId ?? r.elementId;
+          if (!elId) return;
+          upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
+            const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
+            const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
+            f.seriousDamageTagIds = [...sSet];
+            f.noSeriousDamageTagIds = [...nsSet];
+            const existing = f.pendingTagNames ?? [];
+            const have = new Set(existing.map((pp) => pp.name.toLowerCase()));
+            for (const pp of r.pendingTags) {
+              if (!have.has(pp.name.toLowerCase())) existing.push(pp);
+            }
+            f.pendingTagNames = existing;
+            // Заметка — формулировка ИИ, если она есть; иначе оставляем оригинал.
+            f.note = r.note?.trim() ? r.note.trim() : text;
+            if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
+              f.noDamage = false;
+            }
+          });
+          t.draft.inspectionStep.touched = true;
         });
         setNoteProposal((prev) =>
           prev && prev.original === text
@@ -744,6 +772,7 @@ export function ChatApp({ threadId }: Props) {
                 ...prev,
                 ai: r.note,
                 loading: false,
+                picked: "ai",
                 proposedSeriousIds: r.seriousTagIds,
                 proposedNonSeriousIds: r.noSeriousTagIds,
                 proposedPending: r.pendingTags,
@@ -757,7 +786,8 @@ export function ChatApp({ threadId }: Props) {
         );
       }
     })();
-  }, [composer, mutatePhotoFinding, thread, photoFocus]);
+  }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx]);
+
 
   const pickNoteOriginal = useCallback(() => {
     setNoteProposal((p) => (p ? { ...p, picked: "original" } : p));
