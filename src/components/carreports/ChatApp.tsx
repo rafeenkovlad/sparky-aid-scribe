@@ -8,11 +8,13 @@ import {
   Loader2,
   Menu,
   Mic,
+  Paperclip,
   Pencil,
   Plus,
   Settings2,
   Square,
   Trash2,
+  X,
   PanelRightOpen,
 } from "lucide-react";
 
@@ -109,6 +111,12 @@ export function ChatApp({ threadId }: Props) {
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
   const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
+  /** Прикреплённые к следующему сообщению фото (для распознавания). */
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ id: string; dataUrl: string; blob: Blob; filename: string }>
+  >([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -390,9 +398,69 @@ export function ChatApp({ threadId }: Props) {
     }
   }, [thread]);
 
+  const addAttachment = useCallback(async (file: File) => {
+    try {
+      const prepared = await preparePhoto(file, { maxBytes: 2 * 1024 * 1024 });
+      setPendingAttachments((prev) => [
+        ...prev,
+        {
+          id: msgId(),
+          dataUrl: prepared.dataUrl,
+          blob: prepared.blob,
+          filename: prepared.filename,
+        },
+      ]);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "Не удалось подготовить фото";
+      if (thread) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, FLOW_STEPS[t.stepIndex].id, {
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${m}`,
+            createdAt: Date.now(),
+          });
+        });
+      }
+    }
+  }, [thread]);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  /** Распознать прикреплённые фото и вернуть текстовое summary для AI. */
+  const analyzeAttachments = useCallback(
+    async (
+      atts: Array<{ id: string; blob: Blob; filename: string }>,
+      step: StepId,
+      userText: string,
+    ): Promise<string> => {
+      if (!atts.length) return "";
+      const parts: string[] = [];
+      for (const a of atts) {
+        const form = new FormData();
+        form.append("file", a.blob, a.filename);
+        form.append("step", step);
+        if (userText) form.append("prompt", userText);
+        try {
+          const r = await fetch("/api/analyze-image", { method: "POST", body: form });
+          const j = (await r.json()) as { text?: string; error?: string };
+          if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+          if (j.text) parts.push(j.text.trim());
+        } catch (e) {
+          parts.push(`[не удалось распознать фото ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}]`);
+        }
+      }
+      return parts.join("\n\n");
+    },
+    [],
+  );
+
   const submit = useCallback(async () => {
     if (!thread || busy) return;
     const typed = composer.trim();
+    const atts = pendingAttachments;
 
     // Gather selected chip values from the last interactive options message
     // (per-step chips) or the inspection chip selection state.
@@ -405,24 +473,30 @@ export function ChatApp({ threadId }: Props) {
     }
 
     const combined = [typed, ...selectedFromChips].filter(Boolean).join("\n");
-    if (!combined) return;
+    if (!combined && !atts.length) return;
 
-    // Confirm-advance shortcut (only when no chips, typed-only).
-    if (!askMode && !selectedFromChips.length && isConfirmAdvance(typed)) {
+    // Confirm-advance shortcut (only when no chips/attachments, typed-only).
+    if (!askMode && !selectedFromChips.length && !atts.length && isConfirmAdvance(typed)) {
       setComposer("");
       advanceStep();
       return;
     }
 
     setBusy(true);
-    const displayText = askMode ? `❓ ${combined}` : combined;
-    // 1) push user message
+    const userAttachments = atts.map((a) => ({
+      url: a.dataUrl,
+      label: a.filename,
+    }));
+    // 1) push user message (with thumbnails if any)
+    const baseText = combined || (atts.length ? `📎 Прикреплено фото: ${atts.length}` : "");
+    const displayText = askMode ? `❓ ${baseText}` : baseText;
     updateThread(thread.id, (t) => {
       pushMsg(t, currentStep, {
         id: msgId(),
         role: "user",
         text: displayText,
         step: currentStep,
+        ...(userAttachments.length ? { attachments: userAttachments } : {}),
         createdAt: Date.now(),
       });
       // Clear chip selections on the last options message
@@ -434,7 +508,38 @@ export function ChatApp({ threadId }: Props) {
       }
     });
     setComposer("");
+    setPendingAttachments([]);
     if (currentStep === "inspection") setSelectedInspectionChips(new Set());
+
+    // 1b) If photos attached — recognize them via vision and append to text.
+    let textForAI = combined;
+    if (atts.length) {
+      setAnalyzing(true);
+      updateThread(thread.id, (t) => {
+        pushMsg(t, currentStep, {
+          id: msgId(),
+          role: "assistant",
+          text: `🔍 Распознаю фото (${atts.length})…`,
+          step: currentStep,
+          createdAt: Date.now(),
+        });
+      });
+      const recognized = await analyzeAttachments(atts, currentStep, combined);
+      setAnalyzing(false);
+      if (recognized) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, currentStep, {
+            id: msgId(),
+            role: "assistant",
+            text: `📄 Распознано с фото:\n${recognized}`,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        });
+        textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+      }
+    }
+
 
     // Q&A mode: free-form question, no draft mutation.
     if (askMode) {
@@ -442,7 +547,7 @@ export function ChatApp({ threadId }: Props) {
         const fresh = getThread(thread.id);
         if (!fresh) return;
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
-        const answer = await askQuestion(currentStep, combined, fresh, stepLabel);
+        const answer = await askQuestion(currentStep, textForAI || combined, fresh, stepLabel);
         updateThread(thread.id, (t) => {
           pushMsg(t, currentStep, {
             id: msgId(),
@@ -475,7 +580,7 @@ export function ChatApp({ threadId }: Props) {
           });
         });
       };
-      const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh, { onClarify });
+      const { patch, reply, attachments, chips } = await extractForStep(currentStep, textForAI || combined, fresh, { onClarify });
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         // Карточка заполнения — только summary/reply, без уточняющих вопросов.
@@ -540,7 +645,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips, pendingAttachments, analyzeAttachments]);
 
 
   function jumpTo(step: StepId) {
@@ -886,7 +991,54 @@ export function ChatApp({ threadId }: Props) {
             </div>
           );
         })()}
+        {pendingAttachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {pendingAttachments.map((a) => (
+              <div
+                key={a.id}
+                className="relative h-16 w-16 rounded-lg overflow-hidden border border-white/15 bg-white/[0.04]"
+                title={a.filename}
+              >
+                <img src={a.dataUrl} alt={a.filename} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label="Убрать фото"
+                  className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {analyzing && (
+              <div className="h-16 px-2 flex items-center gap-1.5 text-xs text-white/70">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> распознаю…
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
+          {/* Универсальная кнопка вложения — для всех шагов. */}
+          <input
+            ref={attachInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              for (const f of files) void addAttachment(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => attachInputRef.current?.click()}
+            className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
+            aria-label="Прикрепить фото для распознавания"
+            title="Прикрепить фото (≤2MB, распознаем текст и характеристики)"
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
           {currentStep === "inspection" && (
             <>
               <input
@@ -965,7 +1117,9 @@ export function ChatApp({ threadId }: Props) {
             onClick={() => void submit()}
             disabled={
               busy ||
+              analyzing ||
               (!composer.trim() &&
+                pendingAttachments.length === 0 &&
                 (currentStep === "inspection"
                   ? selectedInspectionChips.size === 0
                   : !(lastOptionsMsgId &&
@@ -1010,8 +1164,28 @@ function MessageBubble({
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
-          {msg.text}
+        <div className="max-w-[85%] space-y-1">
+          {msg.attachments && msg.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-end">
+              {msg.attachments.map((a) => (
+                <a
+                  key={a.url}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block h-20 w-20 rounded-lg overflow-hidden border border-orange-500/40"
+                  title={a.label}
+                >
+                  <img src={a.url} alt={a.label ?? ""} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+          {msg.text && (
+            <div className="rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+              {msg.text}
+            </div>
+          )}
         </div>
       </div>
     );
