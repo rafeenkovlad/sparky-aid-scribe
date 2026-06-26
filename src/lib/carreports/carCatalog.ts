@@ -350,6 +350,12 @@ export interface ResolvedCar {
   suggestions?: CatalogSuggestion[];
   /** true when user explicitly named a generation/restyling that we couldn't find */
   generationNotFound?: boolean;
+  /** true когда пользователь указал поколение, оно нашлось, но у поколения
+   * есть несколько рестайлингов, а пользователь рестайлинг не назвал —
+   * нужно показать коллаж рестайлингов и попросить выбрать. */
+  restylingChoiceRequired?: boolean;
+  /** label выбранного поколения (для подсказки в UI). */
+  pendingGenerationLabel?: string;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
@@ -742,30 +748,37 @@ async function pickGenerationForModel(
   }
 
   let notFound = false;
+  let restylingChoiceGroup:
+    | { number?: number; name: string; items: GenerationFrameCandidate[] }
+    | undefined;
   if (genOrd != null) {
     let group = genGroups.find((g) => g.number === genOrd);
     if (!group) group = genGroups[genOrd - 1];
     if (!group) {
       notFound = true;
-    } else {
-      let picked: GenerationFrameCandidate | undefined;
-      if (restOrd != null) {
-        picked = group.items.find((f) => f.restylingNumber === restOrd);
-        if (!picked) picked = group.items[restOrd];
-        if (!picked) notFound = true;
-      } else {
-        picked =
-          group.items.find((f) => f.restylingNumber === 0) ?? group.items[0];
-      }
-      if (picked) {
+    } else if (restOrd != null) {
+      let picked: GenerationFrameCandidate | undefined =
+        group.items.find((f) => f.restylingNumber === restOrd);
+      if (!picked) picked = group.items[restOrd];
+      if (!picked) notFound = true;
+      else {
         frame = picked;
         frameConf = 0.95;
-        frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (базовый)"}`;
+        frameReason = `Поколение #${genOrd}, рестайлинг #${restOrd}`;
       }
+    } else if (group.items.length === 1) {
+      // У поколения один frame — выбирать нечего.
+      frame = group.items[0];
+      frameConf = 0.95;
+      frameReason = `Поколение #${genOrd} (единственный вариант)`;
+    } else {
+      // Несколько рестайлингов — НЕ выбираем сами. Просим пользователя выбрать.
+      restylingChoiceGroup = group;
+      frameReason = `Поколение #${genOrd} — нужен выбор рестайлинга`;
     }
   }
 
-  if (!frame && !notFound) {
+  if (!frame && !notFound && !restylingChoiceGroup) {
     const hintNorm = generationHint ? norm(generationHint) : "";
     const byYear = year
       ? frames.filter(
@@ -845,6 +858,42 @@ async function pickGenerationForModel(
   };
 
   if (!frame) {
+    if (restylingChoiceGroup) {
+      // Коллаж только рестайлингов выбранного поколения.
+      const gNum = restylingChoiceGroup.number;
+      const genLabel =
+        gNum != null ? `Поколение ${gNum}` : (restylingChoiceGroup.name || "Поколение");
+      const restylingChips: CatalogSuggestion[] = restylingChoiceGroup.items.map((f) => {
+        const years =
+          f.yearStart || f.yearEnd
+            ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
+            : "";
+        const rNum = f.restylingNumber;
+        const restLabel =
+          rNum === 0
+            ? "Базовый"
+            : rNum != null
+              ? `Рестайлинг ${rNum}`
+              : (f.restylingName ?? "Вариант");
+        const value =
+          rNum != null
+            ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+            : `Поколение ${gNum ?? "?"} ${f.restylingName ?? ""}`.trim();
+        return {
+          group: "generation" as const,
+          label: `${genLabel} · ${restLabel}`,
+          value,
+          ...(f.urlImage ? { image: f.urlImage } : {}),
+          ...(years ? { description: years } : {}),
+        };
+      });
+      return {
+        ...partial,
+        restylingChoiceRequired: true,
+        pendingGenerationLabel: genLabel,
+        suggestions: [...(partial.suggestions ?? []), ...restylingChips],
+      };
+    }
     return {
       ...partial,
       generationNotFound: notFound,

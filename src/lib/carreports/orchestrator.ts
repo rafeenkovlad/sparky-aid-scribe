@@ -409,14 +409,13 @@ export async function extractForStep(
         typeof data.generationHint === "string" ? data.generationHint : undefined;
 
       // Если пользователь явно говорит про поколение/рестайлинг («выбери поколение 2»,
-      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение по уже
-      // выбранной машине. Подхватываем brand/model/year из текущего черновика и
-      // форсим пересчёт через resolveCar, иначе charTouched остаётся false и
-      // генерация никогда не обновится.
+      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение.
       const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      const prevChar = thread.draft.characteristicsStep;
+      // Подхватываем ранее сохранённый pending hint, если он есть.
+      const pendingHint = prevChar.pendingGenerationHint || undefined;
       if (mentionsGen) {
         if (!generationHint) generationHint = text;
-        const prevChar = thread.draft.characteristicsStep;
         if (!charPatch.brandName && prevChar.brandName) {
           charPatch.brandName = prevChar.brandName;
           charTouched = true;
@@ -431,13 +430,36 @@ export async function extractForStep(
         }
         if (charPatch.brandName && charPatch.modelCarName) charTouched = true;
       }
+      if (!generationHint && pendingHint) generationHint = pendingHint;
+
+      // Случай: пользователь назвал поколение/рестайлинг, но марка/модель
+      // не известны ни сейчас, ни в черновике. Сохраняем hint, просим модель.
+      if (
+        mentionsGen &&
+        (!charPatch.brandName || !charPatch.modelCarName)
+      ) {
+        const mergedCarEarly = { ...thread.draft.carStep, ...carStep };
+        return {
+          patch: {
+            carStep: mergedCarEarly,
+            characteristicsStep: {
+              ...charPatch,
+              pendingGenerationHint: generationHint ?? text,
+            },
+          },
+          reply:
+            "Поняла, нужно выбрать поколение/рестайлинг — но сначала укажите марку и модель автомобиля " +
+            "(например «Volkswagen Tiguan» или «BMW X5»). Я сохранила ваш выбор и применю его, как только " +
+            "появится модель.",
+        };
+      }
+
 
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
 
-        const prevChar = thread.draft.characteristicsStep;
         const brandModelChanged =
           prevChar.brandName !== charPatch.brandName ||
           prevChar.modelCarName !== charPatch.modelCarName;
@@ -515,6 +537,11 @@ export async function extractForStep(
           catalogNote = `\n🔎 По каталогу: ${label}`;
           if (lowConf || webHint)
             catalogNote += "\n⚠️ Уверенность подбора низкая — выберите вариант ниже или уточните.";
+        } else if (resolved.modelCarId && resolved.restylingChoiceRequired) {
+          const genLabel = resolved.pendingGenerationLabel ?? "Поколение";
+          catalogNote =
+            `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")} · ${genLabel}` +
+            `\n👉 У этого поколения несколько рестайлингов. Выберите рестайлинг ниже:`;
         } else if (resolved.modelCarId && resolved.generationNotFound) {
           catalogNote =
             `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
@@ -526,6 +553,9 @@ export async function extractForStep(
         } else if (last) {
           catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
+
+        // Если pendingHint был применён — очищаем.
+        if (pendingHint) charPatch.pendingGenerationHint = null;
       }
 
       const mergedCar = { ...thread.draft.carStep, ...carStep };
@@ -582,11 +612,27 @@ export async function extractForStep(
       const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
       if (mentionsGen && !generationHint) generationHint = text;
       const merged: CharacteristicsStep = { ...thread.draft.characteristicsStep, ...c };
+      // Подхватываем сохранённый ранее pending hint.
+      const pendingHint = thread.draft.characteristicsStep.pendingGenerationHint || undefined;
+      if (!generationHint && pendingHint) generationHint = pendingHint;
 
-      // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId
-      // через каталог сервера с помощью ИИ-резолвера. Никогда не бросает.
+      // Случай: пользователь назвал поколение/рестайлинг, но марка/модель неизвестны.
+      // Сохраняем hint в pending и просим уточнить модель.
+      if (mentionsGen && (!merged.brandName || !merged.modelCarName)) {
+        return {
+          patch: {
+            characteristicsStep: { ...merged, pendingGenerationHint: generationHint ?? text },
+          },
+          reply:
+            "Поняла, нужно выбрать поколение/рестайлинг — но сначала укажите марку и модель автомобиля " +
+            "(например «Volkswagen Tiguan» или «BMW X5»). Я сохранила ваш выбор и применю его, как только появится модель.",
+        };
+      }
+
+      // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId.
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
+      const chips: ChatChip[] = [];
       if (merged.brandName && merged.modelCarName) {
         const prev = thread.draft.characteristicsStep;
         const brandModelChanged =
@@ -595,7 +641,8 @@ export async function extractForStep(
           brandModelChanged ||
           !merged.modelCarId ||
           (merged.year && !merged.modelGenerationRestylingFrameId) ||
-          mentionsGen;
+          mentionsGen ||
+          Boolean(pendingHint);
         const knownModelCarId =
           !brandModelChanged && typeof prev.modelCarId === "number"
             ? prev.modelCarId
@@ -603,7 +650,7 @@ export async function extractForStep(
 
         if (needsResolve) {
           let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
-          if (mentionsGen && knownModelCarId) {
+          if ((mentionsGen || pendingHint) && knownModelCarId) {
             const { resolveGenerationByModelId } = await import("./carCatalog");
             resolved = await resolveGenerationByModelId(knownModelCarId, {
               thread,
@@ -642,10 +689,24 @@ export async function extractForStep(
               label: resolved.generationLabel ?? "Поколение",
               kind: "generation",
             });
+
+          if (resolved.suggestions?.length) {
+            for (const s of resolved.suggestions) {
+              chips.push({
+                label: s.label,
+                value: s.value,
+                group: s.group,
+                single: true,
+                ...(s.image ? { image: s.image } : {}),
+                ...(s.description ? { description: s.description } : {}),
+              });
+            }
+          }
+
           const last = resolved.trace[resolved.trace.length - 1];
           const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
           const webHint = resolved.trace.some((t) => t.needsWeb);
-          if (resolved.modelCarId) {
+          if (resolved.modelCarId && resolved.modelGenerationRestylingFrameId) {
             const label =
               [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ") +
               (resolved.generationLabel ? ` · ${resolved.generationLabel}` : "");
@@ -653,9 +714,26 @@ export async function extractForStep(
             if (lowConf || webHint) {
               catalogNote += "\n⚠️ Уверенность подбора низкая — проверьте поколение/модификацию.";
             }
+          } else if (resolved.modelCarId && resolved.restylingChoiceRequired) {
+            const genLabel = resolved.pendingGenerationLabel ?? "Поколение";
+            catalogNote =
+              `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")} · ${genLabel}` +
+              `\n👉 У этого поколения несколько рестайлингов. Выберите рестайлинг ниже:`;
+          } else if (resolved.modelCarId && resolved.generationNotFound) {
+            catalogNote =
+              `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+              `\n❌ Указанное поколение/рестайлинг не найдено. Выберите подходящий вариант ниже:`;
+          } else if (resolved.modelCarId) {
+            catalogNote =
+              `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+              (resolved.suggestions?.length
+                ? `\n⚠️ Поколение не определено — выберите вариант ниже.`
+                : "");
           } else if (last) {
             catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
           }
+
+          if (pendingHint) merged.pendingGenerationHint = null;
         }
       }
 
@@ -663,6 +741,7 @@ export async function extractForStep(
         patch: { characteristicsStep: merged },
         reply: summarizeChar(merged) + catalogNote,
         ...(attachments.length ? { attachments } : {}),
+        ...(chips.length ? { chips } : {}),
       };
     }
     case "docs": {

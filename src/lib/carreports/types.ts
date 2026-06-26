@@ -34,6 +34,10 @@ export interface CharacteristicsStep {
   modelGenerationRestylingFrameId?: number | null;
   /** human label like "Tiguan II / FL (2020–2024)" — for UI/recap only */
   generationLabel?: string;
+  /** Сохранённая фраза вроде «поколение 2 рестайлинг 1», когда пользователь
+   * назвал поколение раньше марки/модели. После того как модель будет указана,
+   * оркестратор применит этот hint к resolveCar и очистит поле. */
+  pendingGenerationHint?: string | null;
   year?: number;
   engineVolume?: number;
   enginePower?: number;
