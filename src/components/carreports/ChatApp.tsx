@@ -109,6 +109,12 @@ export function ChatApp({ threadId }: Props) {
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
   const [selectedInspectionChips, setSelectedInspectionChips] = useState<Set<string>>(new Set());
+  /** Прикреплённые к следующему сообщению фото (для распознавания). */
+  const [pendingAttachments, setPendingAttachments] = useState<
+    Array<{ id: string; dataUrl: string; blob: Blob; filename: string }>
+  >([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
