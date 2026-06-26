@@ -458,16 +458,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           </>
         )}
 
-        {/* Заметка */}
-        <Section label="Заметка">
-          {finding?.note ? (
-            <UserBubble>{finding.note}</UserBubble>
-          ) : (
-            <div className="text-[12px] text-white/40 italic">
-              Напишите в композере ниже — Enter сохранит.
-            </div>
-          )}
-        </Section>
 
         {/* AI-вариант */}
         {noteProposal && (
@@ -862,15 +852,6 @@ function tagChip(tone: "serious" | "minor", selected: boolean): string {
 
 
 
-function UserBubble(props: { children: React.ReactNode }) {
-  return (
-    <div className="flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
-        {props.children}
-      </div>
-    </div>
-  );
-}
 
 function NoteProposalContent(props: {
   proposal: NoteProposal;
