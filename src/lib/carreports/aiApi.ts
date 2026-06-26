@@ -30,9 +30,7 @@ export async function chatCompletions(opts: {
   const token = getToken();
   if (!token) throw new ApiError("Не указан токен.", 401);
 
-  const url = `${AI_URL}&token=${encodeURIComponent(token)}`;
-
-  // Формат запроса — ровно как ожидает прокси (без поля `jsonrpc`):
+  // Формат запроса — ровно как ожидает AI API (без поля `jsonrpc`):
   // { id, method, params: { text, cliche, files?, model? } }.
   const body = {
     id: opts.id,
@@ -44,10 +42,14 @@ export async function chatCompletions(opts: {
       ...(opts.model ? { model: opts.model } : {}),
     },
   };
-  // Note: AI API expects text/plain content-type per its OpenRPC doc.
-  const res = await fetch(url, {
+  // AI API авторизуется заголовком Authorization: Bearer <jwt>.
+  const res = await fetch(AI_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify(body),
   });
 
