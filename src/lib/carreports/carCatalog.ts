@@ -8,6 +8,7 @@
 import { aiChatIdFor, chatCompletions } from "./aiApi";
 import {
   CLICHE_CANONICAL_BRAND,
+  CLICHE_INFER_BRAND_FROM_MODEL,
   CLICHE_PICK_BRAND,
   CLICHE_PICK_GENERATION,
   CLICHE_PICK_MODEL,
@@ -1090,4 +1091,65 @@ export async function resolveModelCarId(
 ): Promise<number | null> {
   const r = await resolveCar(brandName, modelName);
   return r.modelCarId;
+}
+
+/**
+ * Уточняющий AI-шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
+ * марка отсутствует. Спрашиваем у ИИ марку по имени модели; если уверенность
+ * низкая — добавляем веб-контекст и переспрашиваем. Возвращаем нормализованные
+ * имена бренда и модели (или null).
+ */
+export async function inferBrandFromModelName(
+  modelHint: string,
+  userText: string,
+  thread?: Thread,
+): Promise<{ brandName: string; modelCarName: string } | null> {
+  if (!thread || !modelHint.trim()) return null;
+  const ask = async (webCtx?: string) =>
+    aiPick<{
+      brandName: string | null;
+      modelCarName: string | null;
+      confidence: number;
+      needsWeb: boolean;
+    }>(
+      thread,
+      "resolveCar:inferBrandFromModel",
+      CLICHE_INFER_BRAND_FROM_MODEL(modelHint, userText, webCtx),
+      userText,
+      (raw) => {
+        const r = raw as {
+          brandName?: unknown;
+          modelCarName?: unknown;
+          confidence?: unknown;
+          needsWeb?: unknown;
+        } | null;
+        if (!r) return null;
+        return {
+          brandName: typeof r.brandName === "string" ? r.brandName.trim() : null,
+          modelCarName:
+            typeof r.modelCarName === "string" ? r.modelCarName.trim() : null,
+          confidence: typeof r.confidence === "number" ? r.confidence : 0,
+          needsWeb: r.needsWeb === true,
+        };
+      },
+    );
+
+  let pick = await ask();
+  if (!pick?.brandName || pick.confidence < LOW_CONF || pick.needsWeb) {
+    const ctx = await webSearchContext(
+      `какая марка автомобиля ${modelHint} производитель`,
+      5,
+    );
+    if (ctx) {
+      const retry = await ask(ctx);
+      if (retry?.brandName && retry.confidence >= (pick?.confidence ?? 0)) {
+        pick = retry;
+      }
+    }
+  }
+  if (!pick?.brandName) return null;
+  return {
+    brandName: pick.brandName,
+    modelCarName: pick.modelCarName || modelHint,
+  };
 }
