@@ -1554,11 +1554,6 @@ export function ChatApp({ threadId }: Props) {
                 </button>
               </div>
             ))}
-            {analyzing && (
-              <div className="h-16 px-2 flex items-center gap-1.5 text-xs text-white/70">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> распознаю…
-              </div>
-            )}
           </div>
         )}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
