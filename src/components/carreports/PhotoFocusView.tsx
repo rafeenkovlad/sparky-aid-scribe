@@ -429,6 +429,12 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
               </div>
             )}
+            {!tagsLoading && tagsError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+                {tagsError}
+              </div>
+            )}
+
 
             {!tagsLoading && (
               <>
