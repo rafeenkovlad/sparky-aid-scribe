@@ -1889,9 +1889,16 @@ export function ChatApp({ threadId }: Props) {
                           ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
                           : STEP_PLACEHOLDERS[currentStep]
                   }
+                  style={
+                    isExpanded && composerHeight != null
+                      ? { height: composerHeight, minHeight: composerHeight, maxHeight: composerHeight }
+                      : undefined
+                  }
                   className={
                     "border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
-                    (isExpanded ? "min-h-[44px] max-h-[60vh] resize-y" : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
+                    (isExpanded
+                      ? (composerHeight != null ? "resize-none" : "min-h-[44px] max-h-[60vh] resize-y")
+                      : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
                     (askMode ? " placeholder:text-sky-300/60" : "")
                   }
                 />
