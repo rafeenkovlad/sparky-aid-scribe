@@ -5,16 +5,26 @@
 // через колбэки наверх — родитель оркестрирует updateThread().
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSections";
 import {
   getFinding,
   photosForSection,
 } from "@/lib/carreports/inspectionState";
-import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
+import type { InspectionStep } from "@/lib/carreports/types";
 import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
 
 type Verdict = "ok" | "minor" | "serious";
+type TagTab = "serious" | "minor" | "custom";
 
 export interface PhotoFocusViewProps {
   ins: InspectionStep;
@@ -48,7 +58,6 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
   const sectionSnake = (photo?.section ?? "body") as SectionSnake;
   const section = getSection(sectionSnake);
 
-  // Соседние фото того же раздела — для перелистывания.
   const siblings = useMemo(() => photosForSection(ins, sectionSnake), [ins, sectionSnake]);
   const posInSection = siblings.findIndex((p) => p.idx === photoIdx);
 
@@ -92,6 +101,11 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
   const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
   const pending = finding?.pendingTagNames ?? [];
 
+  const selectedSeriousTags = serious.filter((t) => sIds.has(t.id));
+  const selectedMinorTags = minor.filter((t) => nsIds.has(t.id));
+  const totalSelected =
+    selectedSeriousTags.length + selectedMinorTags.length + pending.length;
+
   // Свайп фото.
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const goPrev = () => {
@@ -102,10 +116,21 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
       onChangePhotoIdx(siblings[posInSection + 1].idx);
   };
 
-  const [addOpen, setAddOpen] = useState(false);
+  // Какая вкладка тегов открыта — по умолчанию ведём от вердикта.
+  const [tab, setTab] = useState<TagTab>("serious");
+  useEffect(() => {
+    setTab(verdict === "serious" ? "serious" : verdict === "minor" ? "minor" : "serious");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoIdx]);
+
+  // Поиск по тегам.
+  const [query, setQuery] = useState("");
+  useEffect(() => setQuery(""), [photoIdx, tab]);
+
+  // Inline-добавление кастомного тега.
   const [addName, setAddName] = useState("");
   const activeBucket: "serious" | "non_serious" =
-    verdict === "serious" ? "serious" : "non_serious";
+    tab === "serious" ? "serious" : "non_serious";
 
   if (!photo) {
     return (
@@ -118,25 +143,60 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
     );
   }
 
+  const verdictMeta: Record<Verdict, { label: string; dot: string; ring: string; soft: string }> = {
+    ok: {
+      label: "Без замечаний",
+      dot: "bg-emerald-400",
+      ring: "ring-emerald-400/60 bg-emerald-500/15 text-emerald-100",
+      soft: "text-emerald-200/80",
+    },
+    minor: {
+      label: "Мелкие",
+      dot: "bg-amber-400",
+      ring: "ring-amber-400/60 bg-amber-500/15 text-amber-100",
+      soft: "text-amber-200/80",
+    },
+    serious: {
+      label: "Серьёзные",
+      dot: "bg-rose-400",
+      ring: "ring-rose-400/60 bg-rose-500/15 text-rose-100",
+      soft: "text-rose-200/80",
+    },
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Sub-header */}
-      <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-white/10 px-3 py-2 flex items-center gap-2">
+      <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur border-b border-white/10 px-2.5 py-2 flex items-center gap-2">
         <button
           onClick={onClose}
           aria-label="Назад"
-          className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/90"
+          className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/90 shrink-0"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium truncate">
-            Фото · {section?.label ?? sectionSnake}
-          </div>
-          <div className="text-[11px] text-white/50 truncate">
-            {posInSection >= 0 ? `${posInSection + 1} / ${siblings.length}` : "—"}
-            {" · "}
+          <div className="text-[13px] font-medium truncate text-white">
             {elementLabel}
+          </div>
+          <div className="text-[11px] text-white/50 truncate flex items-center gap-1.5">
+            <span>{section?.label ?? sectionSnake}</span>
+            <span className="text-white/25">·</span>
+            <span>
+              {posInSection >= 0 ? `${posInSection + 1}/${siblings.length}` : "—"}
+            </span>
+            <span className="text-white/25">·</span>
+            <span
+              className={`inline-flex items-center gap-1 ${verdictMeta[verdict].soft}`}
+            >
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${verdictMeta[verdict].dot}`}
+              />
+              {verdictMeta[verdict].label}
+              {totalSelected > 0 && (
+                <span className="text-white/40">· 🏷{totalSelected}</span>
+              )}
+            </span>
           </div>
         </div>
         <button
@@ -144,7 +204,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
             if (confirm("Удалить это фото?")) onDeletePhoto();
           }}
           aria-label="Удалить фото"
-          className="h-8 w-8 rounded-full hover:bg-rose-500/15 text-rose-300 flex items-center justify-center"
+          className="h-8 w-8 rounded-full hover:bg-rose-500/15 text-rose-300 flex items-center justify-center shrink-0"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -152,7 +212,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
 
       {/* Photo */}
       <div
-        className="relative bg-black/40 select-none"
+        className="relative bg-gradient-to-b from-black to-black/70 select-none"
         onTouchStart={(e) => {
           const t = e.touches[0];
           touchRef.current = { x: t.clientX, y: t.clientY };
@@ -174,13 +234,34 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           <img
             src={photo.dataUrl}
             alt=""
-            className="block w-full max-h-[46dvh] object-contain"
+            className="block w-full max-h-[42dvh] object-contain"
           />
         ) : (
           <div className="h-40 flex items-center justify-center text-white/40 text-sm">
             нет превью
           </div>
         )}
+
+        {/* Floating verdict badge */}
+        <div
+          className={`absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 backdrop-blur ${verdictMeta[verdict].ring}`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${verdictMeta[verdict].dot}`} />
+          {verdictMeta[verdict].label}
+        </div>
+
+        {/* Note overlay */}
+        {finding?.note && (
+          <div className="absolute inset-x-0 bottom-0 px-3 pt-6 pb-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+            <div className="text-[11px] uppercase tracking-wide text-white/50 mb-0.5">
+              📝 Заметка
+            </div>
+            <div className="text-[12px] text-white/95 whitespace-pre-wrap line-clamp-3">
+              {finding.note}
+            </div>
+          </div>
+        )}
+
         {siblings.length > 1 && (
           <>
             {posInSection > 0 && (
@@ -201,230 +282,372 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
                 <ChevronRight className="h-5 w-5" />
               </button>
             )}
-            <div className="absolute inset-x-0 bottom-1.5 flex justify-center gap-1">
-              {siblings.map((s, i) => (
-                <span
-                  key={s.idx}
-                  className={
-                    "inline-block h-1.5 rounded-full transition-all " +
-                    (i === posInSection ? "w-4 bg-white" : "w-1.5 bg-white/40")
-                  }
-                />
-              ))}
-            </div>
           </>
         )}
       </div>
 
-      <div className="p-3 space-y-3">
-        {/* Element picker */}
-        <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-white/45">Элемент</div>
-          <div className="flex flex-wrap gap-1.5">
-            {section?.elements.map((el) => (
-              <button
-                key={el.id}
-                onClick={() => onChangeElement(el.id)}
-                className={chip(el.id === elementId)}
-              >
-                {el.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Verdict */}
-        <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-white/45">
-            Вердикт по «{elementLabel}»
-          </div>
-          <div className="flex gap-1.5">
-            {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-              const sel = verdict === v;
-              const cls =
-                v === "ok"
-                  ? sel
-                    ? "bg-emerald-500 border-emerald-500 text-white"
-                    : "border-emerald-500/30 text-emerald-200/80 hover:bg-emerald-500/10"
-                  : v === "minor"
-                    ? sel
-                      ? "bg-amber-500 border-amber-500 text-white"
-                      : "border-amber-500/30 text-amber-200/80 hover:bg-amber-500/10"
-                    : sel
-                      ? "bg-rose-500 border-rose-500 text-white"
-                      : "border-rose-500/30 text-rose-200/80 hover:bg-rose-500/10";
+      {/* Thumbnail strip */}
+      {siblings.length > 1 && (
+        <div className="px-2 py-1.5 bg-black/40 border-b border-white/5 overflow-x-auto">
+          <div className="flex gap-1.5 w-max">
+            {siblings.map((s) => {
+              const sel = s.idx === photoIdx;
               return (
                 <button
-                  key={v}
-                  onClick={() => onSetVerdict(v)}
-                  className={"flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium " + cls}
+                  key={s.idx}
+                  onClick={() => onChangePhotoIdx(s.idx)}
+                  className={
+                    "relative h-12 w-12 rounded-md overflow-hidden border shrink-0 " +
+                    (sel
+                      ? "border-orange-400 ring-1 ring-orange-400"
+                      : "border-white/10 opacity-60 hover:opacity-100")
+                  }
                 >
-                  {v === "ok" ? "Без замечаний" : v === "minor" ? "Мелкие" : "Серьёзные"}
+                  {s.photo.dataUrl ? (
+                    <img src={s.photo.dataUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-white/5" />
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
+      )}
 
-        {/* Tags */}
-        {verdict !== "ok" && (
+      <div className="px-3 pt-3 pb-4 space-y-3">
+        {/* Element scroller */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5 px-0.5">
+            Элемент
+          </div>
+          <div className="-mx-3 px-3 overflow-x-auto">
+            <div className="flex gap-1.5 w-max pb-0.5">
+              {section?.elements.map((el) => {
+                const sel = el.id === elementId;
+                return (
+                  <button
+                    key={el.id}
+                    onClick={() => onChangeElement(el.id)}
+                    className={
+                      "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
+                      (sel
+                        ? "bg-orange-500 text-white border-orange-500 shadow-[0_0_0_3px_rgba(249,115,22,0.15)]"
+                        : "bg-white/[0.03] border-white/10 text-white/75 hover:border-orange-400/50 hover:text-white")
+                    }
+                  >
+                    {el.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Verdict segmented */}
+        <div className="rounded-xl bg-white/[0.04] border border-white/10 p-1 grid grid-cols-3 gap-1">
+          {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
+            const sel = verdict === v;
+            const tone =
+              v === "ok"
+                ? sel
+                  ? "bg-emerald-500 text-white shadow-[0_2px_10px_-2px_rgba(16,185,129,0.6)]"
+                  : "text-emerald-200/80 hover:bg-emerald-500/10"
+                : v === "minor"
+                  ? sel
+                    ? "bg-amber-500 text-white shadow-[0_2px_10px_-2px_rgba(245,158,11,0.6)]"
+                    : "text-amber-200/80 hover:bg-amber-500/10"
+                  : sel
+                    ? "bg-rose-500 text-white shadow-[0_2px_10px_-2px_rgba(244,63,94,0.6)]"
+                    : "text-rose-200/80 hover:bg-rose-500/10";
+            const icon = v === "ok" ? "✓" : v === "minor" ? "•" : "!";
+            return (
+              <button
+                key={v}
+                onClick={() => onSetVerdict(v)}
+                className={
+                  "rounded-lg px-2 py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 " +
+                  tone
+                }
+              >
+                <span className="text-sm leading-none">{icon}</span>
+                {v === "ok" ? "OK" : v === "minor" ? "Мелкие" : "Серьёзные"}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selected pills */}
+        {totalSelected > 0 && (
+          <div className="rounded-xl bg-white/[0.03] border border-white/10 p-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] uppercase tracking-wide text-white/45">
+                Выбрано · {totalSelected}
+              </div>
+              <div className="text-[10px] text-white/35">тап — снять</div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {selectedSeriousTags.map((t) => (
+                <button
+                  key={`s-${t.id}`}
+                  onClick={() => onToggleTag(t)}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-500/90 hover:bg-rose-500 px-2.5 py-1 text-[11px] text-white"
+                >
+                  {t.name}
+                  <X className="h-3 w-3 opacity-80" />
+                </button>
+              ))}
+              {selectedMinorTags.map((t) => (
+                <button
+                  key={`n-${t.id}`}
+                  onClick={() => onToggleTag(t)}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-500/90 hover:bg-amber-500 px-2.5 py-1 text-[11px] text-white"
+                >
+                  {t.name}
+                  <X className="h-3 w-3 opacity-80" />
+                </button>
+              ))}
+              {pending.map((p) => (
+                <button
+                  key={`p-${p.severity ?? "_"}-${p.name}`}
+                  onClick={() =>
+                    onTogglePendingTag(
+                      p.name,
+                      (p.severity ?? "non_serious") as "serious" | "non_serious",
+                    )
+                  }
+                  className="inline-flex items-center gap-1 rounded-full bg-violet-500/80 hover:bg-violet-500 px-2.5 py-1 text-[11px] text-white"
+                >
+                  ✨ {p.name}
+                  <X className="h-3 w-3 opacity-80" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tag tabs */}
+        {verdict !== "ok" || totalSelected > 0 ? (
           <div className="space-y-2">
-            {tagsLoading && (
+            <div className="flex items-center gap-1 rounded-lg bg-white/[0.04] border border-white/10 p-0.5">
+              <TabBtn
+                active={tab === "serious"}
+                onClick={() => setTab("serious")}
+                dot="bg-rose-400"
+                label="Серьёзные"
+                count={serious.length}
+              />
+              <TabBtn
+                active={tab === "minor"}
+                onClick={() => setTab("minor")}
+                dot="bg-amber-400"
+                label="Мелкие"
+                count={minor.length}
+              />
+              <TabBtn
+                active={tab === "custom"}
+                onClick={() => setTab("custom")}
+                dot="bg-violet-400"
+                label="Свои"
+                count={pending.length}
+              />
+            </div>
+
+            {/* Search (only for known tag tabs) */}
+            {tab !== "custom" && tags.length > 6 && (
+              <div className="relative">
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Поиск тега…"
+                  className="w-full rounded-lg bg-white/[0.04] border border-white/10 pl-3 pr-7 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
+                />
+                {query && (
+                  <button
+                    onClick={() => setQuery("")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {tagsLoading && tab !== "custom" && (
               <div className="flex items-center gap-1.5 text-[11px] text-white/50">
                 <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
               </div>
             )}
-            {!tagsLoading && serious.length > 0 && (
-              <TagGroup
-                label="Серьёзные"
+
+            {!tagsLoading && tab === "serious" && (
+              <TagGrid
                 tone="serious"
-                tags={serious}
+                tags={filterTags(serious, query)}
                 selected={sIds}
-                onTap={(t) => onToggleTag(t)}
+                onTap={onToggleTag}
               />
             )}
-            {!tagsLoading && minor.length > 0 && (
-              <TagGroup
-                label="Мелкие"
+            {!tagsLoading && tab === "minor" && (
+              <TagGrid
                 tone="minor"
-                tags={minor}
+                tags={filterTags(minor, query)}
                 selected={nsIds}
-                onTap={(t) => onToggleTag(t)}
+                onTap={onToggleTag}
               />
             )}
-            {pending.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-[10px] uppercase tracking-wide text-white/45">
-                  Новые теги (создадутся при отправке)
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {pending.map((p) => (
-                    <button
-                      key={`${p.severity ?? "_"}:${p.name}`}
-                      onClick={() => onTogglePendingTag(p.name, (p.severity ?? "non_serious") as "serious" | "non_serious")}
-                      className="rounded-full border border-violet-400/40 bg-violet-500/10 px-2.5 py-1 text-xs text-violet-100"
-                    >
-                      ✨ {p.name} ×
-                    </button>
-                  ))}
-                </div>
+
+            {tab === "custom" && (
+              <div className="space-y-2">
+                {pending.length === 0 && (
+                  <div className="text-[11px] text-white/45 italic">
+                    Своих тегов ещё нет. Добавьте ниже — они создадутся при отправке.
+                  </div>
+                )}
+                {pending.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {pending.map((p) => (
+                      <button
+                        key={`cp-${p.severity ?? "_"}-${p.name}`}
+                        onClick={() =>
+                          onTogglePendingTag(
+                            p.name,
+                            (p.severity ?? "non_serious") as "serious" | "non_serious",
+                          )
+                        }
+                        className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-400/40 px-2.5 py-1 text-[11px] text-violet-100"
+                      >
+                        <Check className="h-3 w-3" /> ✨ {p.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-            {!addOpen ? (
-              <button
-                onClick={() => setAddOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-xs text-white/70 hover:text-white"
-              >
-                <Plus className="h-3 w-3" /> Свой тег
-              </button>
-            ) : (
-              <form
-                className="flex items-center gap-1.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const name = addName.trim();
-                  if (!name) return;
-                  onAddPendingTag(name, activeBucket);
-                  setAddName("");
-                  setAddOpen(false);
-                }}
-              >
-                <input
-                  autoFocus
-                  value={addName}
-                  onChange={(e) => setAddName(e.target.value)}
-                  placeholder={activeBucket === "serious" ? "Серьёзный тег" : "Мелкий тег"}
-                  className="flex-1 rounded-md bg-white/[0.06] border border-white/15 px-2 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-orange-400/60"
+
+            {/* Inline add custom tag */}
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = addName.trim();
+                if (!name) return;
+                onAddPendingTag(name, activeBucket);
+                setAddName("");
+              }}
+            >
+              <div className="flex items-center gap-1 text-[10px] text-white/40 shrink-0">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    activeBucket === "serious" ? "bg-rose-400" : "bg-amber-400"
+                  }`}
                 />
-                <button
-                  type="submit"
-                  className="rounded-md bg-orange-500 hover:bg-orange-600 px-2 py-1 text-xs text-white"
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddOpen(false);
-                    setAddName("");
-                  }}
-                  className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/70"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </form>
-            )}
+                {activeBucket === "serious" ? "серьёз." : "мелкий"}
+              </div>
+              <input
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="Свой тег…"
+                className="flex-1 min-w-0 rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1.5 text-xs text-white placeholder:text-white/35 focus:outline-none focus:border-orange-400/60"
+              />
+              <button
+                type="submit"
+                disabled={!addName.trim()}
+                className="inline-flex items-center gap-1 rounded-lg bg-orange-500 hover:bg-orange-600 disabled:opacity-40 px-2.5 py-1.5 text-xs text-white"
+              >
+                <Plus className="h-3 w-3" />
+                Добавить
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-3 text-[12px] text-emerald-100/85">
+            ✓ Без замечаний по «{elementLabel}». Если что-то заметили — переключите вердикт выше.
           </div>
         )}
 
-        {/* Note preview */}
-        <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-white/45">Заметка</div>
-          <div className="rounded-md bg-white/[0.04] border border-white/10 px-2.5 py-2 text-sm text-white/85 min-h-[44px]">
-            {finding?.note ? (
-              <span className="whitespace-pre-wrap">{finding.note}</span>
-            ) : (
-              <span className="text-white/40">
-                Пишите заметку в композере ниже — отправка стрелкой сохранит её к этому фото.
-              </span>
-            )}
+        {!finding?.note && (
+          <div className="text-[11px] text-white/40 text-center px-2">
+            💬 Напишите заметку в композере ниже — отправка сохранит её к этому фото. ✨ — ИИ разберёт по тегам.
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-function chip(selected: boolean): string {
+function filterTags(list: UserTag[], q: string): UserTag[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return list;
+  return list.filter((t) => t.name.toLowerCase().includes(s));
+}
+
+function TabBtn(props: {
+  active: boolean;
+  onClick: () => void;
+  dot: string;
+  label: string;
+  count: number;
+}) {
+  const { active, onClick, dot, label, count } = props;
   return (
-    "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
-    (selected
-      ? "bg-orange-500 text-white border-orange-500"
-      : "border-white/15 text-white/80 hover:border-orange-400/60 hover:text-white")
+    <button
+      onClick={onClick}
+      className={
+        "flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors " +
+        (active
+          ? "bg-white/10 text-white"
+          : "text-white/55 hover:text-white/85")
+      }
+    >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dot}`} />
+      {label}
+      <span className={"text-[10px] " + (active ? "text-white/55" : "text-white/30")}>
+        {count}
+      </span>
+    </button>
   );
 }
 
-function TagGroup(props: {
-  label: string;
+function TagGrid(props: {
   tone: "serious" | "minor";
   tags: UserTag[];
   selected: Set<number>;
   onTap: (t: UserTag) => void;
 }) {
-  const { label, tone, tags, selected, onTap } = props;
-  const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
+  const { tone, tags, selected, onTap } = props;
+  if (tags.length === 0) {
+    return (
+      <div className="text-[11px] text-white/40 italic px-0.5">
+        Ничего не найдено.
+      </div>
+    );
+  }
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-white/45">
-        <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotCls}`} />
-        {label}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {tags.map((t) => {
-          const sel = selected.has(t.id);
-          const base =
-            tone === "serious"
-              ? sel
-                ? "bg-rose-500 border-rose-500 text-white"
-                : "border-rose-400/30 text-rose-100/80 hover:bg-rose-500/10"
-              : sel
-                ? "bg-amber-500 border-amber-500 text-white"
-                : "border-amber-400/30 text-amber-100/80 hover:bg-amber-500/10";
-          return (
-            <button
-              key={t.id}
-              onClick={() => onTap(t)}
-              className={
-                "rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
-                base
-              }
-            >
-              {sel ? "✓ " : ""}
-              {t.name}
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-wrap gap-1.5">
+      {tags.map((t) => {
+        const sel = selected.has(t.id);
+        const base =
+          tone === "serious"
+            ? sel
+              ? "bg-rose-500 border-rose-500 text-white shadow-[0_2px_8px_-2px_rgba(244,63,94,0.5)]"
+              : "border-rose-400/25 bg-rose-500/[0.04] text-rose-100/85 hover:bg-rose-500/10 hover:border-rose-400/50"
+            : sel
+              ? "bg-amber-500 border-amber-500 text-white shadow-[0_2px_8px_-2px_rgba(245,158,11,0.5)]"
+              : "border-amber-400/25 bg-amber-500/[0.04] text-amber-100/85 hover:bg-amber-500/10 hover:border-amber-400/50";
+        return (
+          <button
+            key={t.id}
+            onClick={() => onTap(t)}
+            className={
+              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] whitespace-nowrap transition-all " +
+              base
+            }
+          >
+            {sel && <Check className="h-3 w-3" />}
+            {t.name}
+          </button>
+        );
+      })}
     </div>
   );
 }
