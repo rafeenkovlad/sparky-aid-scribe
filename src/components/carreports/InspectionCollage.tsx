@@ -110,7 +110,7 @@ export function InspectionCollage(props: {
       )}
 
       {list.length > 0 && (
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {list.map(({ idx, photo }) => {
             const elId = photo.elementId;
             const status = elId
@@ -182,9 +182,9 @@ export function InspectionCollage(props: {
                       if (confirm("Удалить это фото?")) onDeletePhoto(idx);
                     }}
                     aria-label="Удалить фото"
-                    className="absolute top-1 right-1 z-10 h-8 w-8 rounded-full bg-black/55 hover:bg-rose-500/80 text-white flex items-center justify-center ring-1 ring-white/15 backdrop-blur-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-black/55 hover:bg-rose-500/80 text-white flex items-center justify-center ring-1 ring-white/15 backdrop-blur-md opacity-80 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3 w-3" />
                   </button>
                 )}
               </div>
