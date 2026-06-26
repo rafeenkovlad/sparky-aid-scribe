@@ -1445,7 +1445,7 @@ export function ChatApp({ threadId }: Props) {
             onAllNoDamage={markSectionAllOk}
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
-            onOpenAnnotator={setAnnotatorPhotoIdx}
+            onOpenAnnotator={enterPhotoFocus}
             onAssignPendingPhoto={assignPendingPhoto}
           />
 
