@@ -37,7 +37,7 @@ export async function chatCompletions(opts: {
     params: {
       text: opts.text,
       cliche: opts.cliche,
-      ...(opts.fileUrls?.length ? { fileUrls: opts.fileUrls } : {}),
+      ...(opts.fileUrls?.length ? { files: opts.fileUrls } : {}),
       ...(opts.model ? { model: opts.model } : {}),
     },
   };

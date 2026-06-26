@@ -14,7 +14,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiWebSearchRouteImport } from './routes/api/web-search'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiCrProxyRouteImport } from './routes/api/cr-proxy'
-import { Route as ApiAnalyzeImageRouteImport } from './routes/api/analyze-image'
 
 const ThreadIdRoute = ThreadIdRouteImport.update({
   id: '/$threadId',
@@ -41,16 +40,10 @@ const ApiCrProxyRoute = ApiCrProxyRouteImport.update({
   path: '/api/cr-proxy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAnalyzeImageRoute = ApiAnalyzeImageRouteImport.update({
-  id: '/api/analyze-image',
-  path: '/api/analyze-image',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
-  '/api/analyze-image': typeof ApiAnalyzeImageRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -58,7 +51,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
-  '/api/analyze-image': typeof ApiAnalyzeImageRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -67,7 +59,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$threadId': typeof ThreadIdRoute
-  '/api/analyze-image': typeof ApiAnalyzeImageRoute
   '/api/cr-proxy': typeof ApiCrProxyRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/api/web-search': typeof ApiWebSearchRoute
@@ -77,7 +68,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$threadId'
-    | '/api/analyze-image'
     | '/api/cr-proxy'
     | '/api/transcribe'
     | '/api/web-search'
@@ -85,7 +75,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$threadId'
-    | '/api/analyze-image'
     | '/api/cr-proxy'
     | '/api/transcribe'
     | '/api/web-search'
@@ -93,7 +82,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$threadId'
-    | '/api/analyze-image'
     | '/api/cr-proxy'
     | '/api/transcribe'
     | '/api/web-search'
@@ -102,7 +90,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThreadIdRoute: typeof ThreadIdRoute
-  ApiAnalyzeImageRoute: typeof ApiAnalyzeImageRoute
   ApiCrProxyRoute: typeof ApiCrProxyRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   ApiWebSearchRoute: typeof ApiWebSearchRoute
@@ -145,20 +132,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCrProxyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/analyze-image': {
-      id: '/api/analyze-image'
-      path: '/api/analyze-image'
-      fullPath: '/api/analyze-image'
-      preLoaderRoute: typeof ApiAnalyzeImageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThreadIdRoute: ThreadIdRoute,
-  ApiAnalyzeImageRoute: ApiAnalyzeImageRoute,
   ApiCrProxyRoute: ApiCrProxyRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   ApiWebSearchRoute: ApiWebSearchRoute,
