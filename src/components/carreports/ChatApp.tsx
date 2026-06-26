@@ -8,11 +8,13 @@ import {
   Loader2,
   Menu,
   Mic,
+  Paperclip,
   Pencil,
   Plus,
   Settings2,
   Square,
   Trash2,
+  X,
   PanelRightOpen,
 } from "lucide-react";
 
