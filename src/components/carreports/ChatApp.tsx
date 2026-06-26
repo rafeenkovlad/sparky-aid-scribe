@@ -1476,6 +1476,7 @@ export function ChatApp({ threadId }: Props) {
 
         <div ref={messagesEndRef} />
       </main>
+      )}
 
 
 
