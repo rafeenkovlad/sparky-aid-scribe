@@ -34,6 +34,7 @@ import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
 import { LexChips } from "./LexChips";
 import { CarChecklist } from "./CarChecklist";
+import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
