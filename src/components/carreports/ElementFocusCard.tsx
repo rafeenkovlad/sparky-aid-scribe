@@ -29,11 +29,17 @@ type Verdict = "ok" | "minor" | "serious";
 export interface NoteProposal {
   /** Что напечатал пользователь. */
   original: string;
-  /** AI-переформулировка; null пока грузится; "" если не удалось. */
+  /** AI-сформулированная заметка специалиста (без рекомендаций). */
   ai: string | null;
   loading: boolean;
   /** Чей вариант сейчас закреплён в finding.note. */
   picked?: "original" | "ai";
+  /** Предложения тегов от ИИ — пользователь подтверждает вручную. */
+  proposedSeriousIds?: number[];
+  proposedNonSeriousIds?: number[];
+  proposedPending?: PendingTagName[];
+  /** Предложение по элементу (если AI распознал другой). */
+  proposedElementId?: string;
 }
 
 export interface ElementFocusCardProps {
@@ -45,9 +51,8 @@ export interface ElementFocusCardProps {
   onToggleTag: (tag: UserTag) => void;
   onAddPendingTag: (name: string, severity: "serious" | "non_serious") => void;
   onTogglePendingTag: (name: string, severity: "serious" | "non_serious") => void;
-  onDeletePhoto: () => void;
-  onClose: () => void;
-  /** Активное предложение по заметке (оригинал vs AI). */
+  /** Удалить фото; кнопка показывается только если передан колбэк. */
+  onDeletePhoto?: () => void;
   noteProposal?: NoteProposal | null;
   onPickNoteOriginal?: () => void;
   onPickNoteAi?: () => void;
