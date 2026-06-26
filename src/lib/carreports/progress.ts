@@ -159,6 +159,11 @@ export function missingOptionalFields(id: StepId, d: ReportDraft): string[] {
     case "car": {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
+      if (!c.cityInspection) out.push("город осмотра");
+      if (!ch.engineType) out.push("тип двигателя");
+      if (!ch.transmission) out.push("КПП");
+      if (!ch.driveType) out.push("привод");
+      if (!ch.color) out.push("цвет");
       if (!c.gosNumber) out.push("госномер");
       if (!c.uriListing) out.push("ссылку на объявление");
       if (!c.visuallyMileageNotMatchCondition) out.push("отметку, если пробег не соответствует состоянию");
