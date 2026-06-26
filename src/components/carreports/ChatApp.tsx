@@ -695,7 +695,12 @@ export function ChatApp({ threadId }: Props) {
     exitPhotoFocus();
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
-  /** Сохранить текст композера как заметку к фото + запросить AI-переформулировку. */
+  /**
+   * Сохранить текст композера как заметку к фото. Параллельно ИИ:
+   * — формулирует чистую заметку специалиста (без рекомендаций);
+   * — подбирает релевантные теги из каталога раздела как ПРЕДЛОЖЕНИЯ
+   *   (применяются только по подтверждению пользователя).
+   */
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
     if (!text) return;
@@ -703,40 +708,46 @@ export function ChatApp({ threadId }: Props) {
       f.note = text;
     });
     setComposer("");
-    // Показать proposal с оригиналом, AI начинает грузиться.
     setNoteProposal({ original: text, ai: null, loading: true, picked: "original" });
-    // Запускаем AI-переформулировку.
     (async () => {
       try {
-        if (!thread) return;
+        if (!thread || !photoFocus?.url) {
+          setNoteProposal((prev) =>
+            prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
+          );
+          return;
+        }
         const fresh = getThread(thread.id);
         if (!fresh) return;
-        const { chatCompletions, aiChatIdFor } = await import("@/lib/carreports/aiApi");
-        const id = aiChatIdFor(fresh, "photo-note-rewrite");
-        const r = await chatCompletions({
-          id,
+        const r = await analyzeInspectionPhoto(
+          fresh,
+          photoFocus.section as SectionSnake,
+          photoFocus.url,
           text,
-          cliche:
-            "Переформулируй короткую заметку специалиста по осмотру авто в одно-два сухих предложения, без воды, на русском. Сохрани смысл и упомянутые дефекты. Только сам текст заметки.\n\nЗаметка: {text}",
-        });
+        );
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
         });
-        const ai = (r.content ?? "").trim();
         setNoteProposal((prev) =>
           prev && prev.original === text
-            ? { ...prev, ai, loading: false }
+            ? {
+                ...prev,
+                ai: r.note,
+                loading: false,
+                proposedSeriousIds: r.seriousTagIds,
+                proposedNonSeriousIds: r.noSeriousTagIds,
+                proposedPending: r.pendingTags,
+                proposedElementId: r.elementId,
+              }
             : prev,
         );
       } catch {
         setNoteProposal((prev) =>
-          prev && prev.original === text
-            ? { ...prev, ai: "", loading: false }
-            : prev,
+          prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
         );
       }
     })();
-  }, [composer, mutatePhotoFinding, thread]);
+  }, [composer, mutatePhotoFinding, thread, photoFocus]);
 
   const pickNoteOriginal = useCallback(() => {
     setNoteProposal((p) => (p ? { ...p, picked: "original" } : p));
