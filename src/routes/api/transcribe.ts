@@ -36,8 +36,7 @@ export const Route = createFileRoute("/api/transcribe")({
         const r = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
           method: "POST",
           headers: {
-            "Lovable-API-Key": key,
-            "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+            Authorization: `Bearer ${key}`,
           },
           body: upstreamForm,
         });
