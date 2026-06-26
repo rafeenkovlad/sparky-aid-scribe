@@ -168,28 +168,51 @@ export function SectionPickerCard(props: {
 }) {
   const { ins, currentSection, interactive, onPick } = props;
   return (
-    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
-      <div className="text-[10px] uppercase tracking-wide text-white/45">
+    <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-3 space-y-2">
+      <div className="text-[11px] uppercase tracking-wide text-white/55">
         Выберите раздел для осмотра
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         {INSPECTION_SECTIONS.map((s) => {
           const sel = s.snake === currentSection;
           const prog = sectionProgress(ins, s);
+          const photos = photosForSection(ins, s.snake).length;
           const done = prog.filled === prog.total && prog.total > 0;
+          const pct = prog.total > 0 ? Math.round((prog.filled / prog.total) * 100) : 0;
           return (
             <button
               key={s.snake}
               disabled={!interactive}
               onClick={() => onPick(s.snake)}
-              className={chip(sel, interactive)}
               title={s.label}
+              className={
+                "relative overflow-hidden rounded-xl border text-left px-2.5 py-2 min-h-[58px] transition-colors " +
+                (sel
+                  ? "bg-orange-500/15 border-orange-500 text-white"
+                  : interactive
+                    ? "bg-white/[0.03] border-white/10 hover:border-orange-400/60 text-white/90"
+                    : "bg-white/[0.02] border-white/5 text-white/40 cursor-default")
+              }
             >
-              {done && <span className="mr-1">✅</span>}
-              {s.label}
-              <span className="ml-1 text-[10px] opacity-70">
-                {prog.filled}/{prog.total}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {done && <span className="text-emerald-400 text-xs">✓</span>}
+                <span className="text-[13px] font-medium leading-tight truncate">
+                  {s.label}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[10px] text-white/55 tabular-nums">
+                <span>{prog.filled}/{prog.total}</span>
+                {photos > 0 && <span>📷{photos}</span>}
+              </div>
+              <div className="absolute inset-x-0 bottom-0 h-[3px] bg-white/5">
+                <div
+                  className={
+                    "h-full transition-all " +
+                    (done ? "bg-emerald-500" : "bg-orange-500/70")
+                  }
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </button>
           );
         })}
