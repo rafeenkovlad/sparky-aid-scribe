@@ -237,11 +237,12 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
       sectionType,
       elementType: camelToSnake(elementId),
     };
-    // paintworkThickness* — только у элементов кузова (BodyElement*DTO).
-    if (sectionType === "body") {
+    // paintworkThickness* — у элементов кузова и силового каркаса.
+    if (PAINTWORK_SECTION_TYPES.has(sectionType)) {
       base.paintworkThicknessFrom = 80;
       base.paintworkThicknessTo = 200;
     }
+
     return base;
   };
 
