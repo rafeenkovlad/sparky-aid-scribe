@@ -20,7 +20,7 @@ import {
 import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSections";
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
-import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
