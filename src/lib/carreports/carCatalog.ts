@@ -8,6 +8,7 @@
 import { aiChatIdFor, chatCompletions } from "./aiApi";
 import {
   CLICHE_CANONICAL_BRAND,
+  CLICHE_INFER_BRAND_FROM_MODEL,
   CLICHE_PICK_BRAND,
   CLICHE_PICK_GENERATION,
   CLICHE_PICK_MODEL,
