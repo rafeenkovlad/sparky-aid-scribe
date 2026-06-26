@@ -42,7 +42,7 @@ import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/typ
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
-import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
+import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
