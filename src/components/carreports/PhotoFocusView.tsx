@@ -398,7 +398,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
         </div>
 
         {/* Теги: оба ряда показываются одновременно, под каждым — своё «+ свой тег». */}
-        {derivedVerdict !== "ok" && (
+        {(
           <div className="space-y-3">
             {tagsLoading && (
               <div className="flex items-center gap-1.5 text-[11px] text-white/50">
