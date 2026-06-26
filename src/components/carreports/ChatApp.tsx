@@ -1431,3 +1431,21 @@ function MessageBubble({
     </div>
   );
 }
+
+function countCarPassport(draft: import("@/lib/carreports/types").ReportDraft): number {
+  const c = draft.carStep ?? {};
+  const ch = draft.characteristicsStep ?? {};
+  const checks: boolean[] = [
+    !!c.vin && c.vin.length >= 11,
+    !!(ch.brandName && ch.modelCarName),
+    !!c.mileage,
+    !!c.cityInspection,
+    !!c.dateInspection,
+    !!ch.year,
+    !!ch.engineType,
+    !!ch.transmission,
+    !!ch.driveType,
+    !!ch.color,
+  ];
+  return checks.filter(Boolean).length;
+}
