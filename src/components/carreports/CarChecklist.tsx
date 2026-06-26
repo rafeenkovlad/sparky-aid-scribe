@@ -50,7 +50,7 @@ export function CarChecklist({ draft }: Props) {
     { label: "Ссылка на объявление", filled: !!c.uriListing, value: c.uriListing ?? undefined },
     { label: "Поколение", filled: !!ch.generationLabel, value: ch.generationLabel },
     {
-      label: "Объём",
+      label: "Объём двигателя",
       filled: !!ch.engineVolume,
       value: ch.engineVolume ? `${ch.engineVolume} л` : undefined,
     },
