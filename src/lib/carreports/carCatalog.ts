@@ -73,6 +73,8 @@ interface BrandRow {
 interface ModelRow {
   id: number;
   name: string;
+  /** Alternative catalogue names, e.g. API `modelRus` for Cyrillic input. */
+  aliases?: string[];
   urlImage?: string;
 }
 
@@ -113,6 +115,7 @@ interface RestylingRow {
 }
 interface GenerationRow {
   id: number;
+  modelCarId?: number;
   name?: string;
   /** numeric generation index (1, 2, 3 ...) */
   generation?: number;
@@ -176,11 +179,16 @@ async function fetchModels(brandId: number): Promise<ModelRow[]> {
       (typeof row.model === "string" && row.model) ||
       (typeof row.modelRus === "string" && row.modelRus) ||
       "";
+    const aliases = [row.name, row.model, row.modelRus]
+      .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      .map((v) => v.trim())
+      .filter((v, i, arr) => arr.findIndex((x) => norm(x) === norm(v)) === i);
     const urlImage =
       typeof row.urlImage === "string" ? row.urlImage : undefined;
     return {
       id: Number(row.id),
       name: String(name),
+      ...(aliases.length ? { aliases } : {}),
       ...(urlImage ? { urlImage } : {}),
     } as ModelRow;
   });
@@ -192,7 +200,11 @@ async function fetchGenerations(modelCarId: number): Promise<GenerationRow[]> {
   const hit = generationCache.get(modelCarId);
   if (hit) return hit;
   const r = await rpc<unknown>("Storage.GetModelGeneration", { modelCarId });
-  const list = unwrap<GenerationRow>(r);
+  // Жёсткая защита от смешивания поколений: даже если API/кэш вернёт лишние
+  // строки, дальше проходят только поколения этой модели.
+  const list = unwrap<GenerationRow>(r).filter(
+    (row) => row.modelCarId == null || Number(row.modelCarId) === modelCarId,
+  );
   generationCache.set(modelCarId, list);
   return list;
 }
@@ -215,17 +227,25 @@ function asYear(v: unknown): number | null {
   return null;
 }
 
-function bestMatch<T extends { name?: string }>(rows: T[], target: string): T | undefined {
+function rowNames(row: { name?: string; aliases?: string[] }): string[] {
+  return [row.name, ...(row.aliases ?? [])]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+    .filter((v, i, arr) => arr.findIndex((x) => norm(x) === norm(v)) === i);
+}
+
+function bestMatch<T extends { name?: string; aliases?: string[] }>(rows: T[], target: string): T | undefined {
   if (!rows.length) return undefined;
   const t = norm(target);
   if (!t) return rows[0];
-  const exact = rows.find((r) => norm(r.name ?? "") === t);
+  const exact = rows.find((r) => rowNames(r).some((name) => norm(name) === t));
   if (exact) return exact;
-  const starts = rows.find((r) => norm(r.name ?? "").startsWith(t));
+  const starts = rows.find((r) => rowNames(r).some((name) => norm(name).startsWith(t)));
   if (starts) return starts;
   const contains = rows.find((r) => {
-    const n = norm(r.name ?? "");
-    return n && (n.includes(t) || t.includes(n));
+    return rowNames(r).some((name) => {
+      const n = norm(name);
+      return n && (n.includes(t) || t.includes(n));
+    });
   });
   return contains ?? rows[0];
 }
@@ -247,7 +267,7 @@ function editDistance(a: string, b: string): number {
 }
 
 /** Top N rows by name similarity to target (excluding excludeId). */
-function topMatches<T extends { id: number; name?: string }>(
+function topMatches<T extends { id: number; name?: string; aliases?: string[] }>(
   rows: T[],
   target: string,
   n: number,
@@ -256,12 +276,17 @@ function topMatches<T extends { id: number; name?: string }>(
   if (!rows.length) return [];
   const t = norm(target);
   const scored = rows
-    .filter((r) => r.id !== excludeId && r.name)
+    .filter((r) => r.id !== excludeId && rowNames(r).length)
     .map((r) => {
-      const nm = norm(r.name ?? "");
-      let score = editDistance(t, nm);
-      if (nm.startsWith(t) || t.startsWith(nm)) score -= 2;
-      if (nm.includes(t) || t.includes(nm)) score -= 1;
+      const score = Math.min(
+        ...rowNames(r).map((name) => {
+          const nm = norm(name);
+          let s = editDistance(t, nm);
+          if (nm.startsWith(t) || t.startsWith(nm)) s -= 2;
+          if (nm.includes(t) || t.includes(nm)) s -= 1;
+          return s;
+        }),
+      );
       return { r, score };
     })
     .sort((a, b) => a.score - b.score);
