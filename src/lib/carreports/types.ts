@@ -61,7 +61,11 @@ export interface DocumentReconciliationStep {
 }
 
 export interface InspectionPhoto {
+  /** server section snake (например, "body"). Для legacy-фото может содержать
+   *  локальный zone id — оркестратор и сериализатор учитывают оба варианта. */
   section: string;
+  /** element id раздела, к которому привязано фото (см. INSPECTION_SECTIONS). */
+  elementId?: string;
   filename: string;
   /** local preview (data: URL). May be absent for server-only photos. */
   dataUrl?: string;
@@ -90,11 +94,16 @@ export interface InspectionElementFinding {
 }
 
 export interface InspectionStep {
-  // Phase 2: 8 zones. Notes are keyed by zone id.
+  /** Legacy: свободные заметки по локальной «зоне». Остаются для совместимости,
+   *  основным хранилищем теперь является `findings` (per-element). */
   sectionNotes: Record<string, string>;
   photos: InspectionPhoto[];
   touched?: boolean;
-  /** zone id last interacted with */
+  /** snake_case раздел из INSPECTION_SECTIONS, на котором сейчас фокус. */
+  currentSection?: string;
+  /** id элемента активного раздела (например, "hood"). */
+  currentElementId?: string;
+  /** legacy: id локальной «зоны». Сохраняем для миграции старых тредов. */
   currentZone?: string;
   /** structured findings, keyed by `${section}.${elementId}` */
   findings?: Record<string, InspectionElementFinding>;
