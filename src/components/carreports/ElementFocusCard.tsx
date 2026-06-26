@@ -511,6 +511,28 @@ function Section(props: {
     </div>
   );
 }
+function PassportRow({ item }: { item: { label: string; filled: boolean; value?: string } }) {
+  return (
+    <li className="flex items-baseline gap-2 min-w-0">
+      {item.filled ? (
+        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+      ) : (
+        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+      )}
+      <span className="shrink-0 text-white/55">{item.label}</span>
+      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <span
+        className={
+          "text-right break-all min-w-0 " + (item.filled ? "text-white/85" : "text-white/30")
+        }
+        title={item.value ?? ""}
+      >
+        {item.value ?? "—"}
+      </span>
+    </li>
+  );
+}
+
 
 function ChipScroller(props: { children: React.ReactNode }) {
   return (
