@@ -901,10 +901,10 @@ export function ChatApp({ threadId }: Props) {
             updateThread(thread.id, (t) => {
               t.draft.inspectionStep.photos.push({
                 section,
-                filename: up!.filename,
+                filename: uploaded.filename,
                 dataUrl: a.dataUrl,
-                url: up!.url,
-                remote: up!.remote,
+                url: uploaded.url,
+                remote: true,
                 addedAt: Date.now(),
               });
               t.draft.inspectionStep.touched = true;
@@ -913,7 +913,7 @@ export function ChatApp({ threadId }: Props) {
                 role: "assistant",
                 text: `📌 Закреплено в разделе «${sectionLabel}»`,
                 step: "inspection",
-                attachments: [{ url: up!.url, label: a.filename }],
+                attachments: [{ url: uploaded.url, label: a.filename }],
                 createdAt: Date.now(),
               });
             });
@@ -926,10 +926,10 @@ export function ChatApp({ threadId }: Props) {
                 step: "inspection",
                 kind: "inspectionAttachAssign",
                 pendingPhoto: {
-                  url: up!.url,
+                  url: uploaded.url,
                   dataUrl: a.dataUrl,
-                  filename: up!.filename,
-                  remote: up!.remote,
+                  filename: uploaded.filename,
+                  remote: true,
                 },
                 createdAt: Date.now(),
               });
