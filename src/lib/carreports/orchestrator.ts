@@ -688,6 +688,7 @@ export async function extractForStep(
 
       // Уточняющий шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
       // марка не извлечена. Делаем follow-up запрос к нейронке.
+      const clarifyLog: Array<{ kind: "ai" | "web"; label: string; detail?: string }> = [];
       if (!merged.brandName && merged.modelCarName) {
         try {
           const { inferBrandFromModelName } = await import("./carCatalog");
@@ -701,6 +702,7 @@ export async function extractForStep(
             if (inferred.modelCarName) merged.modelCarName = inferred.modelCarName;
             c.brandName = merged.brandName;
             c.modelCarName = merged.modelCarName;
+            clarifyLog.push(...inferred.trace);
           }
         } catch {
           /* ignore */
