@@ -3,7 +3,7 @@
 // upload-приглашения kind="inspectionUploadPrompt".
 
 import { useMemo, useRef } from "react";
-import { Camera, Image as ImageIcon, Plus } from "lucide-react";
+import { Camera, Image as ImageIcon, Plus, X } from "lucide-react";
 import {
   getSection,
   type SectionSnake,
