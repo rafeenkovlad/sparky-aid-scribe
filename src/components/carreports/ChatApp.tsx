@@ -70,7 +70,6 @@ import {
 } from "./InspectionCollage";
 import { PhotoFocusView } from "./PhotoFocusView";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
-import { upsertFinding as upsertFindingDirect } from "@/lib/carreports/inspectionState";
 import { Sparkles } from "lucide-react";
 
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
