@@ -649,23 +649,31 @@ export async function extractForStep(
             : undefined;
 
         if (needsResolve) {
+          // Правило: СНАЧАЛА определяем марку+модель, и только в следующий
+          // шаг (или подтверждение чипом) — поколение/рестайлинг. Если
+          // марка/модель изменились в этом сообщении, hint поколения
+          // откладываем как pending и не передаём в resolveCar.
+          const deferGeneration = brandModelChanged;
+          const resolveHint = deferGeneration ? undefined : generationHint;
+          const resolveYear = deferGeneration ? undefined : merged.year;
+
           let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
-          if ((mentionsGen || pendingHint) && knownModelCarId) {
+          if (!deferGeneration && (mentionsGen || pendingHint) && knownModelCarId) {
             const { resolveGenerationByModelId } = await import("./carCatalog");
             resolved = await resolveGenerationByModelId(knownModelCarId, {
               thread,
               userText: text,
-              generationHint,
-              year: merged.year,
+              generationHint: resolveHint,
+              year: resolveYear,
               brandName: merged.brandName,
               modelCarName: merged.modelCarName,
             });
           } else {
             const { resolveCar } = await import("./carCatalog");
-            resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
+            resolved = await resolveCar(merged.brandName, merged.modelCarName, resolveYear, {
               thread,
               userText: text,
-              generationHint,
+              generationHint: resolveHint,
             });
           }
           if (resolved.modelCarId) {
@@ -703,6 +711,26 @@ export async function extractForStep(
             }
           }
 
+          // Если только что подобрали модель — приложим коллаж поколений
+          // и попросим пользователя выбрать. hint поколения откладываем.
+          if (deferGeneration && resolved.modelCarId) {
+            const { listGenerationChipsForModel } = await import("./carCatalog");
+            const genChips = await listGenerationChipsForModel(resolved.modelCarId);
+            for (const s of genChips) {
+              chips.push({
+                label: s.label,
+                value: s.value,
+                group: s.group,
+                single: true,
+                ...(s.image ? { image: s.image } : {}),
+                ...(s.description ? { description: s.description } : {}),
+              });
+            }
+            if (generationHint || pendingHint) {
+              merged.pendingGenerationHint = generationHint ?? pendingHint;
+            }
+          }
+
           const last = resolved.trace[resolved.trace.length - 1];
           const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
           const webHint = resolved.trace.some((t) => t.needsWeb);
@@ -723,6 +751,10 @@ export async function extractForStep(
             catalogNote =
               `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
               `\n❌ Указанное поколение/рестайлинг не найдено. Выберите подходящий вариант ниже:`;
+          } else if (resolved.modelCarId && deferGeneration) {
+            catalogNote =
+              `\n🔎 Марка и модель: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
+              `\n👉 Теперь выберите поколение/рестайлинг ниже${generationHint ? " (я запомнила вашу подсказку и применю при выборе)" : ""}:`;
           } else if (resolved.modelCarId) {
             catalogNote =
               `\n🔎 По каталогу: ${[resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ")}` +
@@ -733,7 +765,7 @@ export async function extractForStep(
             catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
           }
 
-          if (pendingHint) merged.pendingGenerationHint = null;
+          if (!deferGeneration && pendingHint) merged.pendingGenerationHint = null;
         }
       }
 
