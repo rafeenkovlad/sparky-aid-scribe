@@ -458,16 +458,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           </>
         )}
 
-        {/* Заметка */}
-        <Section label="Заметка">
-          {finding?.note ? (
-            <UserBubble>{finding.note}</UserBubble>
-          ) : (
-            <div className="text-[12px] text-white/40 italic">
-              Напишите в композере ниже — Enter сохранит.
-            </div>
-          )}
-        </Section>
 
         {/* AI-вариант */}
         {noteProposal && (
