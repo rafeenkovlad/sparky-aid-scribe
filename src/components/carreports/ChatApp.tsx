@@ -54,6 +54,7 @@ import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLab
 import {
   INSPECTION_SECTIONS,
   findingKey,
+  getSection,
   type SectionSnake,
 } from "@/lib/carreports/inspectionSections";
 import {
