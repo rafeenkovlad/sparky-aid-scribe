@@ -32,16 +32,24 @@ export async function chatCompletions(opts: {
 
   // Формат запроса — ровно как ожидает AI API (без поля `jsonrpc`):
   // { id, method, params: { text, cliche, files?, model? } }.
+  // AI-сервер подставляет значение `params.text` в место плейсхолдера
+  // `{text}` внутри `cliche`. Если плейсхолдера в клише нет — текст
+  // эксперта потеряется и модель ответит «заметка не предоставлена».
+  // Гарантируем, что плейсхолдер есть: добавляем хвост, если его нет.
+  const clicheWithText = opts.cliche.includes("{text}")
+    ? opts.cliche
+    : `${opts.cliche.replace(/\s+$/, "")}\n\nТекст эксперта:\n{text}\n`;
   const body = {
     id: opts.id,
     method: "AiQueue.ChatCompletions",
     params: {
       text: opts.text,
-      cliche: opts.cliche,
+      cliche: clicheWithText,
       ...(opts.fileUrls?.length ? { files: opts.fileUrls } : {}),
       ...(opts.model ? { model: opts.model } : {}),
     },
   };
+
   // AI API авторизуется заголовком Authorization: Bearer <jwt>.
   const res = await fetch(AI_URL, {
     method: "POST",
