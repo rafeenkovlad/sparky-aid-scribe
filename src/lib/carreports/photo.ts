@@ -143,8 +143,8 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 /**
  * Загружает фото во временное объектное хранилище через
- * `ObjectStorage.GetTemporaryUploadPostUrl` (S3-совместимый presigned POST).
- * Возвращает публичный URL загруженного файла (для передачи в AI).
+ * `ObjectStorage.GetTemporaryUploadUrlBucketTemp` (presigned PUT/POST).
+ * Возвращает подписанный GET URL загруженного файла (для передачи в AI).
  */
 export async function uploadTemporary(photo: PreparedPhoto): Promise<{
   filename: string;
@@ -155,6 +155,7 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
     url?: string;
     uploadUrl?: string;
     postUrl?: string;
+    putUrl?: string;
     fields?: Record<string, string>;
     formData?: Record<string, string>;
     key?: string;
@@ -164,28 +165,37 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
     getUrl?: string;
     fileUrl?: string;
   };
-  const r = await rpc<PresignResult>("ObjectStorage.GetTemporaryUploadPostUrl", {
+  const r = await rpc<PresignResult>("ObjectStorage.GetTemporaryUploadUrlBucketTemp", {
     filename: photo.filename,
     contentType: "image/jpeg",
   });
-  const uploadUrl = r.url ?? r.uploadUrl ?? r.postUrl;
+  const uploadUrl = r.url ?? r.uploadUrl ?? r.putUrl ?? r.postUrl;
   if (!uploadUrl) {
-    throw new ApiError("ObjectStorage.GetTemporaryUploadPostUrl: пустой url", 500);
+    throw new ApiError("ObjectStorage.GetTemporaryUploadUrlBucketTemp: пустой url", 500);
   }
   const fields = r.fields ?? r.formData ?? {};
-  const form = new FormData();
-  for (const [k, v] of Object.entries(fields)) form.append(k, v);
-  // S3 presigned POST требует поле `file` последним.
-  form.append("file", photo.blob, photo.filename);
-  const res = await fetch(uploadUrl, { method: "POST", body: form });
+  const hasFields = Object.keys(fields).length > 0;
+  let res: Response;
+  if (hasFields) {
+    // S3 presigned POST.
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    form.append("file", photo.blob, photo.filename);
+    res = await fetch(uploadUrl, { method: "POST", body: form });
+  } else {
+    // Presigned PUT.
+    res = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "image/jpeg" },
+      body: photo.blob,
+    });
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new ApiError(`Upload POST ${res.status} ${body.slice(0, 200)}`, res.status);
+    throw new ApiError(`Upload ${res.status} ${body.slice(0, 200)}`, res.status);
   }
   const key = r.key ?? r.filename ?? fields.key ?? photo.filename;
   // AI ожидает presigned GET URL, а не прямую ссылку на S3.
-  // Запрашиваем подписанную ссылку через ObjectStorage.GetTemporaryViewUrl.
-  // Файлы лежат в папке temp/ (reportNumber = "temp").
   const basename = (key ?? photo.filename).split("/").pop() ?? photo.filename;
   const view = await rpc<{ url?: string; key?: string }>(
     "ObjectStorage.GetTemporaryViewUrl",
@@ -196,6 +206,7 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
   }
   return { filename: basename, url: view.url, key };
 }
+
 
 /**
  * Обёртка для совместимости со старым кодом: пытается загрузить во временное
