@@ -841,28 +841,29 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {currentStepMessages.map((m) => (
-          <MessageBubble
-            key={m.id}
-            msg={m}
-            interactive={m.id === lastOptionsMsgId}
-            onChipTap={(chip) => insertChip(m.id, chip)}
-            inspectionDateValue={thread.draft.carStep.dateInspection}
-            onInspectionDateChange={setInspectionDate}
-          />
-        ))}
+        {currentStepMessages.map((m) =>
+          m.kind === "passport" ? (
+            <div key={m.id} className="flex justify-start">
+              <div className="max-w-[92%] w-full sm:max-w-[420px] rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
+                <CarChecklist draft={thread.draft} />
+              </div>
+            </div>
+          ) : (
+            <MessageBubble
+              key={m.id}
+              msg={m}
+              interactive={m.id === lastOptionsMsgId}
+              onChipTap={(chip) => insertChip(m.id, chip)}
+              inspectionDateValue={thread.draft.carStep.dateInspection}
+              onInspectionDateChange={setInspectionDate}
+            />
+          ),
+        )}
 
         {busy && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
             ИИ-ассистент думает…
-          </div>
-        )}
-        {currentStep === "car" && passportOpen && (
-          <div className="flex justify-start">
-            <div className="max-w-[92%] w-full sm:max-w-[420px] rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
-              <CarChecklist draft={thread.draft} />
-            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
