@@ -435,6 +435,7 @@ export async function extractForStep(
       // Уточняющий шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
       // марка не извлечена ни сейчас, ни в черновике. Делаем follow-up запрос
       // к нейронке, чтобы определить марку по имени модели (с веб-фолбэком).
+      const clarifyLog: Array<{ kind: "ai" | "web"; label: string; detail?: string }> = [];
       if (!charPatch.brandName && charPatch.modelCarName) {
         try {
           const { inferBrandFromModelName } = await import("./carCatalog");
@@ -447,6 +448,7 @@ export async function extractForStep(
             charPatch.brandName = inferred.brandName;
             if (inferred.modelCarName) charPatch.modelCarName = inferred.modelCarName;
             charTouched = true;
+            clarifyLog.push(...inferred.trace);
           }
         } catch {
           /* ignore — поведение деградирует к ручному уточнению ниже */
@@ -612,6 +614,16 @@ export async function extractForStep(
           catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель — или нажмите подсказку ниже.`;
         }
 
+        // Показать в чате уточняющие запросы нейросети (доп. AI/web вызовы).
+        try {
+          const { formatClarifyTrace, resolvedTraceToClarify } = await import("./carCatalog");
+          const fullClarify = [...clarifyLog, ...resolvedTraceToClarify(resolved)];
+          const note = formatClarifyTrace(fullClarify);
+          if (note) catalogNote = note + catalogNote;
+        } catch {
+          /* ignore — трейс необязателен */
+        }
+
         // Если pendingHint был применён — очищаем.
         if (!deferGeneration && pendingHint) charPatch.pendingGenerationHint = null;
       }
@@ -676,6 +688,7 @@ export async function extractForStep(
 
       // Уточняющий шаг: эксперт назвал только модель («тигуан 2 рестайлинг 1»),
       // марка не извлечена. Делаем follow-up запрос к нейронке.
+      const clarifyLog: Array<{ kind: "ai" | "web"; label: string; detail?: string }> = [];
       if (!merged.brandName && merged.modelCarName) {
         try {
           const { inferBrandFromModelName } = await import("./carCatalog");
@@ -689,6 +702,7 @@ export async function extractForStep(
             if (inferred.modelCarName) merged.modelCarName = inferred.modelCarName;
             c.brandName = merged.brandName;
             c.modelCarName = merged.modelCarName;
+            clarifyLog.push(...inferred.trace);
           }
         } catch {
           /* ignore */
@@ -851,6 +865,16 @@ export async function extractForStep(
                 : "");
           } else if (last) {
             catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
+          }
+
+          // Показать в чате уточняющие запросы нейросети (доп. AI/web вызовы).
+          try {
+            const { formatClarifyTrace, resolvedTraceToClarify } = await import("./carCatalog");
+            const fullClarify = [...clarifyLog, ...resolvedTraceToClarify(resolved)];
+            const note = formatClarifyTrace(fullClarify);
+            if (note) catalogNote = note + catalogNote;
+          } catch {
+            /* ignore — трейс необязателен */
           }
 
           if (!deferGeneration && pendingHint) merged.pendingGenerationHint = null;
