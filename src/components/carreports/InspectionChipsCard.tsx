@@ -343,9 +343,9 @@ function ElementBlock({
     return { serious: s, minor: m };
   }, [tags]);
 
-  // Decide which bucket the active verdict expects new tags to go into.
+  // Decide which bucket the active tab expects new tags to go into.
   const activeBucket: "serious" | "non_serious" =
-    verdict === "serious" ? "serious" : "non_serious";
+    activeTab === "serious" ? "serious" : "non_serious";
 
   return (
     <div className="rounded-xl bg-white/[0.03] border border-white/10 p-2.5 space-y-2.5">
