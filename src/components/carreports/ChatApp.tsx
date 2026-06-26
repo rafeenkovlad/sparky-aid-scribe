@@ -256,44 +256,35 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  /** Гарантирует наличие upload-prompt + collage сообщений для раздела. */
+  /** Идемпотентно показывает в чате одну карточку для раздела:
+   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем. */
   const ensureSectionMessages = useCallback(
     (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
         const promptId = `insp-prompt-${snake}`;
         const collageId = `insp-collage-${snake}`;
-        // Сохраняем существующие, иначе создаём; в любом случае поднимаем в конец.
+        const hasPhotos = t.draft.inspectionStep.photos.some(
+          (p) => p.section === snake,
+        );
+        const keepId = hasPhotos ? collageId : promptId;
         const list = t.messages.inspection;
-        const existingPrompt = list.find((m) => m.id === promptId);
-        const existingCollage = list.find((m) => m.id === collageId);
+        const existing = list.find((m) => m.id === keepId);
         t.messages.inspection = list.filter(
           (m) => m.id !== promptId && m.id !== collageId,
         );
         const now = Date.now();
         pushMsg(t, "inspection", {
-          ...(existingPrompt ?? {
-            id: promptId,
+          ...(existing ?? {
+            id: keepId,
             role: "assistant",
             text: "",
             step: "inspection",
-            kind: "inspectionUploadPrompt",
+            kind: hasPhotos ? "inspectionCollage" : "inspectionUploadPrompt",
             sectionSnake: snake,
             createdAt: now,
           }),
           createdAt: now,
-        });
-        pushMsg(t, "inspection", {
-          ...(existingCollage ?? {
-            id: collageId,
-            role: "assistant",
-            text: "",
-            step: "inspection",
-            kind: "inspectionCollage",
-            sectionSnake: snake,
-            createdAt: now + 1,
-          }),
-          createdAt: now + 1,
         });
       });
     },
