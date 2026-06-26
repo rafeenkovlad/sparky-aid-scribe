@@ -848,7 +848,6 @@ export function ChatApp({ threadId }: Props) {
             onChipTap={(chip) => insertChip(m.id, chip)}
             inspectionDateValue={thread.draft.carStep.dateInspection}
             onInspectionDateChange={setInspectionDate}
-            draft={thread.draft}
           />
         ))}
 
