@@ -785,7 +785,7 @@ export function ChatApp({ threadId }: Props) {
           const v = await analyzeInspectionPhoto(
             fresh,
             sec,
-            usableUrl ?? photoFocus.url,
+            usableUrl ?? photoFocus.url!,
             text,
           );
           r = {
