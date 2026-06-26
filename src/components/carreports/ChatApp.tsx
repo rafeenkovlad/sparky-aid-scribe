@@ -28,6 +28,8 @@ import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
 import { LexChips } from "./LexChips";
+import { CarChecklist } from "./CarChecklist";
+
 
 import { useThreads, useToken } from "@/hooks/useThreads";
 import {
