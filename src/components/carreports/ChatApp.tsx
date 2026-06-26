@@ -842,8 +842,10 @@ export function ChatApp({ threadId }: Props) {
             onChipTap={(chip) => insertChip(m.id, chip)}
             inspectionDateValue={thread.draft.carStep.dateInspection}
             onInspectionDateChange={setInspectionDate}
+            draft={thread.draft}
           />
         ))}
+
         {busy && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
