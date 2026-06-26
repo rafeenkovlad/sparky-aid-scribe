@@ -539,9 +539,13 @@ export async function extractForStep(
             kind: "generation",
           });
 
-        // Уточняющие чипы для возможных опечаток/альтернатив.
+        // Чипы-подсказки brand/model (опечатки, альтернативы). Чипы группы
+        // "generation" из resolved.suggestions ИГНОРИРУЕМ — поколения берём
+        // ТОЛЬКО через listGenerationChipsForModel(modelCarId), чтобы не
+        // показывать поколения других моделей.
         if (resolved.suggestions?.length) {
           for (const s of resolved.suggestions) {
+            if (resolved.modelCarId && s.group === "generation") continue;
             chips.push({
               label: s.label,
               value: s.value,
@@ -553,11 +557,15 @@ export async function extractForStep(
           }
         }
 
-        // Если только что подобрали модель — приложим коллаж поколений.
-        if (deferGeneration && resolved.modelCarId) {
+        // Коллаж поколений строго по modelCarId через Storage.GetModelGeneration.
+        // Показываем всегда, когда модель резолвится, но frame ещё не выбран.
+        if (resolved.modelCarId && !resolved.modelGenerationRestylingFrameId) {
           const { listGenerationChipsForModel } = await import("./carCatalog");
           const genChips = await listGenerationChipsForModel(resolved.modelCarId);
+          const seenValues = new Set(chips.map((c) => c.value));
           for (const s of genChips) {
+            if (seenValues.has(s.value)) continue;
+            seenValues.add(s.value);
             chips.push({
               label: s.label,
               value: s.value,
@@ -567,10 +575,11 @@ export async function extractForStep(
               ...(s.description ? { description: s.description } : {}),
             });
           }
-          if (generationHint || pendingHint) {
+          if (deferGeneration && (generationHint || pendingHint)) {
             charPatch.pendingGenerationHint = generationHint ?? pendingHint;
           }
         }
+
 
         const last = resolved.trace[resolved.trace.length - 1];
         const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
@@ -768,8 +777,13 @@ export async function extractForStep(
               kind: "generation",
             });
 
+          // Чипы-подсказки brand/model (опечатки, альтернативы). Чипы группы
+          // "generation" из resolved.suggestions ИГНОРИРУЕМ — поколения берём
+          // ТОЛЬКО через listGenerationChipsForModel(modelCarId), чтобы не
+          // показывать поколения других моделей.
           if (resolved.suggestions?.length) {
             for (const s of resolved.suggestions) {
+              if (resolved.modelCarId && s.group === "generation") continue;
               chips.push({
                 label: s.label,
                 value: s.value,
@@ -781,12 +795,15 @@ export async function extractForStep(
             }
           }
 
-          // Если только что подобрали модель — приложим коллаж поколений
-          // и попросим пользователя выбрать. hint поколения откладываем.
-          if (deferGeneration && resolved.modelCarId) {
+          // Коллаж поколений строго по modelCarId через Storage.GetModelGeneration.
+          // Показываем всегда, когда модель резолвится, но frame ещё не выбран.
+          if (resolved.modelCarId && !resolved.modelGenerationRestylingFrameId) {
             const { listGenerationChipsForModel } = await import("./carCatalog");
             const genChips = await listGenerationChipsForModel(resolved.modelCarId);
+            const seenValues = new Set(chips.map((c) => c.value));
             for (const s of genChips) {
+              if (seenValues.has(s.value)) continue;
+              seenValues.add(s.value);
               chips.push({
                 label: s.label,
                 value: s.value,
@@ -796,10 +813,11 @@ export async function extractForStep(
                 ...(s.description ? { description: s.description } : {}),
               });
             }
-            if (generationHint || pendingHint) {
+            if (deferGeneration && (generationHint || pendingHint)) {
               merged.pendingGenerationHint = generationHint ?? pendingHint;
             }
           }
+
 
           const last = resolved.trace[resolved.trace.length - 1];
           const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
