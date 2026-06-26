@@ -969,9 +969,15 @@ export function ChatApp({ threadId }: Props) {
               setAskMode(false);
               const recap = summarizeStepDraft(currentStep, thread.draft);
               const intro = STEP_INTROS[currentStep];
+              const recapId = `recap-${currentStep}`;
               updateThread(thread.id, (t) => {
+                // Drop any previous recap for this step so repeated clicks
+                // don't clutter the chat — just move it to the end.
+                t.messages[currentStep] = t.messages[currentStep].filter(
+                  (m) => m.id !== recapId,
+                );
                 pushMsg(t, currentStep, {
-                  id: msgId(),
+                  id: recapId,
                   role: "assistant",
                   text: recap || "Текущие значения шага:",
                   step: currentStep,
