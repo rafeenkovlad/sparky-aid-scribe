@@ -848,7 +848,6 @@ export function ChatApp({ threadId }: Props) {
             onChipTap={(chip) => insertChip(m.id, chip)}
             inspectionDateValue={thread.draft.carStep.dateInspection}
             onInspectionDateChange={setInspectionDate}
-            draft={thread.draft}
           />
         ))}
 
@@ -982,6 +981,30 @@ export function ChatApp({ threadId }: Props) {
           >
             <Pencil className="h-4 w-4" />
           </button>
+        )}
+        {currentStep === "car" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Паспорт авто"
+                title="Паспорт авто"
+                className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
+              >
+                <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs tabular-nums">
+                  {countCarPassport(thread.draft)}/10
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="end"
+              className="w-[320px] max-w-[88vw] p-0 bg-zinc-950 border-white/10 text-white"
+            >
+              <CarChecklist draft={thread.draft} />
+            </PopoverContent>
+          </Popover>
         )}
         <button
           onClick={() => {
@@ -1196,7 +1219,6 @@ interface BubbleProps {
   onChipTap: (chip: ChatChip) => void;
   inspectionDateValue?: string;
   onInspectionDateChange: (iso: string) => void;
-  draft: import("@/lib/carreports/types").ReportDraft;
 }
 
 function MessageBubble({
@@ -1205,7 +1227,6 @@ function MessageBubble({
   onChipTap,
   inspectionDateValue,
   onInspectionDateChange,
-  draft,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1313,29 +1334,6 @@ function MessageBubble({
             </div>
           );
         })()}
-        {interactive && msg.step === "car" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors"
-              >
-                <ClipboardCheck className="h-3.5 w-3.5 text-emerald-400" />
-                Паспорт авто
-                <span className="tabular-nums text-white/55">
-                  {countCarPassport(draft)}/10
-                </span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              side="top"
-              align="start"
-              className="w-[320px] max-w-[88vw] p-0 bg-zinc-950 border-white/10 text-white"
-            >
-              <CarChecklist draft={draft} />
-            </PopoverContent>
-          </Popover>
-        )}
         {msg.chips && msg.chips.length > 0 && (() => {
           // Group chips by groupLabel (chips without a label fall into "").
           const groups: Array<{ label: string; items: ChatChip[] }> = [];
