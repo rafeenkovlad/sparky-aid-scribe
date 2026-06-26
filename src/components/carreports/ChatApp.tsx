@@ -1343,6 +1343,19 @@ function MessageBubble({
               </div>
             )}
           </div>
+        ) : msg.kind === "docsPassport" && draft ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
+            <DocsChecklist
+              draft={draft}
+              onFillMissing={onFillMissing}
+              onAllMatch={onDocsAllMatch}
+            />
+            {msg.text && (
+              <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+            )}
+          </div>
         ) : (
           msg.text && (
             <>
