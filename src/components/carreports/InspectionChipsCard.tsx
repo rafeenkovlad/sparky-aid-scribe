@@ -100,9 +100,9 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
         </div>
       </div>
 
-      {/* Layer 2: Element selector */}
+      {/* Layer 2: Element selector — single column list */}
       <div>
-        <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1 flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5 flex items-center justify-between gap-2">
           <span>Элемент · {section.label}</span>
           {interactive && (
             <button
@@ -114,26 +114,53 @@ export function InspectionChipsCard(props: InspectionChipsCardProps) {
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {section.elements.map((el) => {
+        <div className="rounded-xl border border-white/10 overflow-hidden">
+          {section.elements.map((el, i) => {
             const sel = el.id === element.id;
             const st = elementStatus(ins, section.snake, el.id);
             const ph = photosFor(ins, section.snake, el.id);
+            const done = st !== "empty";
             return (
               <button
                 key={el.id}
                 disabled={!interactive}
                 onClick={() => onSelectElement(el.id)}
-                className={chip(sel, interactive)}
-                title={el.label}
+                className={
+                  "group w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors " +
+                  (i > 0 ? "border-t border-white/[0.06] " : "") +
+                  (sel
+                    ? "bg-white/[0.06] text-white"
+                    : interactive
+                      ? "text-white/85 hover:bg-white/[0.04] active:bg-white/[0.06]"
+                      : "text-white/40 cursor-default")
+                }
               >
-                {STATUS_ICON[st] && (
-                  <span className="mr-1">{STATUS_ICON[st]}</span>
-                )}
-                {el.label}
-                {ph > 0 && (
-                  <span className="ml-1 text-[10px] opacity-80">📷{ph}</span>
-                )}
+                <span className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={
+                      "h-1.5 w-1.5 rounded-full shrink-0 " +
+                      (st === "serious"
+                        ? "bg-rose-400"
+                        : st === "minor"
+                          ? "bg-amber-400"
+                          : st === "ok"
+                            ? "bg-emerald-400"
+                            : st === "noteOnly"
+                              ? "bg-sky-400"
+                              : "bg-white/20")
+                    }
+                  />
+                  <span className="text-[13px] leading-tight truncate">
+                    {el.label}
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 text-[11px] text-white/45 tabular-nums shrink-0">
+                  {ph > 0 && <span>📷 {ph}</span>}
+                  {done && STATUS_ICON[st] && (
+                    <span className="text-[11px]">{STATUS_ICON[st]}</span>
+                  )}
+                  <span className="text-white/30 group-hover:text-white/60">›</span>
+                </span>
               </button>
             );
           })}
