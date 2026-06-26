@@ -190,14 +190,29 @@ export async function extractForStep(
       lines.push(`${mark} ${el.label}${tagPart}${notePart}`);
     }
     if (zoneFindings.length === 0) lines.push(cleaned);
-    lines.push(
-      hasIssues
-        ? "\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
-        : "",
-    );
-    lines.push(
-      "Продолжайте по этой зоне, выберите другую кнопкой ниже, или нажмите «Всё верно, далее».",
-    );
+    if (hasIssues)
+      lines.push("\n* — теги добавятся локально и поедут при отправке как pendingTagNames.");
+
+    // Чипы: элементы зоны + теги повреждений (готовые фразы для инпута).
+    const chips: ChatChip[] = [];
+    for (const el of section.elements) {
+      chips.push({
+        label: el.label,
+        value: `${el.label}: без замечаний`,
+        group: "inspection-element",
+        single: true,
+      });
+    }
+    // Берём топ-12 тегов, чтобы не раздувать карточку.
+    for (const t of tagCatalogue.slice(0, 12)) {
+      const prefix = t.type === "serious" ? "❗" : "";
+      chips.push({
+        label: `${prefix}${t.name}`,
+        value: t.name,
+        group: "inspection-tag",
+        single: true,
+      });
+    }
 
     return {
       patch: {
@@ -210,8 +225,10 @@ export async function extractForStep(
         },
       },
       reply: lines.filter(Boolean).join("\n"),
+      chips,
     };
   }
+
 
   // Test-drive: AI extracts per-system flags + tags + note.
   if (step === "testDrive") {
