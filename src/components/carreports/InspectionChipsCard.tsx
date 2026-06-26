@@ -367,10 +367,11 @@ function ElementBlock({
         )}
       </div>
 
-      {/* Verdict segment */}
+      {/* Verdict segment — Minor/Serious act as tabs that filter visible tags */}
       <div className="flex gap-1.5">
         {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-          const sel = verdict === v;
+          const sel =
+            v === "ok" ? verdict === "ok" : activeTab === v;
           const cls =
             v === "ok"
               ? sel
@@ -387,7 +388,14 @@ function ElementBlock({
             <button
               key={v}
               disabled={!interactive}
-              onClick={() => onSetVerdict(v)}
+              onClick={() => {
+                if (v === "ok") {
+                  onSetVerdict("ok");
+                } else {
+                  setActiveTab(v);
+                  onSetVerdict(v);
+                }
+              }}
               className={
                 "flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors " +
                 (interactive ? cls : "border-white/10 text-white/40 cursor-default")
