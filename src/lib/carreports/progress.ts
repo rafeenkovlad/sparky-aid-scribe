@@ -10,7 +10,7 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
       const hasVin = !!c.vin && c.vin.length >= 11;
-      return hasVin && !!c.mileage && !!c.cityInspection && !!c.dateInspection
+      return hasVin && !!c.mileage && !!c.dateInspection && !!ch.year
         && !!ch.brandName && !!ch.modelCarName;
     }
     case "characteristics": {
