@@ -1202,3 +1202,71 @@ export async function askQuestion(
   }
 }
 
+
+function testDriveChips(): ChatChip[] {
+  const systems = [
+    ["Двигатель", "engine"],
+    ["КПП", "transmission"],
+    ["Руль", "steering"],
+    ["Подвеска", "suspension"],
+    ["Тормоза", "brakes"],
+  ] as const;
+  const out: ChatChip[] = [
+    {
+      label: "Тест-драйв не проводился",
+      value: "Тест-драйв не проводился.",
+      group: "testDrive-system",
+      single: true,
+    },
+  ];
+  for (const [label] of systems) {
+    out.push({
+      label: `${label} — ок`,
+      value: `${label}: работает корректно.`,
+      group: "testDrive-system",
+      single: true,
+    });
+    out.push({
+      label: `${label} — есть замечания`,
+      value: `${label}: есть замечания — `,
+      group: "testDrive-system",
+      single: true,
+    });
+  }
+  return out;
+}
+
+function resultChips(): ChatChip[] {
+  return [
+    {
+      label: "✅ Рекомендую к покупке",
+      value: "Рекомендую к покупке.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "⚠️ Покупать с торгом",
+      value: "Можно покупать, но с торгом по выявленным замечаниям.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "❌ Не рекомендую",
+      value: "Не рекомендую к покупке.",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "📝 Резюме осмотра",
+      value: "Резюме осмотра: ",
+      group: "result-template",
+      single: true,
+    },
+    {
+      label: "🔧 Работы перед покупкой",
+      value: "Перед покупкой рекомендуется выполнить: ",
+      group: "result-template",
+      single: true,
+    },
+  ];
+}
