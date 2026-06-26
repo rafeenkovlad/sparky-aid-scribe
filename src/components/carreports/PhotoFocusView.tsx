@@ -382,52 +382,52 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           </div>
         </div>
 
-        {/* Вердикт */}
+        {/* Вердикт — быстрый набор чипов как в шагах чата */}
         <div>
           <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5">
             Состояние
           </div>
-          <div className="flex gap-1.5">
-            {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
-              const sel =
-                v === "ok"
-                  ? derivedVerdict === "ok"
-                  : activeTab === v;
-              const cls =
-                v === "ok"
-                  ? sel
-                    ? "bg-emerald-500 border-emerald-500 text-white"
-                    : "border-emerald-500/30 text-emerald-200/80 hover:bg-emerald-500/10"
-                  : v === "minor"
+          <div className="-mx-3 px-3 overflow-x-auto">
+            <div className="flex gap-1.5 w-max pb-0.5">
+              {(["ok", "minor", "serious"] as Verdict[]).map((v) => {
+                const sel =
+                  v === "ok" ? derivedVerdict === "ok" : activeTab === v && derivedVerdict === v;
+                const tone =
+                  v === "ok"
                     ? sel
-                      ? "bg-amber-500 border-amber-500 text-white"
-                      : "border-amber-500/30 text-amber-200/80 hover:bg-amber-500/10"
-                    : sel
-                      ? "bg-rose-500 border-rose-500 text-white"
-                      : "border-rose-500/30 text-rose-200/80 hover:bg-rose-500/10";
-              return (
-                <button
-                  key={v}
-                  onClick={() => {
-                    if (v === "ok") onSetVerdict("ok");
-                    else {
-                      setActiveTab(v);
-                      onSetVerdict(v);
+                      ? "bg-emerald-500 text-white border-emerald-500"
+                      : "border-emerald-500/30 text-emerald-200/85 hover:bg-emerald-500/10"
+                    : v === "minor"
+                      ? sel
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "border-amber-500/30 text-amber-200/85 hover:bg-amber-500/10"
+                      : sel
+                        ? "bg-rose-500 text-white border-rose-500"
+                        : "border-rose-500/30 text-rose-200/85 hover:bg-rose-500/10";
+                return (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      if (v === "ok") onSetVerdict("ok");
+                      else {
+                        setActiveTab(v);
+                        onSetVerdict(v);
+                      }
+                    }}
+                    className={
+                      "rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors " +
+                      tone
                     }
-                  }}
-                  className={
-                    "flex-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors " +
-                    cls
-                  }
-                >
-                  {v === "ok" ? "Без замечаний" : v === "minor" ? "Мелкие" : "Серьёзные"}
-                </button>
-              );
-            })}
+                  >
+                    {v === "ok" ? "Без замечаний" : v === "minor" ? "Мелкие" : "Серьёзные"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Теги: отдельные бакеты для серьёзных и мелких */}
+        {/* Теги: отдельные ряды для серьёзных и мелких — как быстрые чипы */}
         {derivedVerdict !== "ok" && (
           <div className="space-y-3">
             {tagsLoading && (
@@ -441,21 +441,20 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
               </div>
             )}
 
-
             {!tagsLoading && (
               <>
-                <TagBucket
+                <TagRow
                   tone="serious"
-                  label="Серьёзные дефекты"
+                  label="Серьёзные"
                   tags={serious}
                   selected={sIds}
                   pending={pending.filter((p) => p.severity === "serious")}
                   onTap={onToggleTag}
                   onTogglePending={(name) => onTogglePendingTag(name, "serious")}
                 />
-                <TagBucket
+                <TagRow
                   tone="minor"
-                  label="Мелкие замечания"
+                  label="Мелкие"
                   tags={minor}
                   selected={nsIds}
                   pending={pending.filter((p) => p.severity !== "serious")}
@@ -468,6 +467,7 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
             <CustomTagInput bucket={activeBucket} onAdd={onAddPendingTag} />
           </div>
         )}
+
 
         {/* Заметка */}
         <NoteBlock
