@@ -2111,6 +2111,7 @@ function MessageBubble({
   onNextElement,
   onPickInspectionPhotos,
   onOpenAnnotator,
+  onDeleteInspectionPhoto,
   onAssignPendingPhoto,
   elementFocusPhotoIdx,
   onElementFocusChangePhoto,
