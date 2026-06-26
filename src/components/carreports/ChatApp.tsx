@@ -50,6 +50,20 @@ import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/typ
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+import {
+  INSPECTION_SECTIONS,
+  type SectionSnake,
+} from "@/lib/carreports/inspectionSections";
+import {
+  clearFinding,
+  getCursor,
+  nextEmptyLocation,
+  togglePendingTag,
+  toggleTag as toggleFindingTag,
+  upsertFinding,
+} from "@/lib/carreports/inspectionState";
+import { InspectionChipsCard } from "./InspectionChipsCard";
+import type { UserTag } from "@/lib/carreports/inspectionTags";
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
