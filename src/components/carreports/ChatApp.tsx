@@ -858,6 +858,13 @@ export function ChatApp({ threadId }: Props) {
             ИИ-ассистент думает…
           </div>
         )}
+        {currentStep === "car" && passportOpen && (
+          <div className="flex justify-start">
+            <div className="max-w-[92%] w-full sm:max-w-[420px] rounded-2xl bg-white/[0.04] border border-white/10 p-2.5">
+              <CarChecklist draft={thread.draft} />
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </main>
 
