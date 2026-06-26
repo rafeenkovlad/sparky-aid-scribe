@@ -110,7 +110,7 @@ export function InspectionCollage(props: {
       )}
 
       {list.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {list.map(({ idx, photo }) => {
             const elId = photo.elementId;
             const status = elId
