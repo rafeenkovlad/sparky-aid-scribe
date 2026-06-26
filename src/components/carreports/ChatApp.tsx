@@ -682,6 +682,7 @@ export function ChatApp({ threadId }: Props) {
     mutatePhotoFinding((f) => {
       f.note = text;
     });
+    setComposer("");
     // Показать proposal с оригиналом, AI начинает грузиться.
     setNoteProposal({ original: text, ai: null, loading: true, picked: "original" });
     // Запускаем AI-переформулировку.
