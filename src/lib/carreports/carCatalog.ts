@@ -632,6 +632,281 @@ export async function resolveCar(
   }
 }
 
+/**
+ * Generation/restyling/frame resolution for an already-known modelCarId.
+ * Used both by `resolveCar` (after it resolves the model) and by
+ * `resolveGenerationByModelId` (the fast-path when the model is already
+ * chosen and we only need to switch поколение/рестайлинг).
+ */
+async function pickGenerationForModel(
+  modelCarId: number,
+  partial: ResolvedCar,
+  opts: {
+    userText: string;
+    generationHint?: string;
+    year?: number;
+    thread?: Thread;
+    trace: ResolvedCar["trace"];
+  },
+): Promise<ResolvedCar> {
+  const { userText, generationHint, year, thread, trace } = opts;
+
+  // Optional: skip entirely if we have nothing to go on (called only from
+  // resolveCar's normal path — by-id fast-path always supplies a hint/year).
+  if (!year && !generationHint) return partial;
+
+  let frames: GenerationFrameCandidate[] = [];
+  try {
+    const gens = await fetchGenerations(modelCarId);
+    frames = flattenFrames(gens);
+  } catch {
+    return partial;
+  }
+  if (!frames.length) return partial;
+
+  let frame: GenerationFrameCandidate | undefined;
+  let frameConf = 0;
+  const frameWebUsed = false;
+  let frameReason: string | undefined;
+
+  const pickFrame = async (webContext?: string) =>
+    aiPick<{
+      frameId: number | null;
+      confidence: number;
+      needsWeb: boolean;
+      reason?: string;
+    }>(
+      thread,
+      "resolveCar:generation",
+      CLICHE_PICK_GENERATION(
+        userText,
+        partial.brandName ?? "",
+        partial.modelCarName ?? "",
+        year,
+        generationHint,
+        frames,
+        webContext,
+      ),
+      userText,
+      (raw) => {
+        const r = raw as {
+          frameId?: unknown;
+          confidence?: unknown;
+          needsWeb?: unknown;
+          reason?: unknown;
+        } | null;
+        if (!r || typeof r.frameId !== "number") return null;
+        return {
+          frameId: r.frameId,
+          confidence: typeof r.confidence === "number" ? r.confidence : 0,
+          needsWeb: r.needsWeb === true,
+          reason: typeof r.reason === "string" ? r.reason : undefined,
+        };
+      },
+    );
+
+  const parseOrdinal = (s: string, keyword: RegExp): number | null => {
+    const lc = s.toLowerCase().replace(/ё/g, "е");
+    const re1 = new RegExp(`${keyword.source}\\s*(\\d+)`, "i");
+    const re2 = new RegExp(`(\\d+)[-\\s]*(?:е|й|ое|ая)?\\s*${keyword.source}`, "i");
+    const roman = new RegExp(`${keyword.source}\\s*(i{1,3}|iv|v|vi{0,3})\\b`, "i");
+    const m = re1.exec(lc) ?? re2.exec(lc) ?? roman.exec(lc);
+    if (!m) return null;
+    const v = m[1];
+    if (/^\d+$/.test(v)) return Number(v);
+    const map: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8 };
+    return map[v.toLowerCase()] ?? null;
+  };
+  const hintAndText = `${generationHint ?? ""} ${userText}`;
+  const genOrd = parseOrdinal(hintAndText, /поколени[еяюй]/);
+  const restOrd = parseOrdinal(hintAndText, /рестайлинг[а-я]*/);
+
+  const genGroups: {
+    key: string;
+    number?: number;
+    name: string;
+    items: GenerationFrameCandidate[];
+  }[] = [];
+  for (const f of frames) {
+    const key =
+      f.generationNumber != null ? `#${f.generationNumber}` : (f.generationName ?? "");
+    const g = genGroups.find((x) => x.key === key);
+    if (g) g.items.push(f);
+    else
+      genGroups.push({
+        key,
+        number: f.generationNumber,
+        name: f.generationName ?? key,
+        items: [f],
+      });
+  }
+
+  let notFound = false;
+  if (genOrd != null) {
+    let group = genGroups.find((g) => g.number === genOrd);
+    if (!group) group = genGroups[genOrd - 1];
+    if (!group) {
+      notFound = true;
+    } else {
+      let picked: GenerationFrameCandidate | undefined;
+      if (restOrd != null) {
+        picked = group.items.find((f) => f.restylingNumber === restOrd);
+        if (!picked) picked = group.items[restOrd];
+        if (!picked) notFound = true;
+      } else {
+        picked =
+          group.items.find((f) => f.restylingNumber === 0) ?? group.items[0];
+      }
+      if (picked) {
+        frame = picked;
+        frameConf = 0.95;
+        frameReason = `Поколение #${genOrd}${restOrd != null ? `, рестайлинг #${restOrd}` : " (базовый)"}`;
+      }
+    }
+  }
+
+  if (!frame && !notFound) {
+    const hintNorm = generationHint ? norm(generationHint) : "";
+    const byYear = year
+      ? frames.filter(
+          (f) =>
+            (f.yearStart == null || year >= f.yearStart) &&
+            (f.yearEnd == null || year <= f.yearEnd),
+        )
+      : frames.slice();
+    const pool = byYear.length ? byYear : frames;
+    if (hintNorm) {
+      frame = pool.find((f) => {
+        const n = norm(`${f.generationName ?? ""} ${f.restylingName ?? ""}`);
+        return n.includes(hintNorm) || hintNorm.includes(n);
+      });
+      if (frame) {
+        frameConf = 0.8;
+        frameReason = "Подбор по подсказке/году из Storage.GetModelGeneration";
+      }
+    }
+    if (!frame && pool.length === 1) {
+      frame = pool[0];
+      frameConf = 0.7;
+      frameReason = "Единственный кандидат по году";
+    }
+    if (!frame) {
+      const framePick = await pickFrame();
+      if (framePick?.frameId) {
+        frame = frames.find((f) => f.frameId === framePick.frameId);
+        frameConf = framePick.confidence;
+        frameReason = framePick.reason;
+      }
+    }
+  }
+  trace.push({
+    step: "generation",
+    candidates: frames.length,
+    pickedId: frame?.frameId ?? null,
+    confidence: frameConf,
+    needsWeb: frameWebUsed,
+    reason: frameReason,
+  });
+
+  const buildGenChips = (): CatalogSuggestion[] => {
+    const out: CatalogSuggestion[] = [];
+    for (const group of genGroups) {
+      const gNum = group.number;
+      const multi = group.items.length > 1;
+      for (const f of group.items) {
+        const years =
+          f.yearStart || f.yearEnd
+            ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
+            : "";
+        const rNum = f.restylingNumber;
+        const genLabel = gNum != null ? `Поколение ${gNum}` : (group.name || "Поколение");
+        const restLabel = multi
+          ? rNum === 0
+            ? " · базовый"
+            : rNum != null
+              ? ` · рестайлинг ${rNum}`
+              : ` · ${f.restylingName ?? ""}`
+          : "";
+        const value =
+          multi && rNum != null
+            ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+            : `Поколение ${gNum ?? "?"}`;
+        out.push({
+          group: "generation",
+          label: `${genLabel}${restLabel}`,
+          value,
+          image: f.urlImage,
+          description: years,
+        });
+        if (out.length >= 12) return out;
+      }
+    }
+    return out;
+  };
+
+  if (!frame) {
+    return {
+      ...partial,
+      generationNotFound: notFound,
+      suggestions: [...(partial.suggestions ?? []), ...buildGenChips()],
+    };
+  }
+  const label = [frame.generationName, frame.restylingName].filter(Boolean).join(" / ");
+  const years =
+    frame.yearStart || frame.yearEnd
+      ? ` (${frame.yearStart ?? "?"}–${frame.yearEnd ?? "н.в."})`
+      : "";
+  const fullLabel = `${label}${years}`.trim();
+  return {
+    ...partial,
+    modelGenerationRestylingFrameId: frame.frameId,
+    ...(fullLabel ? { generationLabel: fullLabel } : {}),
+    generationImage: frame.urlImage,
+    suggestions: [...(partial.suggestions ?? []), ...buildGenChips()],
+  };
+}
+
+/**
+ * Fast-path: when modelCarId is already chosen, jump straight to
+ * Storage.GetModelGeneration and pick поколение/рестайлинг by the user's
+ * hint/year. Skips brand/model AI calls entirely.
+ */
+export async function resolveGenerationByModelId(
+  modelCarId: number,
+  opts: {
+    userText: string;
+    generationHint?: string;
+    year?: number;
+    thread?: Thread;
+    brandName?: string;
+    modelCarName?: string;
+    brandImage?: string;
+    modelImage?: string;
+  },
+): Promise<ResolvedCar> {
+  const trace: ResolvedCar["trace"] = [];
+  const partial: ResolvedCar = {
+    modelCarId,
+    modelGenerationRestylingFrameId: null,
+    ...(opts.brandName ? { brandName: opts.brandName } : {}),
+    ...(opts.modelCarName ? { modelCarName: opts.modelCarName } : {}),
+    ...(opts.brandImage ? { brandImage: opts.brandImage } : {}),
+    ...(opts.modelImage ? { modelImage: opts.modelImage } : {}),
+    trace,
+  };
+  try {
+    return await pickGenerationForModel(modelCarId, partial, {
+      userText: opts.userText,
+      generationHint: opts.generationHint,
+      year: opts.year,
+      thread: opts.thread,
+      trace,
+    });
+  } catch {
+    return partial;
+  }
+}
+
 /** Backwards-compatible shortcut returning only modelCarId. */
 export async function resolveModelCarId(
   brandName: string | undefined,
