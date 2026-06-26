@@ -3,7 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
   Camera,
+  Check,
   CheckCheck,
+  Copy,
   HelpCircle,
   Loader2,
   Menu,
