@@ -614,12 +614,8 @@ export async function extractForStep(
         const lowConf = resolved.trace.some((t) => t.confidence > 0 && t.confidence < 0.5);
         const webHint = resolved.trace.some((t) => t.needsWeb);
         if (resolved.modelCarId && resolved.modelGenerationRestylingFrameId) {
-          const label =
-            [resolved.brandName, resolved.modelCarName].filter(Boolean).join(" ") +
-            (resolved.generationLabel ? ` · ${resolved.generationLabel}` : "");
-          catalogNote = `\n🔎 По каталогу: ${label}`;
-          if (lowConf || webHint)
-            catalogNote += "\n⚠️ Уверенность подбора низкая — выберите вариант ниже или уточните.";
+          // Полностью разрешено — лишних подтверждений не пишем.
+          catalogNote = "";
         } else if (resolved.modelCarId && resolved.restylingChoiceRequired) {
           const genLabel = resolved.pendingGenerationLabel ?? "Поколение";
           catalogNote =
