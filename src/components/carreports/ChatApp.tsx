@@ -181,12 +181,20 @@ export function ChatApp({ threadId }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const voiceBaseRef = useRef<string>("");
   const voice = useVoiceRecorder({
+    onLive: (t) => {
+      const base = voiceBaseRef.current;
+      setComposer(base ? `${base} ${t}` : t);
+    },
     onText: (t) => {
-      setComposer((cur) => (cur.trim() ? `${cur.trim()} ${t}` : t));
+      const base = voiceBaseRef.current;
+      setComposer(base ? `${base} ${t}` : t);
+      voiceBaseRef.current = "";
       textareaRef.current?.focus();
     },
   });
+
 
   // Open token dialog automatically the very first time.
   useEffect(() => {
