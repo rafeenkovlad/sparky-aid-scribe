@@ -141,6 +141,9 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
+  /** Открытый аннотатор: индекс фото в `inspectionStep.photos`. */
+  const [annotatorPhotoIdx, setAnnotatorPhotoIdx] = useState<number | null>(null);
+
   
   /** Прикреплённые к следующему сообщению фото (для распознавания). */
   const [pendingAttachments, setPendingAttachments] = useState<
