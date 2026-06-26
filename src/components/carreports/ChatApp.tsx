@@ -1220,7 +1220,6 @@ interface BubbleProps {
   onChipTap: (chip: ChatChip) => void;
   inspectionDateValue?: string;
   onInspectionDateChange: (iso: string) => void;
-  draft: import("@/lib/carreports/types").ReportDraft;
 }
 
 function MessageBubble({
@@ -1229,7 +1228,6 @@ function MessageBubble({
   onChipTap,
   inspectionDateValue,
   onInspectionDateChange,
-  draft,
 }: BubbleProps) {
 
   if (msg.role === "user") {
