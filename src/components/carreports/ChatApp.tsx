@@ -238,36 +238,161 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
-  // Inspection: current zone (defaults to first when entering the step)
-  const currentZoneId = thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+  // Inspection: current section/element (new DTO-based cursor).
+  const cursor = useMemo(
+    () => (thread ? getCursor(thread.draft) : null),
+    [thread],
+  );
+  // Legacy «zone» pointers — used by free-form notes & older AI prompt.
+  const currentZoneId =
+    thread?.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
   const currentZone = zoneById(currentZoneId) ?? INSPECTION_ZONES[0];
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const selectZone = useCallback(
-    (zoneId: string) => {
+  const selectSection = useCallback(
+    (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
-        t.draft.inspectionStep.currentZone = zoneId;
-        // Clear chip selections on the inspection intro message when switching zone.
-        for (const m of t.messages.inspection) {
-          if (m.kind === "inspectionChips") m.selectedChipValues = [];
-        }
+        t.draft.inspectionStep.currentSection = snake;
+        const sec = INSPECTION_SECTIONS.find((s) => s.snake === snake);
+        t.draft.inspectionStep.currentElementId = sec?.elements[0].id;
       });
       textareaRef.current?.focus();
     },
     [thread],
   );
 
+  const selectElement = useCallback(
+    (elementId: string) => {
+      if (!thread) return;
+      updateThread(thread.id, (t) => {
+        t.draft.inspectionStep.currentElementId = elementId;
+      });
+      textareaRef.current?.focus();
+    },
+    [thread],
+  );
+
+  const setVerdict = useCallback(
+    (v: "ok" | "minor" | "serious") => {
+      if (!thread || !cursor) return;
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => {
+            if (v === "ok") {
+              f.noDamage = true;
+              f.seriousDamageTagIds = [];
+              f.noSeriousDamageTagIds = [];
+              f.pendingTagNames = [];
+            } else {
+              f.noDamage = false;
+              // Don't wipe tags when switching between minor/serious so the user
+              // can re-classify without losing input.
+            }
+          },
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const toggleTagOnFinding = useCallback(
+    (tag: UserTag) => {
+      if (!thread || !cursor) return;
+      const bucket: "serious" | "non_serious" =
+        tag.type === "serious" ? "serious" : "non_serious";
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => toggleFindingTag(f, bucket, tag.id),
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const addPendingTagOnFinding = useCallback(
+    (name: string, severity: "serious" | "non_serious") => {
+      if (!thread || !cursor) return;
+      updateThread(thread.id, (t) => {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          cursor.element.id,
+          (f) => togglePendingTag(f, name, severity),
+        );
+        t.draft.inspectionStep.touched = true;
+      });
+    },
+    [thread, cursor],
+  );
+
+  const clearCurrentElement = useCallback(() => {
+    if (!thread || !cursor) return;
+    updateThread(thread.id, (t) => {
+      clearFinding(
+        t.draft.inspectionStep,
+        cursor.section.snake,
+        cursor.element.id,
+      );
+    });
+  }, [thread, cursor]);
+
+  const markSectionAllOk = useCallback(() => {
+    if (!thread || !cursor) return;
+    updateThread(thread.id, (t) => {
+      for (const el of cursor.section.elements) {
+        upsertFinding(
+          t.draft.inspectionStep,
+          cursor.section.snake,
+          el.id,
+          (f) => {
+            if (!f.noDamage && !(f.seriousDamageTagIds?.length) && !(f.noSeriousDamageTagIds?.length)) {
+              f.noDamage = true;
+            }
+          },
+        );
+      }
+      t.draft.inspectionStep.touched = true;
+    });
+  }, [thread, cursor]);
+
+  const goNextElement = useCallback(() => {
+    if (!thread || !cursor) return;
+    const next = nextEmptyLocation(
+      thread.draft.inspectionStep,
+      cursor.section.snake,
+      cursor.element.id,
+    );
+    if (!next) return;
+    updateThread(thread.id, (t) => {
+      t.draft.inspectionStep.currentSection = next.section.snake;
+      t.draft.inspectionStep.currentElementId = next.element.id;
+    });
+    textareaRef.current?.focus();
+  }, [thread, cursor]);
+
   const onPickPhoto = useCallback(
     async (file: File) => {
-      if (!thread) return;
-      const zoneId = thread.draft.inspectionStep.currentZone ?? INSPECTION_ZONES[0].id;
+      if (!thread || !cursor) return;
+      const sectionSnake = cursor.section.snake;
+      const elementId = cursor.element.id;
+      const sectionLabel = cursor.section.label;
+      const elementLabel = cursor.element.label;
       try {
         const prepared = await preparePhoto(file);
         const up = await uploadPhoto(prepared);
         updateThread(thread.id, (t) => {
           t.draft.inspectionStep.photos.push({
-            section: zoneId,
+            section: sectionSnake,
+            elementId,
             filename: up.filename,
             dataUrl: prepared.dataUrl,
             remote: up.remote,
@@ -278,8 +403,8 @@ export function ChatApp({ threadId }: Props) {
             id: msgId(),
             role: "assistant",
             text: up.remote
-              ? `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» (загружено: ${up.filename}).`
-              : `📷 Фото добавлено к зоне «${zoneById(zoneId)?.label}» локально. ${up.note ?? ""}`,
+              ? `📷 Фото добавлено к «${elementLabel}» (раздел «${sectionLabel}»).`
+              : `📷 Фото добавлено локально к «${elementLabel}» (раздел «${sectionLabel}»). ${up.note ?? ""}`,
             createdAt: Date.now(),
           });
         });
