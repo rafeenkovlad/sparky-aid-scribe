@@ -17,13 +17,14 @@ import {
 } from "./cliche";
 
 import { decodeVin } from "./storageApi";
-import { zoneById } from "./inspectionZones";
 import {
+  INSPECTION_SECTIONS,
   ZONE_TO_SECTION,
   getSection,
   findingKey,
   type SectionSnake,
 } from "./inspectionSections";
+
 import { loadSectionTags, findTagId } from "./inspectionTags";
 import type {
   CarStep,
