@@ -869,6 +869,23 @@ export function ChatApp({ threadId }: Props) {
                 }
               });
             }}
+            onDocsAllMatch={() => {
+              updateThread(thread.id, (t) => {
+                t.draft.documentReconciliationStep = {
+                  ...t.draft.documentReconciliationStep,
+                  ownerFullNameMatchWithPTSOrSTS: true,
+                  vinOnBodyMatchWithPTSOrSTS: true,
+                  engineModelMatchWithPTSOrSTS: true,
+                };
+                pushMsg(t, "docs", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "✅ Отмечено: VIN на кузове, № двигателя и собственник совпадают с ПТС/СТС.",
+                  step: "docs",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
           />
         ))}
 
