@@ -437,13 +437,37 @@ export async function extractForStep(
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
 
-        const { resolveCar } = await import("./carCatalog");
-        const resolved = await resolveCar(
-          charPatch.brandName,
-          charPatch.modelCarName,
-          charPatch.year,
-          { thread, userText: text, generationHint },
-        );
+        const prevChar = thread.draft.characteristicsStep;
+        const brandModelChanged =
+          prevChar.brandName !== charPatch.brandName ||
+          prevChar.modelCarName !== charPatch.modelCarName;
+        const knownModelCarId =
+          !brandModelChanged && typeof prevChar.modelCarId === "number"
+            ? prevChar.modelCarId
+            : undefined;
+
+        let resolved: Awaited<ReturnType<typeof import("./carCatalog").resolveCar>>;
+        if (mentionsGen && knownModelCarId) {
+          // Модель уже подобрана раньше — не гоняем AI по бренду/модели,
+          // сразу спрашиваем Storage.GetModelGeneration по modelCarId.
+          const { resolveGenerationByModelId } = await import("./carCatalog");
+          resolved = await resolveGenerationByModelId(knownModelCarId, {
+            thread,
+            userText: text,
+            generationHint,
+            year: charPatch.year,
+            brandName: charPatch.brandName,
+            modelCarName: charPatch.modelCarName,
+          });
+        } else {
+          const { resolveCar } = await import("./carCatalog");
+          resolved = await resolveCar(
+            charPatch.brandName,
+            charPatch.modelCarName,
+            charPatch.year,
+            { thread, userText: text, generationHint },
+          );
+        }
         if (resolved.modelCarId) {
           charPatch.modelCarId = resolved.modelCarId;
           if (resolved.modelGenerationRestylingFrameId) {
