@@ -664,14 +664,18 @@ export async function resolveCar(
       model = bestMatch(models, modelHintOrName);
       modelConf = model ? 0.4 : 0;
     }
-    trace.push({
-      step: "model",
-      candidates: models.length,
-      pickedId: model?.id ?? null,
-      confidence: modelConf,
-      needsWeb: modelWebUsed,
-      reason: modelReason,
-    });
+    {
+      const entry = {
+        step: "model" as const,
+        candidates: models.length,
+        pickedId: model?.id ?? null,
+        confidence: modelConf,
+        needsWeb: modelWebUsed,
+        reason: modelReason,
+      };
+      trace.push(entry);
+      emitResolved(entry);
+    }
     if (!model) return { ...empty, trace, brandName: brand.name };
 
     const brandImage = pickImageUrl(brand as unknown as Record<string, unknown>);
