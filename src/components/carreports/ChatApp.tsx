@@ -1788,120 +1788,153 @@ export function ChatApp({ threadId }: Props) {
             </div>
           );
         })()}
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
-          {/* Универсальная кнопка вложения — для всех шагов. */}
-          <input
-            ref={attachInputRef}
-            type="file"
-            accept="image/*,.heic,.heif"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              for (const f of files) void addAttachment(f);
-              e.target.value = "";
-            }}
-          />
-          <button
-            onClick={() => attachInputRef.current?.click()}
-            className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
-            aria-label="Прикрепить фото для распознавания"
-            title="Прикрепить фото (≤2MB, распознаем текст и характеристики)"
-          >
-            <Paperclip className="h-5 w-5" />
-          </button>
-
-
-          <Textarea
-            ref={textareaRef}
-            value={composer}
-            onChange={(e) => setComposer(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (photoFocusIdx !== null) savePhotoNote();
-                else void submit();
+        {(() => {
+          const isExpanded =
+            composerFocused ||
+            composer.length > 0 ||
+            pendingAttachments.length > 0 ||
+            photoFocusIdx !== null ||
+            voice.state === "recording" ||
+            voice.state === "transcribing";
+          return (
+            <div
+              className={
+                "mx-auto transition-[max-width] duration-300 ease-out " +
+                (isExpanded ? "max-w-full" : "max-w-[260px]")
               }
-            }}
-            placeholder={
-              photoFocusIdx !== null
-                ? "Заметка к фото… Enter — сохранить, ✨ — добавить тег"
-                : askMode
-                  ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
-                  : currentStep === "inspection" && cursor
-                    ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
-                    : STEP_PLACEHOLDERS[currentStep]
-            }
-            className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
-              askMode ? "placeholder:text-sky-300/60" : ""
-            }`}
-
-          />
-          {photoFocusIdx !== null && (
-            <button
-              onClick={() => void runPhotoAi()}
-              disabled={photoAiBusy || !photoFocus?.url}
-              className="h-10 w-10 shrink-0 rounded-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white"
-              aria-label="Распознать тег по заметке"
-              title={photoFocus?.url ? "Распознать ИИ (учитывает заметку)" : "Фото ещё не загружено"}
             >
-              {photoAiBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-            </button>
-          )}
-          <button
-            onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
-            disabled={voice.state === "transcribing"}
-            className={
-              "h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors " +
-              (voice.state === "recording"
-                ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                : voice.state === "transcribing"
-                  ? "bg-white/10"
-                  : "bg-white/10 hover:bg-white/15")
-            }
-            aria-label={
-              voice.state === "recording"
-                ? "Остановить запись"
-                : voice.state === "transcribing"
-                  ? "Расшифровка…"
-                  : "Голосовой ввод"
-            }
-            title={voice.error ?? "Голосовой ввод"}
-          >
-            {voice.state === "recording" ? (
-              <Square className="h-4 w-4 fill-white" />
-            ) : voice.state === "transcribing" ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Mic className="h-5 w-5" />
-            )}
-          </button>
-          <button
-            onClick={() => {
-              if (photoFocusIdx !== null) savePhotoNote();
-              else void submit();
-            }}
-            disabled={
-              photoFocusIdx !== null
-                ? false
-                : !composer.trim() &&
-                  pendingAttachments.length === 0 &&
-                  !(lastOptionsMsgId &&
-                    (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
-                      ?.selectedChipValues?.length ?? 0) > 0)
-            }
+              <div
+                className={
+                  "flex items-end gap-2 rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
+                  (isExpanded
+                    ? "border-white/15 p-2"
+                    : "border-white/10 p-1.5")
+                }
+              >
+                {/* Универсальная кнопка вложения — скрыта в свёрнутом состоянии. */}
+                <input
+                  ref={attachInputRef}
+                  type="file"
+                  accept="image/*,.heic,.heif"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    for (const f of files) void addAttachment(f);
+                    e.target.value = "";
+                  }}
+                />
+                {isExpanded && (
+                  <button
+                    onClick={() => attachInputRef.current?.click()}
+                    className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
+                    aria-label="Прикрепить фото для распознавания"
+                    title="Прикрепить фото (≤2MB, распознаем текст и характеристики)"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                  </button>
+                )}
 
-            className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
-            aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
-          >
-            <ArrowUp className="h-5 w-5" />
-          </button>
+                <Textarea
+                  ref={textareaRef}
+                  value={composer}
+                  onChange={(e) => setComposer(e.target.value)}
+                  onFocus={() => setComposerFocused(true)}
+                  onBlur={() => setComposerFocused(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (photoFocusIdx !== null) savePhotoNote();
+                      else void submit();
+                    }
+                  }}
+                  placeholder={
+                    photoFocusIdx !== null
+                      ? "Заметка к фото… Enter — сохранить, ✨ — добавить тег"
+                      : askMode
+                        ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
+                        : currentStep === "inspection" && cursor
+                          ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
+                          : STEP_PLACEHOLDERS[currentStep]
+                  }
+                  className={
+                    "resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
+                    (isExpanded ? "min-h-[44px] max-h-40" : "min-h-[32px] max-h-[32px] py-1 text-sm") +
+                    (askMode ? " placeholder:text-sky-300/60" : "")
+                  }
+                />
+                {isExpanded && photoFocusIdx !== null && (
+                  <button
+                    onClick={() => void runPhotoAi()}
+                    disabled={photoAiBusy || !photoFocus?.url}
+                    className="h-10 w-10 shrink-0 rounded-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white"
+                    aria-label="Распознать тег по заметке"
+                    title={photoFocus?.url ? "Распознать ИИ (учитывает заметку)" : "Фото ещё не загружено"}
+                  >
+                    {photoAiBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+                {isExpanded && (
+                  <button
+                    onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
+                    disabled={voice.state === "transcribing"}
+                    className={
+                      "h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors " +
+                      (voice.state === "recording"
+                        ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                        : voice.state === "transcribing"
+                          ? "bg-white/10"
+                          : "bg-white/10 hover:bg-white/15")
+                    }
+                    aria-label={
+                      voice.state === "recording"
+                        ? "Остановить запись"
+                        : voice.state === "transcribing"
+                          ? "Расшифровка…"
+                          : "Голосовой ввод"
+                    }
+                    title={voice.error ?? "Голосовой ввод"}
+                  >
+                    {voice.state === "recording" ? (
+                      <Square className="h-4 w-4 fill-white" />
+                    ) : voice.state === "transcribing" ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (photoFocusIdx !== null) savePhotoNote();
+                    else void submit();
+                  }}
+                  disabled={
+                    photoFocusIdx !== null
+                      ? false
+                      : !composer.trim() &&
+                        pendingAttachments.length === 0 &&
+                        !(lastOptionsMsgId &&
+                          (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                            ?.selectedChipValues?.length ?? 0) > 0)
+                  }
+                  className={
+                    "shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)] transition-all duration-300 " +
+                    (isExpanded ? "h-10 w-10" : "h-8 w-8")
+                  }
+                  aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
+                >
+                  <ArrowUp className={isExpanded ? "h-5 w-5" : "h-4 w-4"} />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
-        </div>
       </div>
 
 
