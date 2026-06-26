@@ -313,18 +313,19 @@ export async function extractForStep(
       if (raw.resultSpecialistNote) bits.push(`✅ Вердикт:\n${raw.resultSpecialistNote.trim()}`);
       return {
         patch: { resultStep: merged },
-        reply: bits.length
-          ? `${bits.join("\n\n")}\n\nДополните или нажмите «Всё верно, далее».`
-          : "Зафиксировал. Дополните или нажмите «Всё верно, далее».",
+        reply: bits.length ? bits.join("\n\n") : "Зафиксировал.",
+        chips: resultChips(),
       };
     } catch {
       const isRec = /рекоменд/i.test(text);
       const merged = isRec
         ? { ...prev, resultSpecialistNote: prev.resultSpecialistNote ? `${prev.resultSpecialistNote}\n${text}` : text }
         : { ...prev, summaryInspectionNote: prev.summaryInspectionNote ? `${prev.summaryInspectionNote}\n${text}` : text };
-      return { patch: { resultStep: merged }, reply: "Зафиксировал. Дополните или нажмите «Всё верно, далее»." };
+      return { patch: { resultStep: merged }, reply: "Зафиксировал.", chips: resultChips() };
     }
   }
+
+
 
 
 
