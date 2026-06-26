@@ -1108,7 +1108,7 @@ export async function analyzeInspectionNote(
     elementId,
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
   );
-  const res = await chatCompletions({ id, text: noteText, cliche });
+  const res = await chatCompletions({ id, text: noteText, cliche, model: "gpt-5.4" });
   const raw = parseJsonResponse<{
     elementId?: string;
     noDamage?: boolean;
