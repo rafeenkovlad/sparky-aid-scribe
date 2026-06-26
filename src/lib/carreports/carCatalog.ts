@@ -585,7 +585,7 @@ export async function resolveCar(
     const hintClean = modelHintOrName ? cleanModelHint(modelHintOrName) : "";
     const hintNorm = hintClean ? norm(hintClean) : "";
     if (hintNorm) {
-      const exact = models.find((m) => norm(m.name ?? "") === hintNorm);
+      const exact = models.find((m) => rowNames(m).some((name) => norm(name) === hintNorm));
       if (exact) {
         model = exact;
         modelConf = 1;

@@ -80,7 +80,7 @@ export const CLICHE_PICK_MODEL = (
   userText: string,
   brandName: string,
   modelHint: string | undefined,
-  models: Array<{ id: number; name: string }>,
+  models: Array<{ id: number; name: string; aliases?: string[] }>,
   webContext?: string,
 ) => `${COMMON}
 
@@ -100,8 +100,16 @@ export const CLICHE_PICK_MODEL = (
 Подсказка эксперта по модели: ${JSON.stringify(modelHint ?? "")}
 Исходный текст эксперта: ${JSON.stringify(userText)}
 ${webContext ? `\nКонтекст из веб-поиска (используй чтобы понять, какая модель имеется в виду):\n${webContext}\n` : ""}
-Кандидаты (id — name):
-${models.slice(0, 120).map((m) => `  • ${m.id} — ${m.name}`).join("\n") || "  (пусто)"}
+Кандидаты (id — name / aliases):
+${
+  models
+    .slice(0, 120)
+    .map((m) => {
+      const aliases = (m.aliases ?? []).filter((a) => a && a !== m.name);
+      return `  • ${m.id} — ${m.name}${aliases.length ? ` / ${aliases.join(", ")}` : ""}`;
+    })
+    .join("\n") || "  (пусто)"
+}
 
 Верни ТОЛЬКО JSON:
 {
