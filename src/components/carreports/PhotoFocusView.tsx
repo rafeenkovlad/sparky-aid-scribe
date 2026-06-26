@@ -231,8 +231,8 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
           ? "Без замечаний"
           : "Не оценено";
 
-  const activeBucket: "serious" | "non_serious" =
-    activeTab === "serious" ? "serious" : "non_serious";
+
+
 
   return (
     <div className="flex-1 overflow-y-auto">
