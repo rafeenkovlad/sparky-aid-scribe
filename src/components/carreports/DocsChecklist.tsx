@@ -1,4 +1,4 @@
-import { Check, X, Sparkles, ShieldCheck } from "lucide-react";
+import { Check, X, Pencil, ShieldCheck } from "lucide-react";
 import type { ReportDraft } from "@/lib/carreports/types";
 
 type TriState = "match" | "mismatch" | "unknown";
@@ -6,25 +6,24 @@ type TriState = "match" | "mismatch" | "unknown";
 interface Item {
   label: string;
   state: TriState;
-  /** Текстовое значение в правой колонке. */
   value?: string;
-  /** Имя поля в шаблоне «Заполнить недостающее». */
+  /** Шаблон для подстановки в композер при редактировании. */
   template: string;
 }
 
 interface Props {
   draft: ReportDraft;
-  /** Подставить шаблон по незаполненным полям в композер. */
-  onFillMissing?: (template: string) => void;
+  /** Подставить шаблон в композер (для редактирования). */
+  onEdit?: (template: string) => void;
   /** Отметить все три «совпадения» как совпадающие. */
   onAllMatch?: () => void;
 }
 
 /**
  * Чат-карточка «Сверка документов».
- * Несовпадения подсвечены красным, незаполненные обязательные — янтарным.
+ * Стиль повторяет «Паспорт авто» из первого шага.
  */
-export function DocsChecklist({ draft, onFillMissing, onAllMatch }: Props) {
+export function DocsChecklist({ draft, onEdit, onAllMatch }: Props) {
   const d = draft.documentReconciliationStep ?? {};
 
   const ownersFilled = typeof d.ownersCount === "number";
@@ -34,25 +33,31 @@ export function DocsChecklist({ draft, onFillMissing, onAllMatch }: Props) {
       label: "Владельцев по ПТС",
       state: ownersFilled ? "match" : "unknown",
       value: ownersFilled ? String(d.ownersCount) : undefined,
-      template: "Владельцев по ПТС: ",
+      template: `Владельцев по ПТС: ${ownersFilled ? d.ownersCount : ""}`,
     },
     {
       label: "Собственник = продавец",
       state: triFromBool(d.ownerFullNameMatchWithPTSOrSTS ?? null),
       value: labelFromBool(d.ownerFullNameMatchWithPTSOrSTS ?? null),
-      template: "Собственник совпадает с продавцом (да/нет): ",
+      template: `Собственник совпадает с продавцом (да/нет): ${
+        boolText(d.ownerFullNameMatchWithPTSOrSTS) ?? ""
+      }`,
     },
     {
       label: "VIN на кузове = ПТС/СТС",
       state: triFromBool(d.vinOnBodyMatchWithPTSOrSTS ?? null),
       value: labelFromBool(d.vinOnBodyMatchWithPTSOrSTS ?? null),
-      template: "VIN на кузове совпадает с документами (да/нет): ",
+      template: `VIN на кузове совпадает с документами (да/нет): ${
+        boolText(d.vinOnBodyMatchWithPTSOrSTS) ?? ""
+      }`,
     },
     {
       label: "№ двигателя = ПТС",
       state: triFromBool(d.engineModelMatchWithPTSOrSTS ?? null),
       value: labelFromBool(d.engineModelMatchWithPTSOrSTS ?? null),
-      template: "Номер двигателя совпадает с ПТС (да/нет): ",
+      template: `Номер двигателя совпадает с ПТС (да/нет): ${
+        boolText(d.engineModelMatchWithPTSOrSTS) ?? ""
+      }`,
     },
   ];
 
@@ -61,18 +66,19 @@ export function DocsChecklist({ draft, onFillMissing, onAllMatch }: Props) {
       label: "Заметка",
       state: d.note ? "match" : "unknown",
       value: d.note,
-      template: "Заметка: ",
+      template: `Заметка: ${d.note ?? ""}`,
     },
   ];
 
   const filledReq = required.filter((i) => i.state !== "unknown").length;
-  const missingReq = required.filter((i) => i.state === "unknown");
   const mismatchCount = required.filter((i) => i.state === "mismatch").length;
   const filledOpt = optional.filter((i) => i.state !== "unknown").length;
+  const allReq = filledReq === required.length;
 
-  function handleFill() {
-    if (!onFillMissing || missingReq.length === 0) return;
-    onFillMissing(missingReq.map((i) => i.template).join("\n"));
+  function handleEdit() {
+    if (!onEdit) return;
+    const all = [...required, ...optional].map((i) => i.template).join("\n");
+    onEdit(all);
   }
 
   return (
@@ -84,9 +90,9 @@ export function DocsChecklist({ draft, onFillMissing, onAllMatch }: Props) {
             "text-[11px] tabular-nums " +
             (mismatchCount > 0
               ? "text-rose-300/90"
-              : missingReq.length > 0
-                ? "text-amber-300/90"
-                : "text-emerald-400/80")
+              : allReq
+                ? "text-emerald-400/80"
+                : "text-white/40")
           }
         >
           {filledReq}/{required.length}
@@ -115,28 +121,32 @@ export function DocsChecklist({ draft, onFillMissing, onAllMatch }: Props) {
         </ul>
       </div>
 
-      <div className="mt-3 flex flex-col gap-1.5">
-        {onAllMatch && (
-          <button
-            type="button"
-            onClick={onAllMatch}
-            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-400/10 hover:bg-emerald-400/15 text-emerald-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Всё совпадает
-          </button>
-        )}
-        {onFillMissing && missingReq.length > 0 && (
-          <button
-            type="button"
-            onClick={handleFill}
-            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/15 text-amber-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Заполнить недостающее ({missingReq.length})
-          </button>
-        )}
-      </div>
+      {(onAllMatch || onEdit) && (
+        <div className="mt-3 flex items-center gap-1.5">
+          {onAllMatch && (
+            <button
+              type="button"
+              onClick={onAllMatch}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-400/10 hover:bg-emerald-400/15 text-emerald-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Всё совпадает
+            </button>
+          )}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={handleEdit}
+              aria-label="Редактировать"
+              title="Редактировать"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Редактировать
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -151,7 +161,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function Row({ item, muted }: { item: Item; muted?: boolean }) {
   const mismatch = item.state === "mismatch";
-  const missing = !muted && item.state === "unknown";
   const ok = item.state === "match";
   return (
     <li className="flex items-baseline gap-2 min-w-0">
@@ -160,23 +169,16 @@ function Row({ item, muted }: { item: Item; muted?: boolean }) {
       ) : mismatch ? (
         <X className="h-3 w-3 shrink-0 translate-y-0.5 text-rose-400" />
       ) : (
-        <span
-          className={
-            "h-3 w-3 shrink-0 translate-y-0.5 rounded-full border " +
-            (missing ? "border-amber-400/70 bg-amber-400/15" : "border-white/15")
-          }
-        />
+        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
       )}
       <span
         className={
           "shrink-0 " +
           (mismatch
             ? "text-rose-200/90"
-            : missing
-              ? "text-amber-200/90"
-              : muted
-                ? "text-white/40"
-                : "text-white/55")
+            : muted
+              ? "text-white/40"
+              : "text-white/55")
         }
       >
         {item.label}
@@ -184,11 +186,7 @@ function Row({ item, muted }: { item: Item; muted?: boolean }) {
       <span
         className={
           "flex-1 border-b border-dashed translate-y-[-3px] " +
-          (mismatch
-            ? "border-rose-400/25"
-            : missing
-              ? "border-amber-400/20"
-              : "border-white/5")
+          (mismatch ? "border-rose-400/25" : "border-white/5")
         }
       />
       <span
@@ -200,9 +198,7 @@ function Row({ item, muted }: { item: Item; muted?: boolean }) {
               : "text-white/85"
             : mismatch
               ? "text-rose-300"
-              : missing
-                ? "text-amber-300/60"
-                : "text-white/30")
+              : "text-white/30")
         }
         title={item.value ?? ""}
       >
@@ -221,6 +217,12 @@ function triFromBool(v: boolean | null | undefined): TriState {
 function labelFromBool(v: boolean | null | undefined): string | undefined {
   if (v === true) return "совпадает";
   if (v === false) return "НЕ совпадает";
+  return undefined;
+}
+
+function boolText(v: boolean | null | undefined): string | undefined {
+  if (v === true) return "да";
+  if (v === false) return "нет";
   return undefined;
 }
 
