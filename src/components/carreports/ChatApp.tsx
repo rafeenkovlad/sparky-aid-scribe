@@ -645,7 +645,7 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips]);
+  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, selectedInspectionChips, pendingAttachments, analyzeAttachments]);
 
 
   function jumpTo(step: StepId) {
