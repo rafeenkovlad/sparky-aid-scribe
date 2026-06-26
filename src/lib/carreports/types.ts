@@ -208,9 +208,12 @@ export interface ChatMessage {
     /** если уже закреплено — сюда пишем snake-раздел, чтобы скрыть чипы */
     assignedSection?: string;
   };
+  /** статус задачи в очереди ИИ (для плейсхолдер-сообщений) */
+  queueStatus?: "queued" | "running" | "error";
   createdAt: number;
 
 }
+
 
 export type StepMessages = Record<StepId, ChatMessage[]>;
 

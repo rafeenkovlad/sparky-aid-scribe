@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
@@ -74,7 +74,9 @@ import type { UserTag } from "@/lib/carreports/inspectionTags";
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
+import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
+
 
 interface Props {
   threadId: string;
@@ -156,8 +158,15 @@ export function ChatApp({ threadId }: Props) {
       originalFilename: string;
     }>
   >([]);
-  const [analyzing, setAnalyzing] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
+
+  // Размер очереди AI-запросов по текущему треду (для индикатора).
+  const queueSize = useSyncExternalStore(
+    subscribeQueue,
+    () => (threadId ? getQueueSize(threadId) : 0),
+    () => 0,
+  );
+
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -833,7 +842,8 @@ export function ChatApp({ threadId }: Props) {
   );
 
   const submit = useCallback(async () => {
-    if (!thread || busy) return;
+    if (!thread) return;
+    const threadIdLocal = thread.id;
     const typed = composer.trim();
     const atts = pendingAttachments;
 
@@ -854,20 +864,22 @@ export function ChatApp({ threadId }: Props) {
       return;
     }
 
-    setBusy(true);
+    const stepForTask = currentStep;
+    const askModeLocal = askMode;
     const userAttachments = atts.map((a) => ({
       url: a.dataUrl,
       label: a.filename,
     }));
-    // 1) push user message (with thumbnails if any)
+    // 1) push user message (with thumbnails if any) — синхронно
     const baseText = combined || (atts.length ? `📎 Прикреплено фото: ${atts.length}` : "");
-    const displayText = askMode ? `❓ ${baseText}` : baseText;
-    updateThread(thread.id, (t) => {
-      pushMsg(t, currentStep, {
+    const displayText = askModeLocal ? `❓ ${baseText}` : baseText;
+    const statusId = msgId();
+    updateThread(threadIdLocal, (t) => {
+      pushMsg(t, stepForTask, {
         id: msgId(),
         role: "user",
         text: displayText,
-        step: currentStep,
+        step: stepForTask,
         ...(userAttachments.length ? { attachments: userAttachments } : {}),
         createdAt: Date.now(),
       });
@@ -878,232 +890,239 @@ export function ChatApp({ threadId }: Props) {
           if (m) { m.selectedChipValues = []; break; }
         }
       }
+      // Плейсхолдер статуса очереди — пользователь сразу видит, что задача принята.
+      pushMsg(t, stepForTask, {
+        id: statusId,
+        role: "assistant",
+        text: "⏳ В очереди…",
+        step: stepForTask,
+        queueStatus: "queued",
+        createdAt: Date.now(),
+      });
     });
+    // Сразу освобождаем композер и вложения — пользователь может писать дальше.
     setComposer("");
     setPendingAttachments([]);
-    
+    if (askModeLocal) setAskMode(false);
 
-    // 1b) If photos attached — recognize them via vision and append to text.
-    let textForAI = combined;
-    if (atts.length) {
-      setAnalyzing(true);
-      updateThread(thread.id, (t) => {
-        pushMsg(t, currentStep, {
-          id: msgId(),
-          role: "assistant",
-          text: `🔍 Распознаю фото (${atts.length})…`,
-          step: currentStep,
-          createdAt: Date.now(),
-        });
+    // Утилиты обновления плейсхолдера статуса.
+    const setStatus = (patch: Partial<ChatMessage>) => {
+      updateThread(threadIdLocal, (t) => {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const m = t.messages[key].find((x) => x.id === statusId);
+          if (m) { Object.assign(m, patch); return; }
+        }
       });
+    };
+    const removeStatus = () => {
+      updateThread(threadIdLocal, (t) => {
+        for (const key of Object.keys(t.messages) as StepId[]) {
+          const i = t.messages[key].findIndex((x) => x.id === statusId);
+          if (i >= 0) { t.messages[key].splice(i, 1); return; }
+        }
+      });
+    };
 
-      if (currentStep === "inspection") {
-        // Для шага «Осмотр»: загружаем фото в постоянное хранилище и просим AI
-        // определить раздел. Найденные — сразу закрепляем за разделом. Не
-        // определённые — выводим чипы выбора раздела в чат.
-        const { classifyInspectionPhotoSection } = await import(
-          "@/lib/carreports/orchestrator"
-        );
-        for (const a of atts) {
-          let up: { url: string; filename: string } | null = null;
-          try {
-            up = await uploadTemporary({
-              filename: a.originalFilename,
-              blob: a.originalBlob,
-              dataUrl: a.dataUrl,
-            });
-          } catch (e) {
-            updateThread(thread.id, (t) => {
-              pushMsg(t, "inspection", {
-                id: msgId(),
-                role: "assistant",
-                text: `⚠️ Не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}`,
-                createdAt: Date.now(),
-              });
-            });
-            continue;
-          }
-          const uploaded = up;
+    void enqueueAI(threadIdLocal, async () => {
+      setStatus({ text: "🔄 Обрабатывается…", queueStatus: "running" });
 
-          const fresh = getThread(thread.id);
-          const section = fresh
-            ? await classifyInspectionPhotoSection(fresh, uploaded.url)
-            : null;
-          if (fresh) {
-            updateThread(thread.id, (t) => {
-              t.aiChatIds = fresh.aiChatIds;
-            });
-          }
-
-
-
-          if (section) {
-            const sectionLabel =
-              INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ?? section;
-            updateThread(thread.id, (t) => {
-              t.draft.inspectionStep.photos.push({
-                section,
-                filename: uploaded.filename,
-                dataUrl: a.dataUrl,
-                url: uploaded.url,
-                remote: true,
-                addedAt: Date.now(),
-              });
-              t.draft.inspectionStep.touched = true;
-              pushMsg(t, "inspection", {
-                id: msgId(),
-                role: "assistant",
-                text: `📌 Закреплено в разделе «${sectionLabel}»`,
-                step: "inspection",
-                attachments: [{ url: uploaded.url, label: a.filename }],
-                createdAt: Date.now(),
-              });
-            });
-          } else {
-            updateThread(thread.id, (t) => {
-              pushMsg(t, "inspection", {
-                id: msgId(),
-                role: "assistant",
-                text: "Не смог определить раздел — выберите вручную:",
-                step: "inspection",
-                kind: "inspectionAttachAssign",
-                pendingPhoto: {
-                  url: uploaded.url,
+      try {
+        // 1b) If photos attached — recognize them via vision and append to text.
+        let textForAI = combined;
+        if (atts.length) {
+          if (stepForTask === "inspection") {
+            // Для шага «Осмотр»: грузим оригиналы и просим AI определить раздел.
+            const { classifyInspectionPhotoSection } = await import(
+              "@/lib/carreports/orchestrator"
+            );
+            for (const a of atts) {
+              let up: { url: string; filename: string } | null = null;
+              try {
+                up = await uploadTemporary({
+                  filename: a.originalFilename,
+                  blob: a.originalBlob,
                   dataUrl: a.dataUrl,
-                  filename: uploaded.filename,
-                  remote: true,
-                },
-                createdAt: Date.now(),
+                });
+              } catch (e) {
+                updateThread(threadIdLocal, (t) => {
+                  pushMsg(t, "inspection", {
+                    id: msgId(),
+                    role: "assistant",
+                    text: `⚠️ Не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}`,
+                    createdAt: Date.now(),
+                  });
+                });
+                continue;
+              }
+              const uploaded = up;
+
+              const fresh = getThread(threadIdLocal);
+              const section = fresh
+                ? await classifyInspectionPhotoSection(fresh, uploaded.url)
+                : null;
+              if (fresh) {
+                updateThread(threadIdLocal, (t) => {
+                  t.aiChatIds = fresh.aiChatIds;
+                });
+              }
+
+              if (section) {
+                const sectionLabel =
+                  INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ?? section;
+                updateThread(threadIdLocal, (t) => {
+                  t.draft.inspectionStep.photos.push({
+                    section,
+                    filename: uploaded.filename,
+                    dataUrl: a.dataUrl,
+                    url: uploaded.url,
+                    remote: true,
+                    addedAt: Date.now(),
+                  });
+                  t.draft.inspectionStep.touched = true;
+                  pushMsg(t, "inspection", {
+                    id: msgId(),
+                    role: "assistant",
+                    text: `📌 Закреплено в разделе «${sectionLabel}»`,
+                    step: "inspection",
+                    attachments: [{ url: uploaded.url, label: a.filename }],
+                    createdAt: Date.now(),
+                  });
+                });
+              } else {
+                updateThread(threadIdLocal, (t) => {
+                  pushMsg(t, "inspection", {
+                    id: msgId(),
+                    role: "assistant",
+                    text: "Не смог определить раздел — выберите вручную:",
+                    step: "inspection",
+                    kind: "inspectionAttachAssign",
+                    pendingPhoto: {
+                      url: uploaded.url,
+                      dataUrl: a.dataUrl,
+                      filename: uploaded.filename,
+                      remote: true,
+                    },
+                    createdAt: Date.now(),
+                  });
+                });
+              }
+            }
+          } else {
+            const recognized = await analyzeAttachments(atts, stepForTask, combined);
+            if (recognized) {
+              updateThread(threadIdLocal, (t) => {
+                pushMsg(t, stepForTask, {
+                  id: msgId(),
+                  role: "assistant",
+                  text: `📄 Распознано с фото:\n${recognized}`,
+                  step: stepForTask,
+                  createdAt: Date.now(),
+                });
               });
-            });
+              textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+            }
           }
         }
-        setAnalyzing(false);
-      } else {
-        const recognized = await analyzeAttachments(atts, currentStep, combined);
-        setAnalyzing(false);
-        if (recognized) {
-          updateThread(thread.id, (t) => {
-            pushMsg(t, currentStep, {
+
+        // Q&A mode: free-form question, no draft mutation.
+        if (askModeLocal) {
+          const fresh = getThread(threadIdLocal);
+          if (!fresh) return;
+          const stepLabel = FLOW_STEPS.find((s) => s.id === stepForTask)?.label ?? stepForTask;
+          const answer = await askQuestion(stepForTask, textForAI || combined, fresh, stepLabel);
+          updateThread(threadIdLocal, (t) => {
+            pushMsg(t, stepForTask, {
               id: msgId(),
               role: "assistant",
-              text: `📄 Распознано с фото:\n${recognized}`,
-              step: currentStep,
+              text: answer,
+              step: stepForTask,
               createdAt: Date.now(),
             });
           });
-          textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
+          return;
         }
-      }
-    }
 
-
-
-    // Q&A mode: free-form question, no draft mutation.
-    if (askMode) {
-      try {
-        const fresh = getThread(thread.id);
+        const fresh = getThread(threadIdLocal);
         if (!fresh) return;
-        const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
-        const answer = await askQuestion(currentStep, textForAI || combined, fresh, stepLabel);
-        updateThread(thread.id, (t) => {
-          pushMsg(t, currentStep, {
+        const prevVin = fresh.draft.carStep.vin;
+        const onClarify = (entry: { kind: "ai" | "web"; label: string; detail?: string }) => {
+          const icon = entry.kind === "web" ? "🌐" : "🧠";
+          updateThread(threadIdLocal, (t) => {
+            pushMsg(t, stepForTask, {
+              id: msgId(),
+              role: "assistant",
+              text: `${icon} ${entry.label}${entry.detail ? `\n${entry.detail}` : ""}`,
+              step: stepForTask,
+              createdAt: Date.now(),
+            });
+          });
+        };
+        const { patch, reply, attachments, chips } = await extractForStep(stepForTask, textForAI || combined, fresh, { onClarify });
+        updateThread(threadIdLocal, (t) => {
+          Object.assign(t.draft, patch);
+          if (reply) {
+            pushMsg(t, stepForTask, {
+              id: msgId(),
+              role: "assistant",
+              text: reply,
+              step: stepForTask,
+              ...(attachments && attachments.length ? { attachments } : {}),
+              ...(chips && chips.length
+                ? { chips, optionsStep: stepForTask, selectedChipValues: [] }
+                : {}),
+              createdAt: Date.now(),
+            });
+          }
+          const nextAsk = nextMissingPrompt(stepForTask, t.draft);
+          const remaining = remainingFieldLabels(stepForTask, t.draft);
+          const remainingHint = remaining.length
+            ? `\n📋 Ещё не заполнено: ${remaining.slice(0, 6).join(", ")}${remaining.length > 6 ? "…" : ""}.`
+            : "";
+          const tailLine = nextAsk
+            ? `➡️ ${nextAsk}${remainingHint}`
+            : `✅ Шаг заполнен. ${optionalHintSentence(stepForTask, t.draft)}`;
+          if (tailLine) {
+            pushMsg(t, stepForTask, {
+              id: msgId(),
+              role: "assistant",
+              text: tailLine,
+              step: stepForTask,
+              createdAt: Date.now(),
+            });
+          }
+          if (stepForTask === "car" && !t.draft.reportName) {
+            const c = t.draft.carStep;
+            t.title = c.vin
+              ? `Отчёт · VIN ${c.vin.slice(-6)}`
+              : c.gosNumber
+                ? `Отчёт · ${c.gosNumber}`
+                : "Новый отчёт";
+          }
+        });
+        // After car extract: if VIN newly known, decode it and fill characteristics
+        if (stepForTask === "car") {
+          const after = getThread(threadIdLocal);
+          const newVin = after?.draft.carStep.vin;
+          if (newVin && newVin !== prevVin && newVin.length >= 11) {
+            void doVinDecode();
+          }
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Ошибка ИИ";
+        updateThread(threadIdLocal, (t) => {
+          pushMsg(t, stepForTask, {
             id: msgId(),
             role: "assistant",
-            text: answer,
-            step: currentStep,
+            text: `⚠️ ${message}`,
             createdAt: Date.now(),
           });
         });
       } finally {
-        setAskMode(false);
-        setBusy(false);
+        removeStatus();
       }
-      return;
-    }
+    });
+  }, [thread, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, pendingAttachments, analyzeAttachments]);
 
-    try {
-      const fresh = getThread(thread.id);
-      if (!fresh) return;
-      const prevVin = fresh.draft.carStep.vin;
-      const onClarify = (entry: { kind: "ai" | "web"; label: string; detail?: string }) => {
-        const icon = entry.kind === "web" ? "🌐" : "🧠";
-        updateThread(thread.id, (t) => {
-          pushMsg(t, currentStep, {
-            id: msgId(),
-            role: "assistant",
-            text: `${icon} ${entry.label}${entry.detail ? `\n${entry.detail}` : ""}`,
-            step: currentStep,
-            createdAt: Date.now(),
-          });
-        });
-      };
-      const { patch, reply, attachments, chips } = await extractForStep(currentStep, textForAI || combined, fresh, { onClarify });
-      updateThread(thread.id, (t) => {
-        Object.assign(t.draft, patch);
-        // Карточка заполнения — только summary/reply, без уточняющих вопросов.
-        if (reply) {
-          pushMsg(t, currentStep, {
-            id: msgId(),
-            role: "assistant",
-            text: reply,
-            step: currentStep,
-            ...(attachments && attachments.length ? { attachments } : {}),
-            ...(chips && chips.length
-              ? { chips, optionsStep: currentStep, selectedChipValues: [] }
-              : {}),
-            createdAt: Date.now(),
-          });
-        }
-        // Уточняющий вопрос / подтверждение шага — отдельным сообщением.
-        const nextAsk = nextMissingPrompt(currentStep, t.draft);
-        const remaining = remainingFieldLabels(currentStep, t.draft);
-        const remainingHint = remaining.length
-          ? `\n📋 Ещё не заполнено: ${remaining.slice(0, 6).join(", ")}${remaining.length > 6 ? "…" : ""}.`
-          : "";
-        const tailLine = nextAsk
-          ? `➡️ ${nextAsk}${remainingHint}`
-          : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
-        if (tailLine) {
-          pushMsg(t, currentStep, {
-            id: msgId(),
-            role: "assistant",
-            text: tailLine,
-            step: currentStep,
-            createdAt: Date.now(),
-          });
-        }
-        if (currentStep === "car" && !t.draft.reportName) {
-          const c = t.draft.carStep;
-          t.title = c.vin
-            ? `Отчёт · VIN ${c.vin.slice(-6)}`
-            : c.gosNumber
-              ? `Отчёт · ${c.gosNumber}`
-              : "Новый отчёт";
-        }
-      });
-      // After car extract: if VIN newly known, decode it and fill characteristics
-      if (currentStep === "car") {
-        const after = getThread(thread.id);
-        const newVin = after?.draft.carStep.vin;
-        if (newVin && newVin !== prevVin && newVin.length >= 11) {
-          void doVinDecode();
-        }
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Ошибка ИИ";
-      updateThread(thread.id, (t) => {
-        pushMsg(t, currentStep, {
-          id: msgId(),
-          role: "assistant",
-          text: `⚠️ ${message}`,
-          createdAt: Date.now(),
-        });
-      });
-    } finally {
-      setBusy(false);
-    }
-  }, [thread, busy, composer, currentStep, advanceStep, askMode, doVinDecode, lastOptionsMsgId, currentStepMessages, pendingAttachments, analyzeAttachments]);
 
 
   function jumpTo(step: StepId) {
@@ -1317,12 +1336,15 @@ export function ChatApp({ threadId }: Props) {
 
         ))}
 
-        {busy && (
+        {(busy || queueSize > 0) && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
-            ИИ-ассистент думает…
+            {queueSize > 0
+              ? `ИИ обрабатывает запросы… (в очереди: ${queueSize})`
+              : "ИИ-ассистент думает…"}
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </main>
 
@@ -1532,11 +1554,6 @@ export function ChatApp({ threadId }: Props) {
                 </button>
               </div>
             ))}
-            {analyzing && (
-              <div className="h-16 px-2 flex items-center gap-1.5 text-xs text-white/70">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> распознаю…
-              </div>
-            )}
           </div>
         )}
         <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
@@ -1616,14 +1633,13 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => void submit()}
             disabled={
-              busy ||
-              analyzing ||
-              (!composer.trim() &&
-                pendingAttachments.length === 0 &&
-                !(lastOptionsMsgId &&
-                  (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
-                    ?.selectedChipValues?.length ?? 0) > 0))
+              !composer.trim() &&
+              pendingAttachments.length === 0 &&
+              !(lastOptionsMsgId &&
+                (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                  ?.selectedChipValues?.length ?? 0) > 0)
             }
+
             className="h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
             aria-label="Отправить и перейти дальше"
           >
