@@ -10,7 +10,7 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
       const hasVin = !!c.vin && c.vin.length >= 11;
-      return hasVin && !!c.mileage && !!c.cityInspection && !!c.dateInspection
+      return hasVin && !!c.mileage && !!c.dateInspection && !!ch.year
         && !!ch.brandName && !!ch.modelCarName;
     }
     case "characteristics": {
@@ -47,13 +47,8 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
       if (!c.vin) return "Продиктуйте VIN автомобиля (17 символов). Если VIN нечитаемый — назовите госномер, подтянем VIN автоматически. Либо загрузите фото документа (СТС или ПТС) — распознаем VIN и характеристики авто.";
       if (!ch.brandName || !ch.modelCarName) return "Назовите марку и модель автомобиля.";
       if (!c.mileage) return "Какой пробег по одометру? (км)";
-      if (!c.cityInspection) return "В каком городе проводится осмотр?";
       if (!c.dateInspection) return "Выберите дату осмотра (по умолчанию — сегодня).";
       if (!ch.year) return "Какой год выпуска?";
-      if (!ch.engineType) return "Тип двигателя: Бензин / Дизель / Гибрид / Электро / Газ/Бензин?";
-      if (!ch.transmission) return "Тип КПП: АКПП / МКПП / Робот / Вариатор?";
-      if (!ch.driveType) return "Привод: Передний / Задний / Полный?";
-      if (!ch.color) return "Какого цвета автомобиль?";
       return null;
     }
     case "docs": {
@@ -164,6 +159,11 @@ export function missingOptionalFields(id: StepId, d: ReportDraft): string[] {
     case "car": {
       const c = d.carStep ?? {};
       const ch = d.characteristicsStep ?? {};
+      if (!c.cityInspection) out.push("город осмотра");
+      if (!ch.engineType) out.push("тип двигателя");
+      if (!ch.transmission) out.push("КПП");
+      if (!ch.driveType) out.push("привод");
+      if (!ch.color) out.push("цвет");
       if (!c.gosNumber) out.push("госномер");
       if (!c.uriListing) out.push("ссылку на объявление");
       if (!c.visuallyMileageNotMatchCondition) out.push("отметку, если пробег не соответствует состоянию");
