@@ -189,8 +189,16 @@ export interface ChatMessage {
   /** image attachments (brand/model/generation pictures, etc.) */
   attachments?: MessageAttachment[];
   /** custom message variants rendered with a domain-specific card */
-  kind?: "passport" | "docsPassport" | "inspectionChips";
+  kind?:
+    | "passport"
+    | "docsPassport"
+    | "inspectionChips"
+    | "inspectionUploadPrompt"
+    | "inspectionCollage";
+  /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
+  sectionSnake?: string;
   createdAt: number;
+
 }
 
 export type StepMessages = Record<StepId, ChatMessage[]>;
