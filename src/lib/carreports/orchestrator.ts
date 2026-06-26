@@ -405,13 +405,38 @@ export async function extractForStep(
         charPatch.year = Number(data.year);
         charTouched = true;
       }
-      const generationHint =
+      let generationHint =
         typeof data.generationHint === "string" ? data.generationHint : undefined;
+
+      // Если пользователь явно говорит про поколение/рестайлинг («выбери поколение 2»,
+      // «второе поколение, рестайлинг 1», «II поколение») — это уточнение по уже
+      // выбранной машине. Подхватываем brand/model/year из текущего черновика и
+      // форсим пересчёт через resolveCar, иначе charTouched остаётся false и
+      // генерация никогда не обновится.
+      const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      if (mentionsGen) {
+        if (!generationHint) generationHint = text;
+        const prevChar = thread.draft.characteristicsStep;
+        if (!charPatch.brandName && prevChar.brandName) {
+          charPatch.brandName = prevChar.brandName;
+          charTouched = true;
+        }
+        if (!charPatch.modelCarName && prevChar.modelCarName) {
+          charPatch.modelCarName = prevChar.modelCarName;
+          charTouched = true;
+        }
+        if (!charPatch.year && prevChar.year) {
+          charPatch.year = prevChar.year;
+          charTouched = true;
+        }
+        if (charPatch.brandName && charPatch.modelCarName) charTouched = true;
+      }
 
       let catalogNote = "";
       const attachments: MessageAttachment[] = [];
       const chips: ChatChip[] = [];
       if (charTouched && charPatch.brandName && charPatch.modelCarName) {
+
         const { resolveCar } = await import("./carCatalog");
         const resolved = await resolveCar(
           charPatch.brandName,
@@ -529,7 +554,9 @@ export async function extractForStep(
       c.driveType = pickEnum(data.driveType, DRIVE_TYPES) ?? thread.draft.characteristicsStep.driveType;
       if (typeof data.color === "string") c.color = data.color;
       if (typeof data.equipment === "string") c.equipment = data.equipment;
-      const generationHint = typeof data.generationHint === "string" ? data.generationHint : undefined;
+      let generationHint = typeof data.generationHint === "string" ? data.generationHint : undefined;
+      const mentionsGen = /поколени[еяюйя]|рестайлинг/i.test(text);
+      if (mentionsGen && !generationHint) generationHint = text;
       const merged: CharacteristicsStep = { ...thread.draft.characteristicsStep, ...c };
 
       // Если есть бренд+модель — асинхронно подобрать modelCarId и frameId
@@ -542,7 +569,11 @@ export async function extractForStep(
         const brandModelChanged =
           prev.brandName !== merged.brandName || prev.modelCarName !== merged.modelCarName;
         const needsResolve =
-          brandModelChanged || !merged.modelCarId || (merged.year && !merged.modelGenerationRestylingFrameId);
+          brandModelChanged ||
+          !merged.modelCarId ||
+          (merged.year && !merged.modelGenerationRestylingFrameId) ||
+          mentionsGen;
+
         if (needsResolve) {
           const resolved = await resolveCar(merged.brandName, merged.modelCarName, merged.year, {
             thread,
