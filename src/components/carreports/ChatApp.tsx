@@ -1019,7 +1019,10 @@ export function ChatApp({ threadId }: Props) {
 
   const filled = filledCount(thread.draft);
   const stepDef = stepById(currentStep);
-  const hasCurrentStepDraft = summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
+  // Для шага «осмотр» карандаш доступен всегда — это вход в панель редактирования.
+  const hasCurrentStepDraft =
+    currentStep === "inspection" ||
+    summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white">
