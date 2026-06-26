@@ -56,8 +56,15 @@ export function useVoiceRecorder(opts: { onText: (text: string) => void; languag
           form.append("file", blob, `voice.${(rec.mimeType.split("/")[1] || "webm").split(";")[0]}`);
           form.append("language", language);
           const r = await fetch("/api/transcribe", { method: "POST", body: form });
-          const j = (await r.json()) as { text?: string; error?: string };
-          if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+          const j = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
+          if (!r.ok || j.error) {
+            const rawError = j.error || `HTTP ${r.status}`;
+            const friendlyError =
+              r.status === 402 || /payment_required|not enough credits/i.test(rawError)
+                ? "Недостаточно кредитов для надиктовки. Пополните баланс Lovable AI."
+                : rawError;
+            throw new Error(friendlyError);
+          }
           const text = (j.text ?? "").trim();
           if (text) onText(text);
           setState("idle");

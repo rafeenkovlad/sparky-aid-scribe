@@ -1794,6 +1794,7 @@ export function ChatApp({ threadId }: Props) {
           const isExpanded =
             composerFocused ||
             pendingAttachments.length > 0 ||
+            voice.state === "error" ||
             voice.state === "recording" ||
             voice.state === "transcribing";
           const maxComposerH = () =>
@@ -1884,13 +1885,18 @@ export function ChatApp({ threadId }: Props) {
                       className={
                         "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 " +
                         // Внизу — место под кнопки + ещё пара строк, чтобы текст под ними можно было прокрутить и прочитать.
-                        "pb-24 " +
+                        (voice.error ? "pb-32 " : "pb-24 ") +
                         (composerHeight != null
                           ? "resize-none "
                           : "min-h-[88px] max-h-[60vh] resize-y ") +
                         (askMode ? "placeholder:text-sky-300/60" : "")
                       }
                     />
+                    {voice.error && (
+                      <div className="pointer-events-none absolute bottom-14 left-3 right-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-[12px] leading-snug text-red-100">
+                        {voice.error}
+                      </div>
+                    )}
                     <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex items-end justify-between gap-2">
                       <button
                         type="button"
