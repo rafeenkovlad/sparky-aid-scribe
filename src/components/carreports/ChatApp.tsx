@@ -1799,8 +1799,8 @@ export function ChatApp({ threadId }: Props) {
           return (
             <div
               className={
-                "mx-auto transition-[max-width] duration-300 ease-out " +
-                (isExpanded ? "max-w-full" : "max-w-[260px]")
+                "mx-auto transition-[width] duration-300 ease-out " +
+                (isExpanded ? "w-full" : "w-[260px] max-w-full")
               }
             >
               <div
