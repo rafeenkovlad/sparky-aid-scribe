@@ -1049,6 +1049,7 @@ export async function resolveGenerationByModelId(
     modelCarName?: string;
     brandImage?: string;
     modelImage?: string;
+    onTrace?: (entry: ClarifyTraceEntry) => void;
   },
 ): Promise<ResolvedCar> {
   const trace: ResolvedCar["trace"] = [];
@@ -1068,6 +1069,7 @@ export async function resolveGenerationByModelId(
       year: opts.year,
       thread: opts.thread,
       trace,
+      onTrace: opts.onTrace,
     });
   } catch {
     return partial;
