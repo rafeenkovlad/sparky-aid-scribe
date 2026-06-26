@@ -465,7 +465,19 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const prevVin = fresh.draft.carStep.vin;
-      const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh);
+      const onClarify = (entry: { kind: "ai" | "web"; label: string; detail?: string }) => {
+        const icon = entry.kind === "web" ? "🌐" : "🧠";
+        updateThread(thread.id, (t) => {
+          pushMsg(t, currentStep, {
+            id: msgId(),
+            role: "assistant",
+            text: `${icon} ${entry.label}${entry.detail ? `\n${entry.detail}` : ""}`,
+            step: currentStep,
+            createdAt: Date.now(),
+          });
+        });
+      };
+      const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh, { onClarify });
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         const nextAsk = nextMissingPrompt(currentStep, t.draft);
