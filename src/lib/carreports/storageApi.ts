@@ -201,8 +201,19 @@ const SECTION_DOC_TO_TYPE: Record<string, string> = {
  * elements we send safe defaults and skip note/tags.
  */
 function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
-  const out: Record<string, Record<string, unknown[]>> = {};
-  for (const s of INSPECTION_SECTIONS) out[s.doc] = {};
+  // Pre-populate every section with all required collection keys (empty arrays)
+  // so DTO validation does not reject missing properties.
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const s of INSPECTION_SECTIONS) {
+    const section: Record<string, unknown> = {};
+    for (const el of s.elements) section[el.collection] = [];
+    // BodySectionDTO additionally requires section-level paintwork range.
+    if (s.doc === "bodySection") {
+      section.paintworkThicknessFrom = 80;
+      section.paintworkThicknessTo = 200;
+    }
+    out[s.doc] = section;
+  }
 
   const findings = draft.inspectionStep.findings ?? {};
   const zonesCovered = new Set<string>();
@@ -220,7 +231,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     },
   ) => {
     const hasFile = opts.hasFile === true;
-    const base = {
+    return {
       file: null,
       paintworkThicknessFrom: 80,
       paintworkThicknessTo: 200,
@@ -232,7 +243,6 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
       sectionType,
       elementType: camelToSnake(elementId),
     };
-    return base;
   };
 
   // 1) Structured findings → exact element collection.
@@ -242,11 +252,11 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     const el = section.elements.find((e) => e.id === f.elementId);
     if (!el) continue;
     const sec = out[section.doc];
-    const arr = (sec[el.collection] as unknown[] | undefined) ?? [];
+    const arr = (sec[el.collection] as unknown[]) ?? [];
     const sectionType = SECTION_DOC_TO_TYPE[section.doc] ?? section.snake;
     arr.push(
       makeElement(sectionType, el.id, {
-        hasFile: false, // photos not yet attached as FileDTO here
+        hasFile: false,
         noDamage: f.noDamage,
         seriousDamageTags: f.seriousDamageTagIds,
         noSeriousDamageTags: f.noSeriousDamageTagIds,
@@ -269,9 +279,8 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     const general = section.elements.find((e) => e.id === "generalCondition");
     if (!general) continue;
     const sec = out[section.doc];
-    const arr = (sec[general.collection] as unknown[] | undefined) ?? [];
+    const arr = (sec[general.collection] as unknown[]) ?? [];
     const sectionType = SECTION_DOC_TO_TYPE[section.doc] ?? section.snake;
-    // Без файла нельзя слать note — добавим элемент-заглушку "осмотрен".
     arr.push(makeElement(sectionType, general.id, { hasFile: false }));
     sec[general.collection] = arr;
   }
