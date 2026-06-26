@@ -148,7 +148,10 @@ export interface ChatChip {
   image?: string;
   /** optional sub-label (e.g. years range) */
   description?: string;
+  /** optional visible section header — chips with the same groupLabel render together under it */
+  groupLabel?: string;
 }
+
 
 export interface MessageAttachment {
   url: string;
