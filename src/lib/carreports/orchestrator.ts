@@ -768,6 +768,7 @@ export async function extractForStep(
               year: resolveYear,
               brandName: merged.brandName,
               modelCarName: merged.modelCarName,
+              onTrace: opts?.onClarify,
             });
           } else {
             const { resolveCar } = await import("./carCatalog");
@@ -775,6 +776,7 @@ export async function extractForStep(
               thread,
               userText: text,
               generationHint: resolveHint,
+              onTrace: opts?.onClarify,
             });
           }
           if (resolved.modelCarId) {
