@@ -87,8 +87,9 @@ export function InspectionCollage(props: {
   interactive: boolean;
   onPick: (files: File[]) => void;
   onOpenPhoto: (photoIdx: number) => void;
+  onDeletePhoto?: (photoIdx: number) => void;
 }) {
-  const { ins, sectionSnake, interactive, onPick, onOpenPhoto } = props;
+  const { ins, sectionSnake, interactive, onPick, onOpenPhoto, onDeletePhoto } = props;
   const section = getSection(sectionSnake);
   const list = useMemo(() => photosForSection(ins, sectionSnake), [ins, sectionSnake]);
   const moreRef = useRef<HTMLInputElement>(null);
