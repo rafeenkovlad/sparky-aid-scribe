@@ -71,7 +71,7 @@ import {
   InspectionUploadPrompt,
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
-import type { UserTag } from "@/lib/carreports/inspectionTags";
+import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
