@@ -794,63 +794,88 @@ function tagChip(tone: "serious" | "minor", selected: boolean): string {
 }
 
 
-function NoteBlock(props: {
-  note?: string;
-  proposal?: NoteProposal | null;
+// ─── Чат-обёртки ──────────────────────────────────────────────────────────
+
+function Caption(props: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] uppercase tracking-wide text-white/40 px-1">
+      {props.children}
+    </div>
+  );
+}
+
+function AssistantBubble(props: {
+  children: React.ReactNode;
+  tone?: "default" | "ai" | "hint" | "error";
+}) {
+  const tone = props.tone ?? "default";
+  const cls =
+    tone === "ai"
+      ? "border-violet-400/30 bg-violet-500/10"
+      : tone === "error"
+        ? "border-rose-500/30 bg-rose-500/10"
+        : tone === "hint"
+          ? "border-dashed border-white/15 bg-transparent"
+          : "border-white/10 bg-white/[0.04]";
+  return (
+    <div className="flex justify-start">
+      <div
+        className={
+          "max-w-[92%] rounded-2xl rounded-tl-md border text-sm px-3 py-2.5 text-white " +
+          cls
+        }
+      >
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+function UserBubble(props: { children: React.ReactNode }) {
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-orange-500 text-white text-sm px-3 py-2 whitespace-pre-wrap">
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+function NoteProposalContent(props: {
+  proposal: NoteProposal;
   onPickOriginal?: () => void;
   onPickAi?: () => void;
   onDismiss?: () => void;
 }) {
-  const { note, proposal, onPickOriginal, onPickAi, onDismiss } = props;
+  const { proposal, onPickOriginal, onPickAi, onDismiss } = props;
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wide text-white/45 mb-1.5">
-        Заметка
+    <div className="space-y-2">
+      {onDismiss && (
+        <div className="flex justify-end">
+          <button
+            onClick={onDismiss}
+            className="h-5 w-5 rounded-full hover:bg-white/10 text-white/60 flex items-center justify-center"
+            aria-label="Скрыть"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+      <div className="grid gap-2">
+        <ProposalRow
+          kind="original"
+          picked={proposal.picked === "original"}
+          text={proposal.original}
+          onPick={onPickOriginal}
+        />
+        <ProposalRow
+          kind="ai"
+          picked={proposal.picked === "ai"}
+          text={proposal.ai ?? ""}
+          loading={proposal.loading}
+          onPick={onPickAi}
+        />
       </div>
-      {note ? (
-        <div className="rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-[13px] text-white whitespace-pre-wrap">
-          {note}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-white/15 px-3 py-2 text-[12px] text-white/45">
-          💬 Напишите заметку в композере ниже — Enter сохранит её к этому фото.
-        </div>
-      )}
-
-      {proposal && (
-        <div className="mt-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] uppercase tracking-wide text-violet-200/85 flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3" /> Вариант ИИ
-            </div>
-            {onDismiss && (
-              <button
-                onClick={onDismiss}
-                className="h-5 w-5 rounded-full hover:bg-white/10 text-white/60 flex items-center justify-center"
-                aria-label="Скрыть"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <ProposalRow
-              kind="original"
-              picked={proposal.picked === "original"}
-              text={proposal.original}
-              onPick={onPickOriginal}
-            />
-            <ProposalRow
-              kind="ai"
-              picked={proposal.picked === "ai"}
-              text={proposal.ai ?? ""}
-              loading={proposal.loading}
-              onPick={onPickAi}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
