@@ -463,8 +463,9 @@ function TagRow(props: {
   pending: PendingTagName[];
   onTap: (t: UserTag) => void;
   onTogglePending: (name: string) => void;
+  onAdd: (name: string) => void;
 }) {
-  const { tone, label, tags, selected, pending, onTap, onTogglePending } = props;
+  const { tone, label, tags, selected, pending, onTap, onTogglePending, onAdd } = props;
   const sorted = useMemo(() => {
     const sel: UserTag[] = [];
     const rest: UserTag[] = [];
@@ -473,6 +474,18 @@ function TagRow(props: {
   }, [tags, selected]);
   const count = selected.size + pending.length;
   const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const submitAdd = () => {
+    const n = draft.trim();
+    if (!n) {
+      setAdding(false);
+      return;
+    }
+    onAdd(n);
+    setDraft("");
+    setAdding(false);
+  };
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wide text-white/45">
@@ -484,43 +497,82 @@ function TagRow(props: {
           </span>
         )}
       </div>
-      {sorted.length === 0 && pending.length === 0 ? (
-        <div className="text-[11px] text-white/35 italic">
-          Каталог пуст. Добавьте свой тег ниже.
-        </div>
-      ) : (
-        <div className="-mx-3 px-3 overflow-x-auto">
-          <div className="flex gap-1.5 w-max pb-0.5">
-            {sorted.map((t) => {
-              const sel = selected.has(t.id);
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => onTap(t)}
-                  className={tagChip(tone, sel)}
-                >
-                  {sel && <Check className="h-3 w-3 -ml-0.5" />}
-                  {t.name}
-                </button>
-              );
-            })}
-            {pending.map((p) => (
+      <div className="-mx-3 px-3 overflow-x-auto">
+        <div className="flex gap-1.5 w-max pb-0.5 items-center">
+          {sorted.map((t) => {
+            const sel = selected.has(t.id);
+            return (
               <button
-                key={`pending:${p.name}`}
-                onClick={() => onTogglePending(p.name)}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs text-violet-100 whitespace-nowrap hover:bg-violet-500/25"
-                title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
+                key={t.id}
+                onClick={() => onTap(t)}
+                className={tagChip(tone, sel)}
               >
-                ✨ {p.name}
-                <X className="h-3 w-3 opacity-70" />
+                {sel && <Check className="h-3 w-3 -ml-0.5" />}
+                {t.name}
               </button>
-            ))}
-          </div>
+            );
+          })}
+          {pending.map((p) => (
+            <button
+              key={`pending:${p.name}`}
+              onClick={() => onTogglePending(p.name)}
+              className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs text-violet-100 whitespace-nowrap hover:bg-violet-500/25"
+              title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
+            >
+              ✨ {p.name}
+              <X className="h-3 w-3 opacity-70" />
+            </button>
+          ))}
+          {sorted.length === 0 && pending.length === 0 && !adding && (
+            <span className="text-[11px] text-white/35 italic pr-1">
+              Каталог пуст — добавьте свой
+            </span>
+          )}
+          {adding ? (
+            <form
+              className="inline-flex items-center gap-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitAdd();
+              }}
+            >
+              <input
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={submitAdd}
+                placeholder={
+                  tone === "serious" ? "новый серьёзный" : "новый мелкий"
+                }
+                className={
+                  "rounded-full border bg-white/[0.06] px-2.5 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none w-36 " +
+                  (tone === "serious"
+                    ? "border-rose-400/50 focus:border-rose-400"
+                    : "border-amber-400/50 focus:border-amber-400")
+                }
+              />
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className={
+                "inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs whitespace-nowrap transition-colors " +
+                (tone === "serious"
+                  ? "border-rose-400/40 text-rose-100/80 hover:bg-rose-500/10"
+                  : "border-amber-400/40 text-amber-100/80 hover:bg-amber-500/10")
+              }
+            >
+              <Plus className="h-3 w-3" /> свой
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
+
+
 
 
 function tagChip(tone: "serious" | "minor", selected: boolean): string {
