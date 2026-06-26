@@ -74,7 +74,7 @@ import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementF
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
-import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
+import { ensurePhotoAccessible, preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
@@ -767,7 +767,25 @@ export function ChatApp({ threadId }: Props) {
           note: string;
         };
         if (photoFocus.url) {
-          const v = await analyzeInspectionPhoto(fresh, sec, photoFocus.url, text);
+          // Проверяем, что фото всё ещё доступно по presigned URL — иначе
+          // перезаливаем во временное хранилище из локального превью.
+          const usableUrl = await ensurePhotoAccessible({
+            url: photoFocus.url,
+            dataUrl: photoFocus.dataUrl,
+            filename: photoFocus.filename,
+          });
+          if (usableUrl && usableUrl !== photoFocus.url) {
+            updateThread(thread.id, (t) => {
+              const pp = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
+              if (pp) pp.url = usableUrl;
+            });
+          }
+          const v = await analyzeInspectionPhoto(
+            fresh,
+            sec,
+            usableUrl ?? photoFocus.url,
+            text,
+          );
           r = {
             noDamage: v.noDamage,
             seriousTagIds: v.seriousTagIds,
@@ -956,10 +974,21 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id);
       if (!fresh) return;
       const hint = composer.trim();
+      const usableUrl = await ensurePhotoAccessible({
+        url: photoFocus.url,
+        dataUrl: photoFocus.dataUrl,
+        filename: photoFocus.filename,
+      });
+      if (usableUrl && usableUrl !== photoFocus.url) {
+        updateThread(thread.id, (t) => {
+          const pp = t.draft.inspectionStep.photos[photoFocusIdx];
+          if (pp) pp.url = usableUrl;
+        });
+      }
       const r = await analyzeInspectionPhoto(
         fresh,
         photoFocus.section as SectionSnake,
-        photoFocus.url,
+        usableUrl ?? photoFocus.url,
         hint || undefined,
       );
       updateThread(thread.id, (t) => {
