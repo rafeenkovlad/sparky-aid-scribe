@@ -858,6 +858,42 @@ async function pickGenerationForModel(
   };
 
   if (!frame) {
+    if (restylingChoiceGroup) {
+      // Коллаж только рестайлингов выбранного поколения.
+      const gNum = restylingChoiceGroup.number;
+      const genLabel =
+        gNum != null ? `Поколение ${gNum}` : (restylingChoiceGroup.name || "Поколение");
+      const restylingChips: CatalogSuggestion[] = restylingChoiceGroup.items.map((f) => {
+        const years =
+          f.yearStart || f.yearEnd
+            ? `${f.yearStart ?? "?"}–${f.yearEnd ?? "н.в."}`
+            : "";
+        const rNum = f.restylingNumber;
+        const restLabel =
+          rNum === 0
+            ? "Базовый"
+            : rNum != null
+              ? `Рестайлинг ${rNum}`
+              : (f.restylingName ?? "Вариант");
+        const value =
+          rNum != null
+            ? `Поколение ${gNum ?? "?"}, рестайлинг ${rNum}`
+            : `Поколение ${gNum ?? "?"} ${f.restylingName ?? ""}`.trim();
+        return {
+          group: "generation" as const,
+          label: `${genLabel} · ${restLabel}`,
+          value,
+          ...(f.urlImage ? { image: f.urlImage } : {}),
+          ...(years ? { description: years } : {}),
+        };
+      });
+      return {
+        ...partial,
+        restylingChoiceRequired: true,
+        pendingGenerationLabel: genLabel,
+        suggestions: [...(partial.suggestions ?? []), ...restylingChips],
+      };
+    }
     return {
       ...partial,
       generationNotFound: notFound,
