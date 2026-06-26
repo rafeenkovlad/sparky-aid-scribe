@@ -1658,6 +1658,7 @@ function MessageBubble({
   onNextElement,
   onPickInspectionPhotos,
   onOpenAnnotator,
+  onAssignPendingPhoto,
 }: BubbleProps) {
 
 
