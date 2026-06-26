@@ -559,14 +559,18 @@ export async function resolveCar(
       brand = bestMatch(brands, brandHintOrName);
       brandConf = brand ? 0.4 : 0;
     }
-    trace.push({
-      step: "brand",
-      candidates: brands.length,
-      pickedId: brand?.id ?? null,
-      confidence: brandConf,
-      needsWeb: brandWebUsed,
-      reason: brandReason,
-    });
+    {
+      const entry = {
+        step: "brand" as const,
+        candidates: brands.length,
+        pickedId: brand?.id ?? null,
+        confidence: brandConf,
+        needsWeb: brandWebUsed,
+        reason: brandReason,
+      };
+      trace.push(entry);
+      emitResolved(entry);
+    }
     if (!brand) return { ...empty, trace };
 
     // [2] Model
