@@ -75,6 +75,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onPickNoteOriginal,
     onPickNoteAi,
     onDismissNoteProposal,
+    aiUpdating,
   } = props;
 
   const photo = ins.photos[photoIdx];
