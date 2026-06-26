@@ -580,7 +580,7 @@ export function ChatApp({ threadId }: Props) {
           });
         });
       };
-      const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh, { onClarify });
+      const { patch, reply, attachments, chips } = await extractForStep(currentStep, textForAI || combined, fresh, { onClarify });
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
         // Карточка заполнения — только summary/reply, без уточняющих вопросов.
