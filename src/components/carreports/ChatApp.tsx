@@ -841,30 +841,17 @@ export function ChatApp({ threadId }: Props) {
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {currentStepMessages.map((m) =>
-          m.kind === "passport" ? (
-            <div key={m.id} className="flex gap-2 items-start">
-              <div className="h-7 w-7 shrink-0 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
-                <img src={logo} alt="" className="h-4 w-4 invert" />
-              </div>
-              <div className="max-w-[85%] space-y-2 min-w-0 flex-1">
-                <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
-                <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white">
-                  <CarChecklist draft={thread.draft} />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <MessageBubble
-              key={m.id}
-              msg={m}
-              interactive={m.id === lastOptionsMsgId}
-              onChipTap={(chip) => insertChip(m.id, chip)}
-              inspectionDateValue={thread.draft.carStep.dateInspection}
-              onInspectionDateChange={setInspectionDate}
-            />
-          ),
-        )}
+        {currentStepMessages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            msg={m}
+            interactive={m.id === lastOptionsMsgId}
+            onChipTap={(chip) => insertChip(m.id, chip)}
+            inspectionDateValue={thread.draft.carStep.dateInspection}
+            onInspectionDateChange={setInspectionDate}
+            draft={thread.draft}
+          />
+        ))}
 
         {busy && (
           <div className="flex items-center gap-2 text-sm text-white/50">
@@ -974,25 +961,41 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              const recap = summarizeStepDraft(currentStep, thread.draft);
               const intro = STEP_INTROS[currentStep];
-              const recapId = `recap-${currentStep}`;
               updateThread(thread.id, (t) => {
-                // Drop any previous recap for this step so repeated clicks
-                // don't clutter the chat — just move it to the end.
-                t.messages[currentStep] = t.messages[currentStep].filter(
-                  (m) => m.id !== recapId,
-                );
-                pushMsg(t, currentStep, {
-                  id: recapId,
-                  role: "assistant",
-                  text: recap || "Текущие значения шага:",
-                  step: currentStep,
-                  chips: intro.chips,
-                  optionsStep: currentStep,
-                  selectedChipValues: [],
-                  createdAt: Date.now(),
-                });
+                if (currentStep === "car") {
+                  // Для шага "автомобиль" вместо текстового рекапа отправляем
+                  // карточку "паспорт авто" с подсказкой по необязательным полям.
+                  const passportId = "passport-car";
+                  t.messages.car = t.messages.car.filter((m) => m.id !== passportId);
+                  pushMsg(t, "car", {
+                    id: passportId,
+                    role: "assistant",
+                    text: optionalHintSentence("car", t.draft),
+                    step: "car",
+                    kind: "passport",
+                    chips: intro.chips,
+                    optionsStep: "car",
+                    selectedChipValues: [],
+                    createdAt: Date.now(),
+                  });
+                } else {
+                  const recap = summarizeStepDraft(currentStep, t.draft);
+                  const recapId = `recap-${currentStep}`;
+                  t.messages[currentStep] = t.messages[currentStep].filter(
+                    (m) => m.id !== recapId,
+                  );
+                  pushMsg(t, currentStep, {
+                    id: recapId,
+                    role: "assistant",
+                    text: recap || "Текущие значения шага:",
+                    step: currentStep,
+                    chips: intro.chips,
+                    optionsStep: currentStep,
+                    selectedChipValues: [],
+                    createdAt: Date.now(),
+                  });
+                }
               });
               textareaRef.current?.focus();
             }}
@@ -1008,16 +1011,18 @@ export function ChatApp({ threadId }: Props) {
             type="button"
             onClick={() => {
               const passportId = "passport-car";
+              const intro = STEP_INTROS.car;
               updateThread(thread.id, (t) => {
-                // Drop any previous passport card so repeated clicks
-                // don't clutter the chat — just move it to the end.
                 t.messages.car = t.messages.car.filter((m) => m.id !== passportId);
                 pushMsg(t, "car", {
                   id: passportId,
                   role: "assistant",
-                  text: "",
+                  text: optionalHintSentence("car", t.draft),
                   step: "car",
                   kind: "passport",
+                  chips: intro.chips,
+                  optionsStep: "car",
+                  selectedChipValues: [],
                   createdAt: Date.now(),
                 });
               });
@@ -1245,6 +1250,7 @@ interface BubbleProps {
   onChipTap: (chip: ChatChip) => void;
   inspectionDateValue?: string;
   onInspectionDateChange: (iso: string) => void;
+  draft?: import("@/lib/carreports/types").ReportDraft;
 }
 
 function MessageBubble({
@@ -1253,6 +1259,7 @@ function MessageBubble({
   onChipTap,
   inspectionDateValue,
   onInspectionDateChange,
+  draft,
 }: BubbleProps) {
 
   if (msg.role === "user") {
@@ -1297,9 +1304,22 @@ function MessageBubble({
       </div>
       <div className="max-w-[85%] space-y-2">
         <div className="text-[10px] uppercase tracking-wide text-white/40">ИИ-ассистент</div>
-        <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
-          {msg.text}
-        </div>
+        {msg.kind === "passport" && draft ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
+            <CarChecklist draft={draft} />
+            {msg.text && (
+              <div className="mt-2 pt-2 border-t border-white/5 text-[12px] text-white/55 whitespace-pre-wrap">
+                {msg.text}
+              </div>
+            )}
+          </div>
+        ) : (
+          msg.text && (
+            <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
+              {msg.text}
+            </div>
+          )
+        )}
         {msg.attachments && msg.attachments.length > 0 && (() => {
           // В сформированных карточках не показываем крупные изображения
           // марки/модели/поколения — оставляем только мелкие миниатюры (если есть).
