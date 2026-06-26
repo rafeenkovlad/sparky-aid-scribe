@@ -1162,7 +1162,7 @@ export function ChatApp({ threadId }: Props) {
                   : STEP_PLACEHOLDERS[currentStep]
             }
             className={`min-h-[44px] max-h-40 resize-none border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 ${
-              askMode ? "ring-1 ring-sky-400/60 rounded-md" : ""
+              askMode ? "placeholder:text-sky-300/60" : ""
             }`}
 
           />
