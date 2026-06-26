@@ -1793,11 +1793,11 @@ export function ChatApp({ threadId }: Props) {
         {(() => {
           const isExpanded =
             composerFocused ||
-            composer.length > 0 ||
             pendingAttachments.length > 0 ||
-            photoFocusIdx !== null ||
             voice.state === "recording" ||
             voice.state === "transcribing";
+          const maxComposerH = () =>
+            Math.max(120, window.innerHeight - 200);
           return (
             <div className="w-full">
               <div
@@ -1821,7 +1821,7 @@ export function ChatApp({ threadId }: Props) {
                       if (!d) return;
                       const next = Math.min(
                         Math.max(44, d.startH + (d.startY - e.clientY)),
-                        window.innerHeight - 80,
+                        maxComposerH(),
                       );
                       setComposerHeight(next);
                     }}
@@ -1837,13 +1837,7 @@ export function ChatApp({ threadId }: Props) {
                     <span className="h-1 w-10 rounded-full bg-white/25" />
                   </div>
                 )}
-                <div
-                  className={
-                    "flex items-end gap-2 transition-all duration-300 " +
-                    (isExpanded ? "p-2" : "p-1.5")
-                  }
-                >
-                {/* Универсальная кнопка вложения — скрыта в свёрнутом состоянии. */}
+
                 <input
                   ref={attachInputRef}
                   type="file"
@@ -1856,120 +1850,170 @@ export function ChatApp({ threadId }: Props) {
                     e.target.value = "";
                   }}
                 />
-                {isExpanded && (
-                  <button
-                    onClick={() => attachInputRef.current?.click()}
-                    className="h-10 w-10 shrink-0 rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white"
-                    aria-label="Прикрепить фото для распознавания"
-                    title="Прикрепить фото (≤2MB, распознаем текст и характеристики)"
-                  >
-                    <Paperclip className="h-5 w-5" />
-                  </button>
-                )}
 
-                <Textarea
-                  ref={textareaRef}
-                  value={composer}
-                  onChange={(e) => setComposer(e.target.value)}
-                  onFocus={() => setComposerFocused(true)}
-                  onBlur={() => setComposerFocused(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      if (photoFocusIdx !== null) savePhotoNote();
-                      else void submit();
-                    }
-                  }}
-                  placeholder={
-                    photoFocusIdx !== null
-                      ? "Заметка к фото… Enter — сохранить, ✨ — добавить тег"
-                      : askMode
-                        ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
-                        : currentStep === "inspection" && cursor
-                          ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
+                {isExpanded ? (
+                  // ── Развёрнутый композер: текст на всю ширину, кнопки оверлеем ──
+                  <div className="relative p-2">
+                    <Textarea
+                      ref={textareaRef}
+                      value={composer}
+                      onChange={(e) => setComposer(e.target.value)}
+                      onFocus={() => setComposerFocused(true)}
+                      onBlur={() => setComposerFocused(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (photoFocusIdx !== null) savePhotoNote();
+                          else void submit();
+                        }
+                      }}
+                      placeholder={
+                        photoFocusIdx !== null
+                          ? "Заметка к фото… Enter — сохранить, ✨ — добавить тег"
+                          : askMode
+                            ? "Спросите ИИ — ответ не запишется в шаг (Enter — отправить)"
+                            : currentStep === "inspection" && cursor
+                              ? `Заметка по «${cursor.element.label}» (раздел «${cursor.section.label}»)… Enter — сохранить`
+                              : STEP_PLACEHOLDERS[currentStep]
+                      }
+                      style={
+                        composerHeight != null
+                          ? { height: composerHeight, minHeight: composerHeight, maxHeight: composerHeight }
+                          : undefined
+                      }
+                      className={
+                        "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 " +
+                        // Внизу — место под кнопки + ещё пара строк, чтобы текст под ними можно было прокрутить и прочитать.
+                        "pb-24 " +
+                        (composerHeight != null
+                          ? "resize-none "
+                          : "min-h-[88px] max-h-[60vh] resize-y ") +
+                        (askMode ? "placeholder:text-sky-300/60" : "")
+                      }
+                    />
+                    <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex items-end justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => attachInputRef.current?.click()}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="pointer-events-auto h-9 w-9 shrink-0 rounded-full bg-zinc-900/85 backdrop-blur hover:bg-zinc-800 flex items-center justify-center text-white ring-1 ring-white/10"
+                        aria-label="Прикрепить фото"
+                        title="Прикрепить фото"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </button>
+                      <div className="flex items-end gap-1.5">
+                        {photoFocusIdx !== null && (
+                          <button
+                            type="button"
+                            onClick={() => void runPhotoAi()}
+                            onMouseDown={(e) => e.preventDefault()}
+                            disabled={photoAiBusy || !photoFocus?.url}
+                            className="pointer-events-auto h-9 w-9 shrink-0 rounded-full bg-violet-600/90 backdrop-blur hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white ring-1 ring-white/10"
+                            aria-label="Распознать тег"
+                            title={photoFocus?.url ? "Распознать ИИ" : "Фото ещё не загружено"}
+                          >
+                            {photoAiBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
+                          onMouseDown={(e) => e.preventDefault()}
+                          disabled={voice.state === "transcribing"}
+                          className={
+                            "pointer-events-auto h-9 w-9 shrink-0 rounded-full backdrop-blur flex items-center justify-center text-white ring-1 ring-white/10 transition-colors " +
+                            (voice.state === "recording"
+                              ? "bg-red-500/90 hover:bg-red-600 animate-pulse"
+                              : "bg-zinc-900/85 hover:bg-zinc-800")
+                          }
+                          aria-label={voice.state === "recording" ? "Остановить запись" : "Голосовой ввод"}
+                          title={voice.error ?? "Голосовой ввод"}
+                        >
+                          {voice.state === "recording" ? (
+                            <Square className="h-3.5 w-3.5 fill-white" />
+                          ) : voice.state === "transcribing" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mic className="h-4 w-4" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            if (photoFocusIdx !== null) savePhotoNote();
+                            else void submit();
+                          }}
+                          disabled={
+                            photoFocusIdx !== null
+                              ? false
+                              : !composer.trim() &&
+                                pendingAttachments.length === 0 &&
+                                !(lastOptionsMsgId &&
+                                  (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                                    ?.selectedChipValues?.length ?? 0) > 0)
+                          }
+                          className="pointer-events-auto h-10 w-10 shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)]"
+                          aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
+                        >
+                          <ArrowUp className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // ── Свёрнутый композер: узкая полоска ─────────────────────
+                  <div className="flex items-center gap-2 p-1.5">
+                    <Textarea
+                      ref={textareaRef}
+                      value={composer}
+                      onChange={(e) => setComposer(e.target.value)}
+                      onFocus={() => setComposerFocused(true)}
+                      onBlur={() => setComposerFocused(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (photoFocusIdx !== null) savePhotoNote();
+                          else void submit();
+                        }
+                      }}
+                      placeholder={
+                        photoFocusIdx !== null
+                          ? "Заметка к фото…"
                           : STEP_PLACEHOLDERS[currentStep]
-                  }
-                  style={
-                    isExpanded && composerHeight != null
-                      ? { height: composerHeight, minHeight: composerHeight, maxHeight: composerHeight }
-                      : undefined
-                  }
-                  className={
-                    "border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height] duration-300 " +
-                    (isExpanded
-                      ? (composerHeight != null ? "resize-none" : "min-h-[44px] max-h-[60vh] resize-y")
-                      : "min-h-[32px] max-h-[32px] py-1 text-sm resize-none") +
-                    (askMode ? " placeholder:text-sky-300/60" : "")
-                  }
-                />
-                {isExpanded && photoFocusIdx !== null && (
-                  <button
-                    onClick={() => void runPhotoAi()}
-                    disabled={photoAiBusy || !photoFocus?.url}
-                    className="h-10 w-10 shrink-0 rounded-full bg-violet-600 hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white"
-                    aria-label="Распознать тег по заметке"
-                    title={photoFocus?.url ? "Распознать ИИ (учитывает заметку)" : "Фото ещё не загружено"}
-                  >
-                    {photoAiBusy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                  </button>
+                      }
+                      className={
+                        "border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 min-h-[32px] max-h-[32px] py-1 text-sm resize-none " +
+                        (askMode ? "placeholder:text-sky-300/60" : "")
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (photoFocusIdx !== null) savePhotoNote();
+                        else void submit();
+                      }}
+                      disabled={
+                        photoFocusIdx !== null
+                          ? false
+                          : !composer.trim() &&
+                            pendingAttachments.length === 0 &&
+                            !(lastOptionsMsgId &&
+                              (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
+                                ?.selectedChipValues?.length ?? 0) > 0)
+                      }
+                      className="shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white h-8 w-8"
+                      aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+                  </div>
                 )}
-                {isExpanded && (
-                  <button
-                    onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
-                    disabled={voice.state === "transcribing"}
-                    className={
-                      "h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-white transition-colors " +
-                      (voice.state === "recording"
-                        ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                        : voice.state === "transcribing"
-                          ? "bg-white/10"
-                          : "bg-white/10 hover:bg-white/15")
-                    }
-                    aria-label={
-                      voice.state === "recording"
-                        ? "Остановить запись"
-                        : voice.state === "transcribing"
-                          ? "Расшифровка…"
-                          : "Голосовой ввод"
-                    }
-                    title={voice.error ?? "Голосовой ввод"}
-                  >
-                    {voice.state === "recording" ? (
-                      <Square className="h-4 w-4 fill-white" />
-                    ) : voice.state === "transcribing" ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Mic className="h-5 w-5" />
-                    )}
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (photoFocusIdx !== null) savePhotoNote();
-                    else void submit();
-                  }}
-                  disabled={
-                    photoFocusIdx !== null
-                      ? false
-                      : !composer.trim() &&
-                        pendingAttachments.length === 0 &&
-                        !(lastOptionsMsgId &&
-                          (currentStepMessages.find((m) => m.id === lastOptionsMsgId)
-                            ?.selectedChipValues?.length ?? 0) > 0)
-                  }
-                  className={
-                    "shrink-0 rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(249,115,22,0.6)] transition-all duration-300 " +
-                    (isExpanded ? "h-10 w-10" : "h-8 w-8")
-                  }
-                  aria-label={photoFocusIdx !== null ? "Сохранить заметку" : "Отправить"}
-                >
-                  <ArrowUp className={isExpanded ? "h-5 w-5" : "h-4 w-4"} />
-                </button>
-                </div>
               </div>
             </div>
           );
