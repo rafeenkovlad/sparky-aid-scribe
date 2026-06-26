@@ -453,7 +453,7 @@ function ElementBlock({
 
 interface TagsAreaProps {
   loading: boolean;
-  verdict: Verdict | null;
+  activeTab: "minor" | "serious";
   serious: UserTag[];
   minor: UserTag[];
   selectedSerious: Set<number>;
@@ -473,7 +473,7 @@ type PendingTagName = { name: string; severity?: "serious" | "non_serious" };
 
 function TagsArea({
   loading,
-  verdict,
+  activeTab,
   serious,
   minor,
   selectedSerious,
@@ -488,8 +488,8 @@ function TagsArea({
   onToggleTag,
   onAddPendingTag,
 }: TagsAreaProps) {
-  // Show only the bucket matching the active verdict — no cross-severity reveal.
-  const primaryIsSerious = verdict === "serious";
+  // Show only the bucket matching the active tab — independent of stored verdict.
+  const primaryIsSerious = activeTab === "serious";
   const primary = primaryIsSerious ? serious : minor;
   const primarySelected = primaryIsSerious ? selectedSerious : selectedMinor;
   const primaryPending = pending.filter((p) =>
