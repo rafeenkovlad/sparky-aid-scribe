@@ -52,6 +52,7 @@ import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLab
 
 import {
   INSPECTION_SECTIONS,
+  findingKey,
   type SectionSnake,
 } from "@/lib/carreports/inspectionSections";
 import {
@@ -63,7 +64,14 @@ import {
   upsertFinding,
 } from "@/lib/carreports/inspectionState";
 import { InspectionChipsCard } from "./InspectionChipsCard";
+import {
+  InspectionCollage,
+  InspectionUploadPrompt,
+  PhotoAnnotator,
+} from "./InspectionCollage";
+import { SectionPickerButton } from "./SectionPickerButton";
 import type { UserTag } from "@/lib/carreports/inspectionTags";
+
 import { preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
