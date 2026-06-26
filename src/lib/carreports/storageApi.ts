@@ -43,11 +43,23 @@ export async function rpc<T = unknown>(
   }
   const json = (await res.json()) as {
     error?: { code: number; message: string };
-    result?: T;
+    errors?: { message?: string; code?: number } | string;
     response?: string;
+    result?: T;
   };
   if (json.error) {
     throw new ApiError(`Storage ${method}: ${json.error.message}`, undefined, json.error.code);
+  }
+  // CarReports backend variant: { response: "error", errors: { message } }.
+  if (json.response === "error" || json.errors) {
+    const msg =
+      typeof json.errors === "string"
+        ? json.errors
+        : (json.errors?.message ?? "Unknown error");
+    const status = /unauthorized/i.test(msg) ? 401 : undefined;
+    const code =
+      json.errors && typeof json.errors === "object" ? json.errors.code : undefined;
+    throw new ApiError(`Storage ${method}: ${msg}`, status, code);
   }
   // Some methods return {result: ...}, others wrap as { result: { result: ... } }.
   return (json.result ?? (json as unknown as T)) as T;
