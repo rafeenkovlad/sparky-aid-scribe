@@ -869,15 +869,7 @@ export async function extractForStep(
             catalogNote = `\n🔎 Каталог: подобрать не удалось (шаг «${last.step}», вариантов ${last.candidates}). Уточните бренд/модель.`;
           }
 
-          // Показать в чате уточняющие запросы нейросети (доп. AI/web вызовы).
-          try {
-            const { formatClarifyTrace, resolvedTraceToClarify } = await import("./carCatalog");
-            const fullClarify = [...clarifyLog, ...resolvedTraceToClarify(resolved)];
-            const note = formatClarifyTrace(fullClarify);
-            if (note) catalogNote = note + catalogNote;
-          } catch {
-            /* ignore — трейс необязателен */
-          }
+          // Уточняющие запросы стримятся отдельными сообщениями через onClarify.
 
           if (!deferGeneration && pendingHint) merged.pendingGenerationHint = null;
         }
