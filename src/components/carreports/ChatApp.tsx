@@ -1000,16 +1000,25 @@ export function ChatApp({ threadId }: Props) {
         {currentStep === "car" && (
           <button
             type="button"
-            onClick={() => setPassportOpen((v) => !v)}
+            onClick={() => {
+              const passportId = "passport-car";
+              updateThread(thread.id, (t) => {
+                // Drop any previous passport card so repeated clicks
+                // don't clutter the chat — just move it to the end.
+                t.messages.car = t.messages.car.filter((m) => m.id !== passportId);
+                pushMsg(t, "car", {
+                  id: passportId,
+                  role: "assistant",
+                  text: "",
+                  step: "car",
+                  kind: "passport",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
             aria-label="Паспорт авто"
             title="Паспорт авто"
-            aria-pressed={passportOpen}
-            className={
-              "h-8 rounded-full flex items-center gap-1.5 px-2.5 transition-colors " +
-              (passportOpen
-                ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/40"
-                : "bg-white/5 hover:bg-white/10 text-white/80")
-            }
+            className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
           >
             <ClipboardCheck className="h-4 w-4 text-emerald-400" />
             <span className="text-xs tabular-nums">
