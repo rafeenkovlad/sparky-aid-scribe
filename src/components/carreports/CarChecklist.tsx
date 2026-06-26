@@ -1,11 +1,10 @@
-import { Check, Circle } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ReportDraft } from "@/lib/carreports/types";
 
 interface Item {
   label: string;
   filled: boolean;
   value?: string;
-  required?: boolean;
 }
 
 interface Props {
@@ -13,9 +12,9 @@ interface Props {
 }
 
 /**
- * Compact "passport" checklist for step 1.
- * Shows required fields with a green check when filled,
- * dim circle when missing. Optional fields render in a muted row below.
+ * Compact, restrained "passport" checklist that reads as part of the chat
+ * thread rather than a separate card. No heavy borders or backgrounds —
+ * just a header line and a tight key/value list.
  */
 export function CarChecklist({ draft }: Props) {
   const c = draft.carStep ?? {};
@@ -26,62 +25,24 @@ export function CarChecklist({ draft }: Props) {
       label: "VIN",
       filled: !!c.vin && c.vin.length >= 11,
       value: c.vin ? `…${c.vin.slice(-6)}` : c.unreadableVin ? "нечитаемый" : undefined,
-      required: true,
     },
     {
       label: "Марка / модель",
       filled: !!(ch.brandName && ch.modelCarName),
       value: [ch.brandName, ch.modelCarName].filter(Boolean).join(" ") || undefined,
-      required: true,
     },
     {
       label: "Пробег",
       filled: !!c.mileage,
       value: c.mileage ? `${c.mileage.toLocaleString("ru-RU")} км` : undefined,
-      required: true,
     },
-    {
-      label: "Город осмотра",
-      filled: !!c.cityInspection,
-      value: c.cityInspection,
-      required: true,
-    },
-    {
-      label: "Дата осмотра",
-      filled: !!c.dateInspection,
-      value: c.dateInspection,
-      required: true,
-    },
-    {
-      label: "Год выпуска",
-      filled: !!ch.year,
-      value: ch.year ? String(ch.year) : undefined,
-      required: true,
-    },
-    {
-      label: "Двигатель",
-      filled: !!ch.engineType,
-      value: ch.engineType,
-      required: true,
-    },
-    {
-      label: "КПП",
-      filled: !!ch.transmission,
-      value: ch.transmission,
-      required: true,
-    },
-    {
-      label: "Привод",
-      filled: !!ch.driveType,
-      value: ch.driveType,
-      required: true,
-    },
-    {
-      label: "Цвет",
-      filled: !!ch.color,
-      value: ch.color,
-      required: true,
-    },
+    { label: "Город осмотра", filled: !!c.cityInspection, value: c.cityInspection },
+    { label: "Дата осмотра", filled: !!c.dateInspection, value: c.dateInspection },
+    { label: "Год", filled: !!ch.year, value: ch.year ? String(ch.year) : undefined },
+    { label: "Двигатель", filled: !!ch.engineType, value: ch.engineType },
+    { label: "КПП", filled: !!ch.transmission, value: ch.transmission },
+    { label: "Привод", filled: !!ch.driveType, value: ch.driveType },
+    { label: "Цвет", filled: !!ch.color, value: ch.color },
   ];
 
   const optional: Item[] = [
@@ -97,56 +58,55 @@ export function CarChecklist({ draft }: Props) {
   ];
 
   const filledReq = required.filter((i) => i.filled).length;
+  const filledOpt = optional.filter((i) => i.filled);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5 space-y-2">
-      <div className="flex items-center justify-between text-[11px] uppercase tracking-wide">
-        <span className="text-white/55">Паспорт авто</span>
-        <span className="text-white/70 tabular-nums">
-          {filledReq}/{required.length} обязательных
+    <div className="text-[13px] leading-tight">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-white/70 font-medium">Паспорт авто</span>
+        <span className="text-[11px] text-white/40 tabular-nums">
+          {filledReq}/{required.length}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+      <ul className="space-y-0.5">
         {required.map((it) => (
           <Row key={it.label} item={it} />
         ))}
-      </div>
-      <div className="pt-1.5 border-t border-white/5">
-        <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">
-          По желанию
-        </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-          {optional.map((it) => (
+      </ul>
+      {filledOpt.length > 0 && (
+        <ul className="mt-2 space-y-0.5 pt-2 border-t border-white/5">
+          {filledOpt.map((it) => (
             <Row key={it.label} item={it} muted />
           ))}
-        </div>
-      </div>
+        </ul>
+      )}
     </div>
   );
 }
 
 function Row({ item, muted }: { item: Item; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-1.5 text-[12px] min-w-0">
+    <li className="flex items-baseline gap-2 min-w-0">
       {item.filled ? (
-        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
       ) : (
-        <Circle className={"h-3 w-3 shrink-0 " + (muted ? "text-white/20" : "text-white/30")} />
+        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
       )}
-      <span className={"shrink-0 " + (muted ? "text-white/45" : "text-white/65")}>
-        {item.label}
+      <span className={muted ? "text-white/40" : "text-white/55"}>{item.label}</span>
+      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <span
+        className={
+          "text-right tabular-nums " +
+          (item.filled
+            ? muted
+              ? "text-white/65"
+              : "text-white/85"
+            : "text-white/30")
+        }
+        title={item.value ?? ""}
+      >
+        {item.value ?? "—"}
       </span>
-      {item.value && (
-        <span
-          className={
-            "ml-auto truncate text-[11px] " +
-            (item.filled ? "text-white/85" : "text-white/45")
-          }
-          title={item.value}
-        >
-          {item.value}
-        </span>
-      )}
-    </div>
+    </li>
   );
 }
