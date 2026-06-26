@@ -5,7 +5,7 @@
 //
 // Компонент чистый: все мутации идут через колбэки наверх.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Check,
