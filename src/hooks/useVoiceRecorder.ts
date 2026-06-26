@@ -36,8 +36,12 @@ function getSR(): SRConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function useVoiceRecorder(opts: { onText: (text: string) => void; language?: string }) {
-  const { onText, language = "ru-RU" } = opts;
+export function useVoiceRecorder(opts: {
+  onText: (text: string) => void;
+  onLive?: (text: string) => void;
+  language?: string;
+}) {
+  const { onText, onLive, language = "ru-RU" } = opts;
   const [state, setState] = useState<RecState>("idle");
   const [error, setError] = useState<string | null>(null);
   const recRef = useRef<SRInstance | null>(null);
@@ -73,7 +77,6 @@ export function useVoiceRecorder(opts: { onText: (text: string) => void; languag
       setState("error");
       return;
     }
-    // Попросим разрешение на микрофон явно — даёт понятную ошибку, если запрещён.
     try {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       s.getTracks().forEach((t) => t.stop());
@@ -86,18 +89,26 @@ export function useVoiceRecorder(opts: { onText: (text: string) => void; languag
       const rec = new SR();
       rec.lang = language;
       rec.continuous = true;
-      rec.interimResults = false;
+      rec.interimResults = true;
       rec.maxAlternatives = 1;
       finalRef.current = "";
       cancelledRef.current = false;
 
       rec.onresult = (e) => {
+        let interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
+          const t = r[0].transcript;
           if (r.isFinal) {
-            const t = r[0].transcript.trim();
-            if (t) finalRef.current += (finalRef.current ? " " : "") + t;
+            const trimmed = t.trim();
+            if (trimmed) finalRef.current += (finalRef.current ? " " : "") + trimmed;
+          } else {
+            interim += t;
           }
+        }
+        if (onLive) {
+          const live = (finalRef.current + (interim ? (finalRef.current ? " " : "") + interim : "")).trim();
+          onLive(live);
         }
       };
       rec.onerror = (e) => {
@@ -109,10 +120,7 @@ export function useVoiceRecorder(opts: { onText: (text: string) => void; languag
           "audio-capture": "Микрофон не найден.",
           "network": "Ошибка сети при распознавании.",
         };
-        if (code === "no-speech" || code === "aborted") {
-          // не считаем ошибкой — просто завершаем
-          return;
-        }
+        if (code === "no-speech" || code === "aborted") return;
         setError(map[code] ?? `Ошибка распознавания: ${code}`);
         setState("error");
       };
@@ -134,7 +142,8 @@ export function useVoiceRecorder(opts: { onText: (text: string) => void; languag
       setError(e instanceof Error ? e.message : "Не удалось запустить распознавание");
       setState("error");
     }
-  }, [cleanup, language, onText]);
+  }, [cleanup, language, onText, onLive]);
+
 
   const stop = useCallback(() => {
     const rec = recRef.current;
