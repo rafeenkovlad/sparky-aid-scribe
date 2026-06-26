@@ -1270,6 +1270,7 @@ export function ChatApp({ threadId }: Props) {
             onNextElement={goNextElement}
             onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
             onOpenAnnotator={setAnnotatorPhotoIdx}
+            onAssignPendingPhoto={assignPendingPhoto}
           />
 
         ))}
