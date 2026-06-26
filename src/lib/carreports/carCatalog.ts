@@ -42,20 +42,22 @@ function pickImageUrl(row: Record<string, unknown> | null | undefined): string |
     const v = row[k];
     if (typeof v === "string" && /^https?:\/\//.test(v)) return v;
   }
-  // photos: [{size:'m'|'s', urlX1, urlX2}]
+  // photos: [{size:'s'|'m'|'l', urlX1, urlX2}] — берём только МЕНЬШЕЕ
+  // изображение: предпочитаем size='s', затем urlX1 (1x). urlX2 (ретина/2x)
+  // используем только как последний фолбэк, чтобы не тянуть тяжёлый файл.
   const photos = row["photos"];
   if (Array.isArray(photos) && photos.length) {
     const pickFrom = (p: unknown): string | undefined => {
-      const o = p as { urlX2?: unknown; urlX1?: unknown } | null;
+      const o = p as { urlX1?: unknown; urlX2?: unknown } | null;
       if (!o) return undefined;
-      if (typeof o.urlX2 === "string" && /^https?:\/\//.test(o.urlX2)) return o.urlX2;
       if (typeof o.urlX1 === "string" && /^https?:\/\//.test(o.urlX1)) return o.urlX1;
+      if (typeof o.urlX2 === "string" && /^https?:\/\//.test(o.urlX2)) return o.urlX2;
       return undefined;
     };
-    const medium = photos.find(
-      (p) => (p as { size?: string } | null)?.size === "m",
-    );
-    return pickFrom(medium) ?? pickFrom(photos[0]);
+    const small =
+      photos.find((p) => (p as { size?: string } | null)?.size === "s") ??
+      photos.find((p) => (p as { size?: string } | null)?.size === "m");
+    return pickFrom(small) ?? pickFrom(photos[0]);
   }
   return undefined;
 }
