@@ -1016,19 +1016,16 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
-            currentZoneId={currentZoneId}
-            onZoneSelect={selectZone}
-            zoneStats={(() => {
-              const ins = thread.draft.inspectionStep;
-              const stats: Record<string, { hasNote: boolean; photos: number }> = {};
-              for (const z of INSPECTION_ZONES) {
-                stats[z.id] = {
-                  hasNote: !!ins.sectionNotes[z.id],
-                  photos: ins.photos.filter((p) => p.section === z.id).length,
-                };
-              }
-              return stats;
-            })()}
+            inspectionDraft={thread.draft.inspectionStep}
+            inspectionCursor={cursor ?? undefined}
+            onSelectSection={selectSection}
+            onSelectElement={selectElement}
+            onSetVerdict={setVerdict}
+            onToggleTag={toggleTagOnFinding}
+            onAddPendingTag={addPendingTagOnFinding}
+            onClearElement={clearCurrentElement}
+            onAllNoDamage={markSectionAllOk}
+            onNextElement={goNextElement}
           />
         ))}
 
