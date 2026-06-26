@@ -1187,7 +1187,10 @@ export function ChatApp({ threadId }: Props) {
             onClearElement={clearCurrentElement}
             onAllNoDamage={markSectionAllOk}
             onNextElement={goNextElement}
+            onPickInspectionPhotos={(snake, files) => void addInspectionPhotos(snake, files)}
+            onOpenAnnotator={setAnnotatorPhotoIdx}
           />
+
         ))}
 
         {busy && (
