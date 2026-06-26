@@ -721,6 +721,7 @@ export async function resolveCar(
       year,
       thread,
       trace,
+      onTrace: opts?.onTrace,
     });
   } catch {
     return empty;
