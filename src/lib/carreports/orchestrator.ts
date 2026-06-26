@@ -1033,7 +1033,7 @@ export async function analyzeInspectionPhoto(
       tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
     ),
     fileUrls: [photoUrl],
-    model: "qwen3.6-plus",
+    model: "qwen3.7-max",
   });
 
   const raw = parseJsonResponse<{
