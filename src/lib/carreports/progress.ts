@@ -141,12 +141,14 @@ export function remainingFieldLabels(id: StepId, d: ReportDraft): string[] {
     }
     case "inspection": {
       const ins = d.inspectionStep ?? { sectionNotes: {}, photos: [] };
-      if (!ins.touched) out.push("первая зона");
-      const zonesWithNotes = Object.keys(ins.sectionNotes ?? {}).length;
-      if (zonesWithNotes < 8) out.push(`ещё зон: ${8 - zonesWithNotes}`);
+      const empty = INSPECTION_SECTIONS.filter(
+        (s) => sectionProgress(ins, s).filled === 0,
+      );
+      if (empty.length) out.push(`разделов без записей: ${empty.length}`);
       if ((ins.photos?.length ?? 0) === 0) out.push("фото");
       break;
     }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       if (c.testDriveIsIncluded === undefined && !c.notDone) out.push("проводился ли тест-драйв");
