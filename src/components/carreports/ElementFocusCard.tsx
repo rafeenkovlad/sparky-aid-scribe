@@ -366,97 +366,93 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
         </ul>
       </div>
 
-      {/* Тело: плотный inline-слой без карточек */}
-      <div className="px-3 pt-3 pb-3 space-y-4">
-        <div className="text-[10px] uppercase tracking-[0.1em] text-white/35 font-medium">
-          Заполнить
-        </div>
+      {/* Тело: только чтение — выбор тегов/состояния делает ИИ по диктовке */}
+      <div className="px-3 pt-3 pb-3 space-y-3">
+        {(() => {
+          const seriousTags = tags.filter((t) => sIds.has(t.id));
+          const seriousPending = pending.filter((p) => p.severity === "serious");
+          const minorTags = tags.filter((t) => nsIds.has(t.id));
+          const minorPending = pending.filter((p) => p.severity !== "serious");
+          const hasSerious = seriousTags.length + seriousPending.length > 0;
+          const hasMinor = minorTags.length + minorPending.length > 0;
+          if (tagsLoading) {
+            return (
+              <div className="flex items-center gap-2 text-[12px] text-white/45">
+                <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+              </div>
+            );
+          }
+          if (tagsError) {
+            return (
+              <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+                {tagsError}
+              </div>
+            );
+          }
+          if (!hasSerious && !hasMinor) return null;
+          return (
+            <>
+              {hasSerious && (
+                <ReadOnlyTagRow
+                  label="Серьёзные"
+                  dotClass="bg-rose-400"
+                  chipClass="border-rose-400/30 bg-rose-500/10 text-rose-100"
+                  tags={seriousTags.map((t) => t.name)}
+                  pending={seriousPending.map((p) => p.name)}
+                />
+              )}
+              {hasMinor && (
+                <ReadOnlyTagRow
+                  label="Мелкие"
+                  dotClass="bg-amber-400"
+                  chipClass="border-amber-400/30 bg-amber-500/10 text-amber-100"
+                  tags={minorTags.map((t) => t.name)}
+                  pending={minorPending.map((p) => p.name)}
+                />
+              )}
+            </>
+          );
+        })()}
 
-        {/* Элемент раздела — только если есть выбор */}
-        {section && section.elements.length > 1 && (
-          <Section label="Элемент">
-            <ChipScroller>
-              {section.elements.map((el) => {
-                const sel = el.id === elementId;
-                return (
-                  <button
-                    key={el.id}
-                    onClick={() => onChangeElement(el.id)}
-                    className={
-                      "rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-all border " +
-                      (sel
-                        ? "bg-orange-500 text-white border-orange-500 shadow-[0_0_0_3px_rgba(249,115,22,0.15)]"
-                        : "bg-white/[0.04] border-white/[0.08] text-white/70 hover:border-white/20 hover:text-white")
-                    }
-                  >
-                    {el.label}
-                  </button>
-                );
-              })}
-            </ChipScroller>
-          </Section>
+        {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
+        {finding?.note?.trim() && (
+          <div className="pt-3 border-t border-white/[0.06]">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium mb-1.5">
+              Заметка
+            </div>
+            <div className="text-[13.5px] leading-relaxed text-white/85 whitespace-pre-wrap">
+              {finding.note}
+            </div>
+          </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Состояние */}
-        <Section label="Состояние">
-          <button
-            onClick={() => onSetVerdict("ok")}
-            className={
-              "group inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium whitespace-nowrap transition-all border " +
-              (derivedVerdict === "ok"
-                ? "bg-emerald-500 text-white border-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]"
-                : "border-emerald-400/25 bg-emerald-500/5 text-emerald-100/90 hover:bg-emerald-500/10 hover:border-emerald-400/50")
-            }
+function ReadOnlyTagRow(props: {
+  label: string;
+  dotClass: string;
+  chipClass: string;
+  tags: string[];
+  pending: string[];
+}) {
+  const all = [...props.tags, ...props.pending];
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
+        <span className={"inline-block h-1.5 w-1.5 rounded-full " + props.dotClass} />
+        {props.label}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {all.map((name, i) => (
+          <span
+            key={`${name}-${i}`}
+            className={"rounded-full px-2.5 py-1 text-[12px] border " + props.chipClass}
           >
-            <Check
-              className={
-                "h-3.5 w-3.5 transition-opacity " +
-                (derivedVerdict === "ok" ? "opacity-100" : "opacity-0 -mr-2 group-hover:opacity-50 group-hover:mr-0")
-              }
-            />
-            Без повреждений
-          </button>
-        </Section>
-
-        {/* Теги: всегда оба ряда */}
-        {tagsLoading ? (
-          <div className="flex items-center gap-2 text-[12px] text-white/45">
-            <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-          </div>
-        ) : tagsError ? (
-          <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-            {tagsError}
-          </div>
-        ) : (
-          <>
-            <Section label="Серьёзные" dotClass="bg-rose-400">
-              <TagRow
-                tone="serious"
-                section={sectionSnake}
-                tags={serious}
-                selected={sIds}
-                pending={pending.filter((p) => p.severity === "serious")}
-                onTap={onToggleTag}
-                onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-                onAdd={(name) => onAddPendingTag(name, "serious")}
-                onCatalogChanged={() => setTokenTick((t) => t + 1)}
-              />
-            </Section>
-            <Section label="Мелкие" dotClass="bg-amber-400">
-              <TagRow
-                tone="minor"
-                section={sectionSnake}
-                tags={minor}
-                selected={nsIds}
-                pending={pending.filter((p) => p.severity !== "serious")}
-                onTap={onToggleTag}
-                onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-                onAdd={(name) => onAddPendingTag(name, "non_serious")}
-                onCatalogChanged={() => setTokenTick((t) => t + 1)}
-              />
-            </Section>
-          </>
-        )}
+            {name}
+          </span>
+        ))}
       </div>
     </div>
   );
