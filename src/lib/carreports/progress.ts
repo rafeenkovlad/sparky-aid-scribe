@@ -1,7 +1,10 @@
 // Defensive accessors — never crash on missing nested fields.
 
 import { FLOW_STEPS } from "./flow";
+import { INSPECTION_SECTIONS } from "./inspectionSections";
+import { sectionProgress } from "./inspectionState";
 import type { ReportDraft, StepId } from "./types";
+
 
 export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   if (!d) return false;
