@@ -547,7 +547,7 @@ export function ChatApp({ threadId }: Props) {
         const fresh = getThread(thread.id);
         if (!fresh) return;
         const stepLabel = FLOW_STEPS.find((s) => s.id === currentStep)?.label ?? currentStep;
-        const answer = await askQuestion(currentStep, combined, fresh, stepLabel);
+        const answer = await askQuestion(currentStep, textForAI || combined, fresh, stepLabel);
         updateThread(thread.id, (t) => {
           pushMsg(t, currentStep, {
             id: msgId(),
