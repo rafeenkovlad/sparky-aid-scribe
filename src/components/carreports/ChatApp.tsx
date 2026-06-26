@@ -815,7 +815,7 @@ export function ChatApp({ threadId }: Props) {
           resultElementId = v.elementId;
         } else {
           // Элемент уже известен (или фото нет) — работаем только по тексту.
-          const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
+          const n = await analyzeInspectionNote(fresh, sec, elIdInitial, text, previousNote || undefined);
           r = {
             noDamage: n.noDamage,
             seriousTagIds: n.seriousTagIds,
