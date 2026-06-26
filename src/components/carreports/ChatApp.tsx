@@ -354,10 +354,8 @@ export function ChatApp({ threadId }: Props) {
     const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
-      // Seed intro + guiding question if this step has no messages yet
-      if (t.messages[nextStep].length === 0) {
-        pushMsg(t, nextStep, makeIntroMessage(nextStep));
-      }
+      // Always greet on step entry — intro message with quick-pick chips.
+      pushMsg(t, nextStep, makeIntroMessage(nextStep));
       const ask = nextMissingPrompt(nextStep, t.draft);
       if (ask) {
         pushMsg(t, nextStep, {
