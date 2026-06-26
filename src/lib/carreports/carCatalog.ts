@@ -778,7 +778,7 @@ async function pickGenerationForModel(
     }
   }
 
-  if (!frame && !notFound) {
+  if (!frame && !notFound && !restylingChoiceGroup) {
     const hintNorm = generationHint ? norm(generationHint) : "";
     const byYear = year
       ? frames.filter(
