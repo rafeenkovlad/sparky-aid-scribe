@@ -1081,6 +1081,67 @@ export async function analyzeInspectionPhoto(
 }
 
 /**
+ * Обработать текст заметки без фото: подобрать теги (из каталога или
+ * новые pending), определить серьёзность, переформулировать.
+ */
+export async function analyzeInspectionNote(
+  thread: Thread,
+  sectionSnake: SectionSnake,
+  elementId: string | null,
+  noteText: string,
+): Promise<Omit<PhotoFindingDraft, "elementId">> {
+  const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
+  const { CLICHE_INSPECTION_NOTE } = await import("./cliche");
+  const tagCatalogue = await loadSectionTags(sectionSnake);
+  const elementLabel = elementId
+    ? section.elements.find((e) => e.id === elementId)?.label ?? null
+    : null;
+  const id = aiChatIdFor(
+    thread,
+    `note:inspection:${sectionSnake}:${elementId ?? "any"}`,
+  );
+  const cliche = CLICHE_INSPECTION_NOTE(
+    section.label,
+    elementLabel,
+    tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+  );
+  const res = await chatCompletions({ id, text: noteText, cliche });
+  const raw = parseJsonResponse<{
+    noDamage?: boolean;
+    seriousTags?: unknown;
+    nonSeriousTags?: unknown;
+    note?: string;
+  }>(res.content) ?? {};
+  const noDamage = raw.noDamage === true;
+  const sNames = Array.isArray(raw.seriousTags)
+    ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const nsNames = Array.isArray(raw.nonSeriousTags)
+    ? (raw.nonSeriousTags as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const seriousIds = new Set<number>();
+  const nsIds = new Set<number>();
+  const pending: PendingTagName[] = [];
+  for (const name of sNames) {
+    const t = findTagId(tagCatalogue, name);
+    if (t) seriousIds.add(t.id);
+    else pending.push({ name, severity: "serious" });
+  }
+  for (const name of nsNames) {
+    const t = findTagId(tagCatalogue, name);
+    if (t) nsIds.add(t.id);
+    else pending.push({ name, severity: "non_serious" });
+  }
+  return {
+    noDamage: noDamage && !seriousIds.size && !nsIds.size,
+    seriousTagIds: [...seriousIds],
+    noSeriousTagIds: [...nsIds],
+    pendingTags: pending,
+    note: typeof raw.note === "string" ? raw.note.trim() : "",
+  };
+}
+
+/**
  * Определить, к какому разделу осмотра относится фото.
  * Возвращает snake-имя раздела или `null`, если уверенности нет.
  */

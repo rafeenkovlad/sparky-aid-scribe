@@ -46,8 +46,8 @@ import {
 } from "@/lib/carreports/threadStore";
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
-import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto } from "@/lib/carreports/orchestrator";
+import type { ChatChip, ChatMessage, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
+import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote } from "@/lib/carreports/orchestrator";
 import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
@@ -723,7 +723,7 @@ export function ChatApp({ threadId }: Props) {
     setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
     (async () => {
       try {
-        if (!thread || !photoFocus?.url) {
+        if (!thread || !photoFocus) {
           setNoteProposal((prev) =>
             prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
           );
@@ -731,21 +731,37 @@ export function ChatApp({ threadId }: Props) {
         }
         const fresh = getThread(thread.id);
         if (!fresh) return;
-        const r = await analyzeInspectionPhoto(
-          fresh,
-          photoFocus.section as SectionSnake,
-          photoFocus.url,
-          text,
-        );
-        // Авто-применяем результат: заменяем заметку на формулировку ИИ,
-        // добавляем теги (existing + новые pending), классифицируем серьёзность.
+        const sec = photoFocus.section as SectionSnake;
+        const elIdInitial = photoFocus.elementId ?? null;
+        // Если фото загружено — используем vision; иначе анализируем только текст.
+        let resultElementId: string | undefined;
+        let r: {
+          noDamage: boolean;
+          seriousTagIds: number[];
+          noSeriousTagIds: number[];
+          pendingTags: PendingTagName[];
+          note: string;
+        };
+        if (photoFocus.url) {
+          const v = await analyzeInspectionPhoto(fresh, sec, photoFocus.url, text);
+          r = {
+            noDamage: v.noDamage,
+            seriousTagIds: v.seriousTagIds,
+            noSeriousTagIds: v.noSeriousTagIds,
+            pendingTags: v.pendingTags,
+            note: v.note,
+          };
+          resultElementId = v.elementId;
+        } else {
+          r = await analyzeInspectionNote(fresh, sec, elIdInitial, text);
+        }
+        // Авто-применяем результат: заметка ИИ + теги + классификация.
         updateThread(thread.id, (t) => {
           t.aiChatIds = fresh.aiChatIds;
           const p = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
           if (!p) return;
-          if (!p.elementId && r.elementId) p.elementId = r.elementId;
-          const sec = p.section as SectionSnake;
-          const elId = p.elementId ?? r.elementId;
+          if (!p.elementId && resultElementId) p.elementId = resultElementId;
+          const elId = p.elementId ?? resultElementId ?? elIdInitial;
           if (!elId) return;
           upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
             const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
@@ -758,7 +774,6 @@ export function ChatApp({ threadId }: Props) {
               if (!have.has(pp.name.toLowerCase())) existing.push(pp);
             }
             f.pendingTagNames = existing;
-            // Заметка — формулировка ИИ, если она есть; иначе оставляем оригинал.
             f.note = r.note?.trim() ? r.note.trim() : text;
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
@@ -776,7 +791,7 @@ export function ChatApp({ threadId }: Props) {
                 proposedSeriousIds: r.seriousTagIds,
                 proposedNonSeriousIds: r.noSeriousTagIds,
                 proposedPending: r.pendingTags,
-                proposedElementId: r.elementId,
+                proposedElementId: resultElementId,
               }
             : prev,
         );
@@ -787,6 +802,7 @@ export function ChatApp({ threadId }: Props) {
       }
     })();
   }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx]);
+
 
 
   const pickNoteOriginal = useCallback(() => {
