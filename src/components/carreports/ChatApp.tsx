@@ -1395,6 +1395,20 @@ export function ChatApp({ threadId }: Props) {
       </header>
 
       {/* Messages */}
+      {photoFocusIdx !== null ? (
+        <PhotoFocusView
+          ins={thread.draft.inspectionStep}
+          photoIdx={photoFocusIdx}
+          onChangePhotoIdx={(idx) => setPhotoFocusIdx(idx)}
+          onChangeElement={photoChangeElement}
+          onSetVerdict={photoSetVerdict}
+          onToggleTag={photoToggleTag}
+          onAddPendingTag={photoAddPendingTag}
+          onTogglePendingTag={photoAddPendingTag}
+          onDeletePhoto={deletePhotoFocus}
+          onClose={exitPhotoFocus}
+        />
+      ) : (
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {currentStepMessages.map((m) => (
           <MessageBubble
