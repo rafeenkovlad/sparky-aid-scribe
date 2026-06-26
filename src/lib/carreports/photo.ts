@@ -17,29 +17,63 @@ export interface PreparedPhoto {
   dataUrl: string;
 }
 
-const MAX_EDGE = 1600;
-const JPEG_QUALITY = 0.82;
+const DEFAULT_MAX_EDGE = 1600;
+const DEFAULT_QUALITY = 0.82;
+/** Hard size cap — 2 MB. */
+const MAX_BYTES = 2 * 1024 * 1024;
 
-export async function preparePhoto(file: File): Promise<PreparedPhoto> {
+export async function preparePhoto(
+  file: File,
+  opts: { maxBytes?: number } = {},
+): Promise<PreparedPhoto> {
+  const maxBytes = opts.maxBytes ?? MAX_BYTES;
   const bitmap = await readImage(file);
-  const { width, height } = fitInside(bitmap.width, bitmap.height, MAX_EDGE);
+
+  // Iteratively reduce quality, then dimensions, until under maxBytes.
+  let edge = DEFAULT_MAX_EDGE;
+  let quality = DEFAULT_QUALITY;
+  let blob = await encodeJpeg(bitmap, edge, quality);
+  // 1) reduce quality
+  while (blob.size > maxBytes && quality > 0.4) {
+    quality = Math.max(0.4, quality - 0.1);
+    blob = await encodeJpeg(bitmap, edge, quality);
+  }
+  // 2) reduce dimensions
+  while (blob.size > maxBytes && edge > 640) {
+    edge = Math.round(edge * 0.8);
+    quality = DEFAULT_QUALITY;
+    blob = await encodeJpeg(bitmap, edge, quality);
+    while (blob.size > maxBytes && quality > 0.4) {
+      quality = Math.max(0.4, quality - 0.1);
+      blob = await encodeJpeg(bitmap, edge, quality);
+    }
+  }
+
+  const dataUrl = await blobToDataUrl(blob);
+  const base = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^\w.-]+/g, "_");
+  const filename = `${base}_${Date.now()}.jpg`;
+  return { filename, blob, dataUrl };
+}
+
+async function encodeJpeg(
+  bitmap: HTMLImageElement | ImageBitmap,
+  maxEdge: number,
+  quality: number,
+): Promise<Blob> {
+  const { width, height } = fitInside(bitmap.width, bitmap.height, maxEdge);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Не удалось обработать изображение");
   ctx.drawImage(bitmap, 0, 0, width, height);
-  const blob = await new Promise<Blob>((resolve, reject) => {
+  return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Канвас вернул пустой blob"))),
       "image/jpeg",
-      JPEG_QUALITY,
+      quality,
     );
   });
-  const dataUrl = await blobToDataUrl(blob);
-  const base = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^\w.-]+/g, "_");
-  const filename = `${base}_${Date.now()}.jpg`;
-  return { filename, blob, dataUrl };
 }
 
 async function readImage(file: File): Promise<HTMLImageElement | ImageBitmap> {
