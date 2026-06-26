@@ -1,6 +1,7 @@
 // Fetch + cache user/system tags per inspection section via Storage.GetUserTags.
 
 import { rpc } from "./storageApi";
+import { subscribeToken } from "./tokenStore";
 import type { SectionSnake } from "./inspectionSections";
 
 export interface UserTag {
@@ -16,6 +17,16 @@ export interface UserTag {
 
 const cache = new Map<SectionSnake, UserTag[]>();
 const inflight = new Map<SectionSnake, Promise<UserTag[]>>();
+
+// При смене токена сбрасываем кэш и in-flight, иначе старый пустой список
+// (или список чужого пользователя) останется висеть до перезагрузки.
+if (typeof window !== "undefined") {
+  subscribeToken(() => {
+    cache.clear();
+    inflight.clear();
+  });
+}
+
 
 /**
  * Загрузить теги раздела.

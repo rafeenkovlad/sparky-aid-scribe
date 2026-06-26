@@ -21,6 +21,8 @@ import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSectio
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
 import { loadSectionTags, type UserTag } from "@/lib/carreports/inspectionTags";
+import { subscribeToken } from "@/lib/carreports/tokenStore";
+
 
 type Verdict = "ok" | "minor" | "serious";
 
@@ -108,6 +110,9 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
   const [tags, setTags] = useState<UserTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
+  // Тик, который обновляется при смене токена — заставляет перезапросить теги.
+  const [tokenTick, setTokenTick] = useState(0);
+  useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
   useEffect(() => {
     let alive = true;
     setTagsLoading(true);
@@ -128,7 +133,8 @@ export function PhotoFocusView(props: PhotoFocusViewProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake]);
+  }, [sectionSnake, tokenTick]);
+
 
 
   const sIds = new Set(finding?.seriousDamageTagIds ?? []);
