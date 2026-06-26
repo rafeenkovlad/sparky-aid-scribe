@@ -976,9 +976,16 @@ function MessageBubble({
           {msg.text}
         </div>
         {msg.attachments && msg.attachments.length > 0 && (() => {
-          const big = msg.attachments.find((a) => a.kind === "generation")
-            ?? msg.attachments.find((a) => a.kind === "model");
-          const small = msg.attachments.filter((a) => a !== big);
+          const hasGenChips = (msg.chips ?? []).some((c) => c.group === "generation" && c.image);
+          // Если есть плашки с вариантами поколений — не показываем «текущее» крупное фото.
+          const atts = hasGenChips
+            ? msg.attachments.filter((a) => a.kind !== "generation" && a.kind !== "model")
+            : msg.attachments;
+          if (!atts.length) return null;
+          const big = !hasGenChips
+            ? (atts.find((a) => a.kind === "generation") ?? atts.find((a) => a.kind === "model"))
+            : undefined;
+          const small = atts.filter((a) => a !== big);
           return (
             <div className="flex flex-col gap-2">
               {big && (
