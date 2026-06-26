@@ -1091,6 +1091,7 @@ export async function analyzeInspectionNote(
   sectionSnake: SectionSnake,
   elementId: string | null,
   noteText: string,
+  existingNote?: string,
 ): Promise<PhotoFindingDraft> {
   const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
   const { CLICHE_INSPECTION_NOTE } = await import("./cliche");
@@ -1109,6 +1110,7 @@ export async function analyzeInspectionNote(
     })),
     elementId,
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
+    existingNote,
   );
   const res = await chatCompletions({ id, text: noteText, cliche, model: "gpt-5.4" });
   const raw = parseJsonResponse<{
