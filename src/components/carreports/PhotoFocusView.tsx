@@ -584,16 +584,13 @@ function TagRow(props: {
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wide text-white/45">
-        <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
-        {label}
-        {count > 0 && (
-          <span className="text-white/35 normal-case tracking-normal">
-            · выбрано {count}
-          </span>
-        )}
-      </div>
-      <div className="-mx-3 px-3 overflow-x-auto">
+      {count > 0 && (
+        <div className="flex items-center gap-1.5 mb-1.5 text-[10px] uppercase tracking-wide text-white/45">
+          <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
+          <span className="normal-case tracking-normal text-white/55">выбрано {count}</span>
+        </div>
+      )}
+      <div className="-mx-1 px-1 overflow-x-auto">
         <div className="flex gap-1.5 w-max pb-0.5 items-center">
           {sorted.map((t) => {
             const sel = selected.has(t.id);
