@@ -47,7 +47,7 @@ export function CarChecklist({ draft }: Props) {
 
   const optional: Item[] = [
     { label: "Госномер", filled: !!c.gosNumber, value: c.gosNumber ?? undefined },
-    { label: "Ссылка", filled: !!c.uriListing, value: c.uriListing ? "есть" : undefined },
+    { label: "Ссылка на объявление", filled: !!c.uriListing, value: c.uriListing ?? undefined },
     { label: "Поколение", filled: !!ch.generationLabel, value: ch.generationLabel },
     {
       label: "Объём",
