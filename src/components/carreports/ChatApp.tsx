@@ -1231,8 +1231,24 @@ export function ChatApp({ threadId }: Props) {
           <button
             onClick={() => {
               setAskMode(false);
-              const intro = STEP_INTROS[currentStep];
               updateThread(thread.id, (t) => {
+                if (currentStep === "inspection") {
+                  // Полноценная панель редактирования: раздел → элемент → теги.
+                  const editId = "inspection-edit";
+                  t.messages.inspection = t.messages.inspection.filter(
+                    (m) => m.id !== editId,
+                  );
+                  pushMsg(t, "inspection", {
+                    id: editId,
+                    role: "assistant",
+                    text: "",
+                    step: "inspection",
+                    kind: "inspectionChips",
+                    createdAt: Date.now(),
+                  });
+                  return;
+                }
+                const intro = STEP_INTROS[currentStep];
                 const recapId = `recap-${currentStep}`;
                 t.messages[currentStep] = t.messages[currentStep].filter(
                   (m) => m.id !== recapId,
