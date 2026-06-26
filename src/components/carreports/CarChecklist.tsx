@@ -24,7 +24,7 @@ export function CarChecklist({ draft }: Props) {
     {
       label: "VIN",
       filled: !!c.vin && c.vin.length >= 11,
-      value: c.vin ? `…${c.vin.slice(-6)}` : c.unreadableVin ? "нечитаемый" : undefined,
+      value: c.vin ? c.vin : c.unreadableVin ? "нечитаемый" : undefined,
     },
     {
       label: "Марка / модель",
