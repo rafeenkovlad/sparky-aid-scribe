@@ -158,8 +158,15 @@ export function ChatApp({ threadId }: Props) {
       originalFilename: string;
     }>
   >([]);
-  const [analyzing, setAnalyzing] = useState(false);
   const attachInputRef = useRef<HTMLInputElement>(null);
+
+  // Размер очереди AI-запросов по текущему треду (для индикатора).
+  const queueSize = useSyncExternalStore(
+    subscribeQueue,
+    () => (threadId ? getQueueSize(threadId) : 0),
+    () => 0,
+  );
+
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
