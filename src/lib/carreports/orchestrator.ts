@@ -1116,6 +1116,8 @@ export async function classifyInspectionPhotoSection(
   } catch {
     return null;
   }
+}
+
 
 
 /**
