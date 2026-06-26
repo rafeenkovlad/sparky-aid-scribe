@@ -24,8 +24,8 @@ export const CLICHE_CAR = `${COMMON}
 - generationHint: поколение/модификация как назвал эксперт
   (например "2 поколение", "II", "FL", "рестайлинг", "MQB", "B8.5"). Любая строка.
 
-Текст эксперта:
-{text}`;
+
+`;
 
 export const CLICHE_CHARACTERISTICS = `${COMMON}
 
@@ -39,8 +39,8 @@ export const CLICHE_CHARACTERISTICS = `${COMMON}
 - driveType: одно из ["Передний","Задний","Полный"].
 - color, equipment (название комплектации).
 
-Текст эксперта:
-{text}`;
+
+`;
 
 /**
  * Подбор справочника карreports: бренд → модель → поколение/рестайлинг.
@@ -72,8 +72,8 @@ ${brands.slice(0, 80).map((b) => `  • ${b.id} — ${b.name}${b.country ? ` [${
   "reason": "короткое пояснение"
 }
 
-Текст эксперта:
-{text}`;
+
+`;
 
 
 export const CLICHE_PICK_MODEL = (
@@ -119,8 +119,8 @@ ${
   "reason": "короткое пояснение"
 }
 
-Текст эксперта:
-{text}`;
+
+`;
 
 
 export interface GenerationFrameCandidate {
@@ -178,8 +178,8 @@ ${
   "reason": "короткое пояснение"
 }
 
-Текст эксперта:
-{text}`;
+
+`;
 
 export const CLICHE_DOCS = `${COMMON}
 
@@ -190,8 +190,8 @@ export const CLICHE_DOCS = `${COMMON}
 - engineModelMatchWithPTSOrSTS: true/false (номер двигателя совпадает с ПТС).
 - note: краткая заметка про расхождения, если есть.
 
-Текст эксперта:
-{text}`;
+
+`;
 
 export const CLICHE_INSPECTION = (
   zoneLabel: string,
@@ -241,8 +241,8 @@ ${tagList}
 в общем («кузов в норме», «салон без замечаний») — добавь одну находку с
 elementId="generalCondition" и noDamage=true.
 
-Текст эксперта:
-{text}`;
+
+`;
 };
 
 /** Клише для распознавания одного фото осмотра. */
@@ -304,7 +304,7 @@ ${tagList}
 Если дефектов нет — noDamage=true, оба массива тегов пустые.
 
 Дополнительный контекст эксперта (может быть пустым):
-{text}`;
+`;
 };
 
 // Text-only вариант (без фото) — обрабатываем заметку эксперта.
@@ -364,8 +364,8 @@ ${tagList}
 }
 Если дефектов нет — noDamage=true, оба массива тегов пустые.
 
-Заметка эксперта:
-{text}`;
+
+`;
 };
 
 
@@ -386,8 +386,8 @@ export const CLICHE_TEST_DRIVE = `${COMMON}
   меток с конкретными замечаниями (например ["вибрация на 80","пинок 2-3"]).
 - testDriveNote: общая заметка по тест-драйву (1–3 предложения).
 
-Текст эксперта:
-{text}`;
+
+`;
 
 export const CLICHE_RESULT = `${COMMON}
 
@@ -401,8 +401,8 @@ export const CLICHE_RESULT = `${COMMON}
 
 Верни ТОЛЬКО валидный JSON с этими двумя полями (любое можно опустить).
 
-Текст эксперта:
-{text}`;
+
+`;
 
 /** Parse a strict-JSON model response, tolerating ```json fences. */
 export function parseJsonResponse<T = unknown>(content: string | null | undefined): T | null {
@@ -477,8 +477,8 @@ ${webContext}
   "confidence": <0..1>
 }
 
-Текст эксперта:
-{text}`;
+
+`;
 
 /**
  * Уточняющий шаг: эксперт назвал только модель («тигуан», «camry», «x5»),
@@ -512,8 +512,8 @@ ${webContext ? `\nКонтекст из веб-поиска:\n${webContext}\n` :
   "needsWeb": <true если уверенности нет и стоит уточнить веб-поиском>
 }
 
-Текст эксперта:
-{text}`;
+
+`;
 
 /**
  * Свободный режим вопросов. ИИ отвечает кратко и по делу, опираясь
@@ -536,6 +536,6 @@ export const CLICHE_ASK = (
 ${draftContext || "(черновик пуст)"}
 
 Вопрос эксперта:
-{text}`;
+`;
 
 
