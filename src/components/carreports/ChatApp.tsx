@@ -38,7 +38,7 @@ import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft } from "@/lib/carreports/orchestrator";
-import { filledCount, nextMissingPrompt, optionalHintSentence } from "@/lib/carreports/progress";
+import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { preparePhoto, uploadPhoto } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -496,8 +496,12 @@ export function ChatApp({ threadId }: Props) {
         }
         // Уточняющий вопрос / подтверждение шага — отдельным сообщением.
         const nextAsk = nextMissingPrompt(currentStep, t.draft);
+        const remaining = remainingFieldLabels(currentStep, t.draft);
+        const remainingHint = remaining.length
+          ? `\n📋 Ещё не заполнено: ${remaining.slice(0, 6).join(", ")}${remaining.length > 6 ? "…" : ""}.`
+          : "";
         const tailLine = nextAsk
-          ? `➡️ ${nextAsk}`
+          ? `➡️ ${nextAsk}${remainingHint}`
           : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
         if (tailLine) {
           pushMsg(t, currentStep, {
