@@ -480,23 +480,31 @@ export function ChatApp({ threadId }: Props) {
       const { patch, reply, attachments, chips } = await extractForStep(currentStep, combined, fresh, { onClarify });
       updateThread(thread.id, (t) => {
         Object.assign(t.draft, patch);
-        const nextAsk = nextMissingPrompt(currentStep, t.draft);
-        const tailLine = nextAsk
-          ? `➡️ ${nextAsk}`
-          : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
-        const replyText = [reply, tailLine]
-          .filter(Boolean)
-          .join("\n\n");
-        if (replyText) {
+        // Карточка заполнения — только summary/reply, без уточняющих вопросов.
+        if (reply) {
           pushMsg(t, currentStep, {
             id: msgId(),
             role: "assistant",
-            text: replyText,
+            text: reply,
             step: currentStep,
             ...(attachments && attachments.length ? { attachments } : {}),
             ...(chips && chips.length
               ? { chips, optionsStep: currentStep, selectedChipValues: [] }
               : {}),
+            createdAt: Date.now(),
+          });
+        }
+        // Уточняющий вопрос / подтверждение шага — отдельным сообщением.
+        const nextAsk = nextMissingPrompt(currentStep, t.draft);
+        const tailLine = nextAsk
+          ? `➡️ ${nextAsk}`
+          : `✅ Шаг заполнен. ${optionalHintSentence(currentStep, t.draft)}`;
+        if (tailLine) {
+          pushMsg(t, currentStep, {
+            id: msgId(),
+            role: "assistant",
+            text: tailLine,
+            step: currentStep,
             createdAt: Date.now(),
           });
         }
