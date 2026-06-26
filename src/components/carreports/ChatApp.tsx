@@ -585,6 +585,7 @@ export function ChatApp({ threadId }: Props) {
 
   const exitPhotoFocus = useCallback(() => {
     setPhotoFocusIdx(null);
+    setNoteProposal(null);
     if (composerBackupRef.current !== null) {
       setComposer(composerBackupRef.current);
       composerBackupRef.current = null;
