@@ -350,6 +350,12 @@ export interface ResolvedCar {
   suggestions?: CatalogSuggestion[];
   /** true when user explicitly named a generation/restyling that we couldn't find */
   generationNotFound?: boolean;
+  /** true когда пользователь указал поколение, оно нашлось, но у поколения
+   * есть несколько рестайлингов, а пользователь рестайлинг не назвал —
+   * нужно показать коллаж рестайлингов и попросить выбрать. */
+  restylingChoiceRequired?: boolean;
+  /** label выбранного поколения (для подсказки в UI). */
+  pendingGenerationLabel?: string;
   /** debug trace per step, for the assistant reply */
   trace: Array<{
     step: "brand" | "model" | "generation";
