@@ -392,7 +392,12 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
         <ul className="space-y-0.5 text-[13px] leading-tight">
           {passportRows.map((it) => (
-            <PassportRow key={it.label} item={it} />
+            <PassportRow
+              key={it.label}
+              item={it}
+              updating={!!aiUpdating}
+              flashing={flashed.has(it.label)}
+            />
           ))}
         </ul>
       </div>
