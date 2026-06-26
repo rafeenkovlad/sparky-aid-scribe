@@ -1467,6 +1467,39 @@ function MessageBubble({
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        } catch {
+          /* noop */
+        }
+      }}
+      aria-label="Скопировать сообщение"
+      title={copied ? "Скопировано" : "Скопировать"}
+      className="inline-flex items-center gap-1 text-[11px] text-white/40 hover:text-white/80 transition-colors px-1.5 py-0.5 rounded"
+    >
+      {copied ? (
+        <>
+          <Check className="h-3 w-3" />
+          Скопировано
+        </>
+      ) : (
+        <>
+          <Copy className="h-3 w-3" />
+          Копировать
+        </>
+      )}
+    </button>
+  );
+}
+
 function countCarPassport(draft: import("@/lib/carreports/types").ReportDraft): number {
   const c = draft.carStep ?? {};
   const ch = draft.characteristicsStep ?? {};
