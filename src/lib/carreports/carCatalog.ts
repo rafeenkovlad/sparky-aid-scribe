@@ -903,14 +903,20 @@ async function pickGenerationForModel(
       }
     }
   }
-  trace.push({
-    step: "generation",
-    candidates: frames.length,
-    pickedId: frame?.frameId ?? null,
-    confidence: frameConf,
-    needsWeb: frameWebUsed,
-    reason: frameReason,
-  });
+  {
+    const entry = {
+      step: "generation" as const,
+      candidates: frames.length,
+      pickedId: frame?.frameId ?? null,
+      confidence: frameConf,
+      needsWeb: frameWebUsed,
+      reason: frameReason,
+    };
+    trace.push(entry);
+    try {
+      for (const e of resolvedTraceEntryToClarify(entry)) onTrace?.(e);
+    } catch { /* ignore */ }
+  }
 
   const buildGenChips = (): CatalogSuggestion[] => {
     const out: CatalogSuggestion[] = [];
