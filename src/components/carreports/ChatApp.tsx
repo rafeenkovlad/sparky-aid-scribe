@@ -1903,23 +1903,6 @@ export function ChatApp({ threadId }: Props) {
                         <Paperclip className="h-4 w-4" />
                       </button>
                       <div className="flex items-end gap-1.5">
-                        {photoFocusIdx !== null && (
-                          <button
-                            type="button"
-                            onClick={() => void runPhotoAi()}
-                            onMouseDown={(e) => e.preventDefault()}
-                            disabled={photoAiBusy || !photoFocus?.url}
-                            className="pointer-events-auto h-9 w-9 shrink-0 rounded-full bg-violet-600/90 backdrop-blur hover:bg-violet-700 disabled:opacity-40 flex items-center justify-center text-white ring-1 ring-white/10"
-                            aria-label="Распознать тег"
-                            title={photoFocus?.url ? "Распознать ИИ" : "Фото ещё не загружено"}
-                          >
-                            {photoAiBusy ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Sparkles className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => (voice.state === "recording" ? voice.stop() : void voice.start())}
