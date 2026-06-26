@@ -414,40 +414,303 @@ function ElementBlock({
   );
 }
 
-function TagGroup({
+// ─── Tags area ────────────────────────────────────────────────────────────
+// Verdict-driven: shows the bucket matching the active verdict; the opposite
+// bucket is collapsed behind a small "+ also show …" toggle to keep the view
+// focused. Sorted: selected first. Severity-colored fills replace the ✓ glyph.
+
+interface TagsAreaProps {
+  loading: boolean;
+  verdict: Verdict | null;
+  serious: UserTag[];
+  minor: UserTag[];
+  selectedSerious: Set<number>;
+  selectedMinor: Set<number>;
+  pending: PendingTagName[];
+  interactive: boolean;
+  activeBucket: "serious" | "non_serious";
+  addOpen: boolean;
+  addName: string;
+  setAddOpen: (v: boolean) => void;
+  setAddName: (v: string) => void;
+  onToggleTag: (tag: UserTag) => void;
+  onAddPendingTag: (name: string, severity: "serious" | "non_serious") => void;
+}
+
+type PendingTagName = { name: string; severity?: "serious" | "non_serious" };
+
+function TagsArea({
+  loading,
+  verdict,
+  serious,
+  minor,
+  selectedSerious,
+  selectedMinor,
+  pending,
+  interactive,
+  activeBucket,
+  addOpen,
+  addName,
+  setAddOpen,
+  setAddName,
+  onToggleTag,
+  onAddPendingTag,
+}: TagsAreaProps) {
+  const [showOther, setShowOther] = useState(false);
+
+  // Primary bucket follows verdict; "other" is the opposite list.
+  const primaryIsSerious = verdict === "serious";
+  const primary = primaryIsSerious ? serious : minor;
+  const primarySelected = primaryIsSerious ? selectedSerious : selectedMinor;
+  const other = primaryIsSerious ? minor : serious;
+  const otherSelected = primaryIsSerious ? selectedMinor : selectedSerious;
+  const otherActiveCount = other.filter((t) => otherSelected.has(t.id)).length;
+
+  const primaryPending = pending.filter((p) =>
+    primaryIsSerious ? p.severity === "serious" : p.severity !== "serious",
+  );
+  const otherPending = pending.filter((p) =>
+    primaryIsSerious ? p.severity !== "serious" : p.severity === "serious",
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-white/50">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Загружаем теги…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <TagBucket
+        label={primaryIsSerious ? "Серьёзные дефекты" : "Мелкие замечания"}
+        tone={primaryIsSerious ? "serious" : "minor"}
+        tags={primary}
+        selected={primarySelected}
+        pending={primaryPending}
+        interactive={interactive}
+        onTap={onToggleTag}
+      />
+
+      {/* Inline custom-tag composer for the active bucket */}
+      {interactive && (
+        <CustomTagInput
+          open={addOpen}
+          name={addName}
+          bucket={activeBucket}
+          setOpen={setAddOpen}
+          setName={setAddName}
+          onAdd={onAddPendingTag}
+        />
+      )}
+
+      {/* Opposite-severity bucket, collapsed by default */}
+      {(other.length > 0 || otherPending.length > 0) && (
+        <div className="pt-1 border-t border-white/[0.06]">
+          {!showOther ? (
+            <button
+              onClick={() => setShowOther(true)}
+              className="text-[11px] text-white/45 hover:text-white/80 inline-flex items-center gap-1"
+            >
+              + {primaryIsSerious ? "Мелкие замечания" : "Серьёзные дефекты"}
+              {otherActiveCount > 0 && (
+                <span className="ml-1 rounded-full bg-white/10 px-1.5 text-[10px] text-white/70">
+                  {otherActiveCount}
+                </span>
+              )}
+            </button>
+          ) : (
+            <div className="pt-1.5 space-y-1">
+              <TagBucket
+                label={primaryIsSerious ? "Мелкие замечания" : "Серьёзные дефекты"}
+                tone={primaryIsSerious ? "minor" : "serious"}
+                tags={other}
+                selected={otherSelected}
+                pending={otherPending}
+                interactive={interactive}
+                onTap={onToggleTag}
+              />
+              <button
+                onClick={() => setShowOther(false)}
+                className="text-[10px] text-white/35 hover:text-white/60"
+              >
+                Скрыть
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tag bucket ───────────────────────────────────────────────────────────
+
+type Tone = "serious" | "minor";
+
+function TagBucket({
   label,
+  tone,
   tags,
   selected,
+  pending,
   interactive,
   onTap,
 }: {
   label: string;
+  tone: Tone;
   tags: UserTag[];
   selected: Set<number>;
+  pending: PendingTagName[];
   interactive: boolean;
   onTap: (t: UserTag) => void;
 }) {
+  // selected first
+  const sorted = useMemo(() => {
+    const sel: UserTag[] = [];
+    const rest: UserTag[] = [];
+    for (const t of tags) (selected.has(t.id) ? sel : rest).push(t);
+    return [...sel, ...rest];
+  }, [tags, selected]);
+
+  const selectedCount = selected.size + pending.length;
+
   return (
-    <div className="space-y-1">
-      <div className="text-[10px] uppercase tracking-wide text-white/45">
-        {label}
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-wide text-white/45 flex items-center gap-1.5">
+          <span
+            className={
+              "inline-block h-1.5 w-1.5 rounded-full " +
+              (tone === "serious" ? "bg-rose-400" : "bg-amber-400")
+            }
+          />
+          {label}
+        </div>
+        {selectedCount > 0 && (
+          <span className="text-[10px] text-white/45 tabular-nums">
+            выбрано {selectedCount}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {tags.map((t) => {
+        {sorted.map((t) => {
           const sel = selected.has(t.id);
           return (
             <button
               key={t.id}
               disabled={!interactive}
               onClick={() => onTap(t)}
-              className={chip(sel, interactive)}
+              className={tagChip(tone, sel, interactive)}
             >
-              {sel ? "✓ " : ""}
+              {sel && <Check className="h-3 w-3 -ml-0.5" />}
               {t.name}
             </button>
           );
         })}
+        {pending.map((p) => (
+          <span
+            key={`pending:${p.name}`}
+            className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-xs text-violet-100"
+            title="Новый тег — создастся при отправке"
+          >
+            ✨ {p.name}
+          </span>
+        ))}
       </div>
     </div>
   );
 }
+
+function tagChip(tone: Tone, selected: boolean, interactive: boolean): string {
+  const base =
+    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs whitespace-nowrap transition-colors ";
+  if (selected) {
+    return (
+      base +
+      (tone === "serious"
+        ? "bg-rose-500 border-rose-500 text-white"
+        : "bg-amber-500 border-amber-500 text-white")
+    );
+  }
+  if (!interactive) {
+    return base + "border-white/10 text-white/40 cursor-default";
+  }
+  return (
+    base +
+    (tone === "serious"
+      ? "border-rose-400/30 text-rose-100/85 hover:bg-rose-500/10 hover:border-rose-400/60"
+      : "border-amber-400/30 text-amber-100/85 hover:bg-amber-500/10 hover:border-amber-400/60")
+  );
+}
+
+// ─── Custom tag input ─────────────────────────────────────────────────────
+
+function CustomTagInput({
+  open,
+  name,
+  bucket,
+  setOpen,
+  setName,
+  onAdd,
+}: {
+  open: boolean;
+  name: string;
+  bucket: "serious" | "non_serious";
+  setOpen: (v: boolean) => void;
+  setName: (v: string) => void;
+  onAdd: (name: string, severity: "serious" | "non_serious") => void;
+}) {
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-xs text-white/65 hover:text-white hover:border-white/40"
+      >
+        <Plus className="h-3 w-3" /> Свой тег
+      </button>
+    );
+  }
+  return (
+    <form
+      className="flex items-center gap-1.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = name.trim();
+        if (!n) return;
+        onAdd(n, bucket);
+        setName("");
+        setOpen(false);
+      }}
+    >
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={
+          bucket === "serious" ? "Новый серьёзный тег" : "Новый мелкий тег"
+        }
+        className="flex-1 rounded-md bg-white/[0.06] border border-white/15 px-2 py-1 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-orange-400/60"
+      />
+      <button
+        type="submit"
+        className="rounded-md bg-orange-500 hover:bg-orange-600 px-2 py-1 text-xs text-white"
+      >
+        <Check className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(false);
+          setName("");
+        }}
+        className="rounded-md border border-white/15 px-2 py-1 text-xs text-white/70 hover:text-white"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </form>
+  );
+}
+
