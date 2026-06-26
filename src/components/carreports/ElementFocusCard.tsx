@@ -457,27 +457,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
             </Section>
           </>
         )}
-
-
-        {/* AI-вариант */}
-        {noteProposal && (
-          <Section
-            label={
-              <span className="inline-flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3 text-violet-300" /> Вариант ИИ
-              </span>
-            }
-          >
-            <div className="rounded-2xl border border-violet-400/25 bg-violet-500/[0.08] backdrop-blur-sm p-3">
-              <NoteProposalContent
-                proposal={noteProposal}
-                onPickOriginal={onPickNoteOriginal}
-                onPickAi={onPickNoteAi}
-                onDismiss={onDismissNoteProposal}
-              />
-            </div>
-          </Section>
-        )}
       </div>
     </div>
   );
