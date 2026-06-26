@@ -24,8 +24,17 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       const c = d.documentReconciliationStep ?? {};
       return typeof c.ownersCount === "number";
     }
-    case "inspection":
-      return !!d.inspectionStep?.touched;
+    case "inspection": {
+      const ins = d.inspectionStep;
+      if (!ins?.touched) return false;
+      // Считаем шаг готовым, когда у каждого раздела есть хотя бы 1 finding,
+      // или явно отмечены все элементы хотя бы одного раздела как "ок".
+      // Здесь — мягкий критерий: каждый раздел затронут.
+      return INSPECTION_SECTIONS.every(
+        (s) => sectionProgress(ins, s).filled > 0,
+      );
+    }
+
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       return !!c.notDone || !!c.notes;
