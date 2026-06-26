@@ -251,6 +251,7 @@ export const CLICHE_INSPECTION_PHOTO = (
   sectionLabel: string,
   elements: Array<{ id: string; label: string; hint?: string }>,
   knownTags: Array<{ name: string; type?: string | null }>,
+  existingNote?: string,
 ) => {
   const elList = elements
     .map((el) => {
