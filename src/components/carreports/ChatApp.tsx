@@ -1526,13 +1526,41 @@ export function ChatApp({ threadId }: Props) {
           running = a.filename;
           updateBatchStatus();
           try {
-            // Грузим уже подготовленный JPEG (preparePhoto конвертирует HEIC/HEIF
-            // → JPEG). Если отправить оригинальный HEIC, AI его не распознает.
+            // 1) Грузим сжатый JPEG для AI-классификации (preparePhoto уже
+            //    конвертировал HEIC/HEIF → JPEG). AI получает именно сжатую
+            //    копию — это быстрее и распознаётся надёжнее.
             const up = await uploadTemporary({
               filename: a.filename,
               blob: a.blob,
               dataUrl: a.dataUrl,
             });
+            // 2) Параллельно грузим оригинал (без сжатия), чтобы в коллаж/
+            //    раздел попал именно он. HEIC/HEIF браузер не отрисует —
+            //    в этом случае оставляем сжатую JPEG-копию как «оригинал».
+            const origType = (a.originalBlob.type || "").toLowerCase();
+            const origName = (a.originalFilename || a.filename).toLowerCase();
+            const isHeic =
+              origType.includes("heic") ||
+              origType.includes("heif") ||
+              /\.(heic|heif)$/i.test(origName);
+            let displayUrl = up.url;
+            let displayFilename = up.filename;
+            if (!isHeic) {
+              try {
+                const upOrig = await uploadTemporary(
+                  {
+                    filename: a.originalFilename || a.filename,
+                    blob: a.originalBlob,
+                    dataUrl: a.dataUrl,
+                  },
+                  { contentType: origType || "image/jpeg" },
+                );
+                displayUrl = upOrig.url;
+                displayFilename = upOrig.filename;
+              } catch {
+                // Не критично: если оригинал не загрузился — оставим сжатый.
+              }
+            }
             const fresh = getThread(threadIdLocal);
             const classified = fresh
               ? await classifyInspectionPhotoSection(fresh, up.url)
@@ -1552,9 +1580,9 @@ export function ChatApp({ threadId }: Props) {
                 t.draft.inspectionStep.photos.push({
                   section,
                   elementId,
-                  filename: up.filename,
+                  filename: displayFilename,
                   dataUrl: a.dataUrl,
-                  url: up.url,
+                  url: displayUrl,
                   remote: true,
                   addedAt: Date.now(),
                 });
@@ -1564,7 +1592,7 @@ export function ChatApp({ threadId }: Props) {
                   role: "assistant",
                   text: `📌 «${sectionLabel}» → «${elementLabel}»`,
                   step: "inspection",
-                  attachments: [{ url: up.url, label: a.filename }],
+                  attachments: [{ url: displayUrl, label: a.filename }],
                   createdAt: Date.now(),
                 });
               });
@@ -1578,15 +1606,16 @@ export function ChatApp({ threadId }: Props) {
                   step: "inspection",
                   kind: "inspectionAttachAssign",
                   pendingPhoto: {
-                    url: up.url,
+                    url: displayUrl,
                     dataUrl: a.dataUrl,
-                    filename: up.filename,
+                    filename: displayFilename,
                     remote: true,
                   },
                   createdAt: Date.now(),
                 });
               });
             }
+
           } catch (e) {
             const message = e instanceof Error ? e.message : "ошибка";
             updateThread(threadIdLocal, (t) => {
