@@ -1020,59 +1020,56 @@ export function ChatApp({ threadId }: Props) {
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
     if (photoFocusIdx === null || !thread || !photoFocus?.url || photoAiBusy) return;
-    setPhotoAiBusy(true);
-    try {
-      const fresh = getThread(thread.id);
-      if (!fresh) return;
-      const hint = composer.trim();
-      const usableUrl = await ensurePhotoAccessible({
-        url: photoFocus.url,
-        dataUrl: photoFocus.dataUrl,
-        filename: photoFocus.filename,
-      });
-      if (usableUrl && usableUrl !== photoFocus.url) {
+    const lockKey = `${thread.id}:${photoFocusIdx}`;
+    await runWithPhotoLock(lockKey, async () => {
+      try {
+        const fresh = getThread(thread.id);
+        if (!fresh) return;
+        const hint = composer.trim();
+        const usableUrl = await ensurePhotoAccessible({
+          url: photoFocus.url!,
+          dataUrl: photoFocus.dataUrl,
+          filename: photoFocus.filename,
+        });
+        if (usableUrl && usableUrl !== photoFocus.url) {
+          updateThread(thread.id, (t) => {
+            const pp = t.draft.inspectionStep.photos[photoFocusIdx];
+            if (pp) pp.url = usableUrl;
+          });
+        }
+        const r = await analyzeInspectionPhoto(
+          fresh,
+          photoFocus.section as SectionSnake,
+          usableUrl ?? photoFocus.url!,
+          hint || undefined,
+        );
         updateThread(thread.id, (t) => {
-          const pp = t.draft.inspectionStep.photos[photoFocusIdx];
-          if (pp) pp.url = usableUrl;
+          t.aiChatIds = fresh.aiChatIds;
+          const p = t.draft.inspectionStep.photos[photoFocusIdx];
+          if (!p) return;
+          if (!p.elementId && r.elementId) p.elementId = r.elementId;
+          const sec = p.section as SectionSnake;
+          const elId = p.elementId ?? r.elementId;
+          upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
+            const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
+            const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
+            f.seriousDamageTagIds = [...sSet];
+            f.noSeriousDamageTagIds = [...nsSet];
+            const existing = f.pendingTagNames ?? [];
+            const have = new Set(existing.map((p) => p.name.toLowerCase()));
+            for (const p of r.pendingTags) {
+              if (!have.has(p.name.toLowerCase())) existing.push(p);
+            }
+            f.pendingTagNames = existing;
+            if (!f.note && r.note) f.note = r.note;
+            if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
+              f.noDamage = false;
+            }
+          });
+          t.draft.inspectionStep.touched = true;
         });
-      }
-      const r = await analyzeInspectionPhoto(
-        fresh,
-        photoFocus.section as SectionSnake,
-        usableUrl ?? photoFocus.url,
-        hint || undefined,
-      );
-      updateThread(thread.id, (t) => {
-        t.aiChatIds = fresh.aiChatIds;
-        const p = t.draft.inspectionStep.photos[photoFocusIdx];
-        if (!p) return;
-        // Если фото ещё не привязано к элементу — берём из AI.
-        if (!p.elementId && r.elementId) p.elementId = r.elementId;
-        const sec = p.section as SectionSnake;
-        const elId = p.elementId ?? r.elementId;
-        upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
-          const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
-          const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
-          f.seriousDamageTagIds = [...sSet];
-          f.noSeriousDamageTagIds = [...nsSet];
-          // Слияние pending по имени.
-          const existing = f.pendingTagNames ?? [];
-          const have = new Set(existing.map((p) => p.name.toLowerCase()));
-          for (const p of r.pendingTags) {
-            if (!have.has(p.name.toLowerCase())) existing.push(p);
-          }
-          f.pendingTagNames = existing;
-          // Не перезаписываем note пользователя — добавляем AI-фразу только если своей нет.
-          if (!f.note && r.note) f.note = r.note;
-          if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
-            f.noDamage = false;
-          }
-        });
-        t.draft.inspectionStep.touched = true;
-      });
-    } catch (e) {
-      const m = e instanceof Error ? e.message : "Ошибка ИИ";
-      if (thread) {
+      } catch (e) {
+        const m = e instanceof Error ? e.message : "Ошибка ИИ";
         updateThread(thread.id, (t) => {
           pushMsg(t, "inspection", {
             id: msgId(),
@@ -1082,10 +1079,8 @@ export function ChatApp({ threadId }: Props) {
           });
         });
       }
-    } finally {
-      setPhotoAiBusy(false);
-    }
-  }, [photoFocusIdx, thread, photoFocus, photoAiBusy, composer]);
+    });
+  }, [photoFocusIdx, thread, photoFocus, photoAiBusy, composer, runWithPhotoLock]);
 
 
 
