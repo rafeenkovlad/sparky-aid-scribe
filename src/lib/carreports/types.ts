@@ -284,7 +284,9 @@ export function emptyDraft(): ReportDraft {
     characteristicsStep: {},
     documentReconciliationStep: {},
     inspectionStep: { sectionNotes: {}, photos: [], touched: false },
+    legalReviewStep: { otherMaterials: [] },
     testDriveStep: {},
     resultStep: {},
   };
 }
+
