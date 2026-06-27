@@ -104,9 +104,11 @@ export function InspectionCollage(props: {
       </div>
 
       {list.length === 0 && (
-        <div className="text-[12px] text-white/55">
-          Пока пусто. Добавьте фото — коллаж появится здесь.
-        </div>
+        <EmptyCollageUploader
+          sectionSnake={sectionSnake}
+          onPick={onPick}
+          interactive={interactive}
+        />
       )}
 
       {list.length > 0 && (
@@ -220,6 +222,61 @@ export function InspectionCollage(props: {
   );
 }
 
-// Photo annotator was removed — см. ElementFocusCard — теперь это inline-карточка
-// experience that replaced it.
+function EmptyCollageUploader(props: {
+  sectionSnake: SectionSnake;
+  onPick: (files: File[]) => void;
+  interactive: boolean;
+}) {
+  const { onPick, interactive } = props;
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="space-y-2">
+      <div className="text-[12px] text-white/55">
+        Пока пусто. Снимите или выберите фото — они появятся в коллаже.
+      </div>
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (files.length) onPick(files);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*,.heic,.heif"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (files.length) onPick(files);
+          e.target.value = "";
+        }}
+      />
+      <div className="flex gap-2">
+        <button
+          disabled={!interactive}
+          onClick={() => cameraRef.current?.click()}
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm py-2.5"
+        >
+          <Camera className="h-5 w-5" /> Снять
+        </button>
+        <button
+          disabled={!interactive}
+          onClick={() => galleryRef.current?.click()}
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white text-sm py-2.5"
+        >
+          <ImageIcon className="h-5 w-5" /> Из галереи
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
