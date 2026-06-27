@@ -694,23 +694,25 @@ export function ChatApp({ threadId }: Props) {
     (elementId: string) => {
       if (photoFocusIdx === null || !thread) return;
       const idx = photoFocusIdx;
+      // Один проход: меняем elementId и тут же читаем заметку нового элемента,
+      // чтобы подставить её в композер. Без повторного getThread — меньше
+      // допущений о синхронности store.
+      let noteSeed = "";
       updateThread(thread.id, (t) => {
         const p = t.draft.inspectionStep.photos[idx];
-        if (p) p.elementId = elementId;
+        if (!p) return;
+        p.elementId = elementId;
         t.draft.inspectionStep.touched = true;
-      });
-      // После смены элемента — подтянуть его заметку в композер.
-      const fresh = getThread(thread.id);
-      const p = fresh?.draft.inspectionStep.photos[idx];
-      if (p) {
-        const f = fresh!.draft.inspectionStep.findings?.[
+        const f = t.draft.inspectionStep.findings?.[
           findingKey(p.section as SectionSnake, elementId)
         ];
-        setComposer(f?.note ?? "");
-      }
+        noteSeed = f?.note ?? "";
+      });
+      setComposer(noteSeed);
     },
     [photoFocusIdx, thread],
   );
+
 
   const photoSetVerdict = useCallback(
     (v: "ok" | "minor" | "serious") => {
