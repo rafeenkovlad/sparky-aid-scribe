@@ -111,7 +111,7 @@ const STEP_PLACEHOLDERS: Record<StepId, string> = {
   characteristics: "Марка, модель, поколение, год, двигатель, КПП, привод, цвет… (Enter — отправить)",
   docs: "Кол-во владельцев, совпадения VIN/двигателя/ФИО с ПТС/СТС… (Enter — отправить)",
   inspection: "Заметки по текущей зоне осмотра… (Enter — сохранить)",
-  legalMaterials: "Комментарий к материалам (необязательно). Файлы добавляйте кнопкой 📎 справа.",
+  legalMaterials: "Комментарий к материалам (необязательно). Файлы добавляйте карточкой выше.",
   testDrive: "Тест-драйв: двигатель, КПП, руль, подвеска, тормоза, замечания… (Enter — отправить)",
   result: "Итоговый комментарий специалиста и вердикт… (Enter — отправить)",
   submit: "Готово к отправке — подтвердите или уточните детали… (Enter — отправить)",
@@ -204,7 +204,80 @@ export function ChatApp({ threadId }: Props) {
   >([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const materialsInputRef = useRef<HTMLInputElement>(null);
+  const materialsCameraRef = useRef<HTMLInputElement>(null);
   const [materialsBusy, setMaterialsBusy] = useState(false);
+
+  const handleMaterialFiles = useCallback(
+    async (files: File[]) => {
+      if (!thread || !files.length) return;
+      setMaterialsBusy(true);
+      try {
+        for (const f of files) {
+          const placeholderId = msgId();
+          updateThread(thread.id, (t) => {
+            pushMsg(t, "legalMaterials", {
+              id: placeholderId,
+              role: "assistant",
+              text: `⏳ Загружаю: ${f.name}…`,
+              step: "legalMaterials",
+              queueStatus: "running",
+              createdAt: Date.now(),
+            });
+          });
+          try {
+            const up = await uploadFile(f);
+            updateThread(thread.id, (t) => {
+              const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
+              t.draft.legalReviewStep = {
+                ...t.draft.legalReviewStep,
+                otherMaterials: [
+                  ...arr,
+                  {
+                    filename: up.filename,
+                    key: up.key,
+                    type: up.type,
+                    url: up.url,
+                    size: up.size,
+                    mimeType: up.mimeType,
+                    addedAt: Date.now(),
+                  },
+                ],
+              };
+              const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+              const icon = up.type === "image" ? "🖼️" : up.type === "video" ? "🎬" : "📄";
+              const kb =
+                up.size >= 1024 * 1024
+                  ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
+                  : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
+              const text = `${icon} ${f.name} · ${kb} · загружено`;
+              if (i >= 0) {
+                t.messages.legalMaterials[i] = {
+                  ...t.messages.legalMaterials[i],
+                  text,
+                  queueStatus: undefined,
+                };
+              }
+            });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "ошибка загрузки";
+            updateThread(thread.id, (t) => {
+              const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+              if (i >= 0) {
+                t.messages.legalMaterials[i] = {
+                  ...t.messages.legalMaterials[i],
+                  text: `❌ ${f.name}: ${msg}`,
+                  queueStatus: "error",
+                };
+              }
+            });
+          }
+        }
+      } finally {
+        setMaterialsBusy(false);
+      }
+    },
+    [thread],
+  );
 
 
   // Размер очереди AI-запросов по текущему треду (для индикатора).
@@ -2100,6 +2173,58 @@ export function ChatApp({ threadId }: Props) {
 
         ))}
 
+        {currentStep === "legalMaterials" && (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-3 space-y-2.5">
+            <div className="text-sm text-white">
+              Прикрепите дополнительные материалы проверки — фото, видео, документы или
+              отчёты сканеров. <span className="text-white/60">Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}</span>
+            </div>
+            <input
+              ref={materialsCameraRef}
+              type="file"
+              accept="image/*,.heic,.heif"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (files.length) void handleMaterialFiles(files);
+              }}
+            />
+            <input
+              ref={materialsInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.avi,.pdf,.doc,.docx,image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (files.length) void handleMaterialFiles(files);
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={materialsBusy}
+                onClick={() => materialsCameraRef.current?.click()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm py-2.5"
+              >
+                <Camera className="h-5 w-5" /> Снять
+              </button>
+              <button
+                type="button"
+                disabled={materialsBusy}
+                onClick={() => materialsInputRef.current?.click()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white text-sm py-2.5"
+              >
+                <Paperclip className="h-5 w-5" /> {materialsBusy ? "Загрузка…" : "Файлы"}
+              </button>
+            </div>
+          </div>
+        )}
+
+
         {(busy || queueSize > 0) && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
@@ -2128,96 +2253,9 @@ export function ChatApp({ threadId }: Props) {
           </button>
         )}
         {currentStep === "legalMaterials" && (
-          <>
-            <input
-              ref={materialsInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.avi,.pdf,.doc,.docx,image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={async (e) => {
-                const files = Array.from(e.target.files ?? []);
-                e.target.value = "";
-                if (!files.length || !thread) return;
-                setMaterialsBusy(true);
-                try {
-                  for (const f of files) {
-                    const placeholderId = msgId();
-                    updateThread(thread.id, (t) => {
-                      pushMsg(t, "legalMaterials", {
-                        id: placeholderId,
-                        role: "assistant",
-                        text: `⏳ Загружаю: ${f.name}…`,
-                        step: "legalMaterials",
-                        queueStatus: "running",
-                        createdAt: Date.now(),
-                      });
-                    });
-                    try {
-                      const up = await uploadFile(f);
-                      updateThread(thread.id, (t) => {
-                        const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
-                        t.draft.legalReviewStep = {
-                          ...t.draft.legalReviewStep,
-                          otherMaterials: [
-                            ...arr,
-                            {
-                              filename: up.filename,
-                              key: up.key,
-                              type: up.type,
-                              url: up.url,
-                              size: up.size,
-                              mimeType: up.mimeType,
-                              addedAt: Date.now(),
-                            },
-                          ],
-                        };
-                        const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
-                        const icon = up.type === "image" ? "🖼️" : up.type === "video" ? "🎬" : "📄";
-                        const kb = up.size >= 1024 * 1024
-                          ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
-                          : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
-                        const text = `${icon} ${f.name} · ${kb} · загружено`;
-                        if (i >= 0) {
-                          t.messages.legalMaterials[i] = {
-                            ...t.messages.legalMaterials[i],
-                            text,
-                            queueStatus: undefined,
-                          };
-                        }
-                      });
-                    } catch (err) {
-                      const msg = err instanceof Error ? err.message : "ошибка загрузки";
-                      updateThread(thread.id, (t) => {
-                        const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
-                        if (i >= 0) {
-                          t.messages.legalMaterials[i] = {
-                            ...t.messages.legalMaterials[i],
-                            text: `❌ ${f.name}: ${msg}`,
-                            queueStatus: "error",
-                          };
-                        }
-                      });
-                    }
-                  }
-                } finally {
-                  setMaterialsBusy(false);
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => materialsInputRef.current?.click()}
-              disabled={materialsBusy}
-              className="rounded-full bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1.5"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-              {materialsBusy ? "Загрузка…" : "Прикрепить файл"}
-            </button>
-            <div className="text-xs text-white/60 self-center">
-              Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}
-            </div>
-          </>
+          <div className="text-xs text-white/60 self-center">
+            Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}
+          </div>
         )}
         {currentStep === "submit" && (
           <button
