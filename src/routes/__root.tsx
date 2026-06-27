@@ -76,10 +76,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "AI CARREP" },
       { name: "description", content: "AI-powered app generates comprehensive technical car reports." },
       { name: "author", content: "Lovable" },
+      { name: "theme-color", content: "#09090b" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "CARREP" },
+      { name: "application-name", content: "CARREP" },
       { property: "og:title", content: "AI CARREP" },
       { property: "og:description", content: "AI-powered app generates comprehensive technical car reports." },
       { property: "og:type", content: "website" },
@@ -91,12 +97,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/84f3f70a-cc72-41fb-916a-e8c717065fa5/id-preview-fd774eb0--c1a6e2b2-8859-4731-a1a9-6621e6865be6.lovable.app-1782463659924.png" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
+
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
