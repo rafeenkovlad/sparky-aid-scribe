@@ -14,6 +14,7 @@ import {
   parseJsonResponse,
   pickEnum,
   CLICHE_ASK,
+  CLICHE_INSPECTION_ROUTE,
 } from "./cliche";
 
 import { decodeVin } from "./storageApi";
