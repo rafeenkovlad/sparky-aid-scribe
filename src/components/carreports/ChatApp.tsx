@@ -1532,7 +1532,7 @@ export function ChatApp({ threadId }: Props) {
               dataUrl: a.dataUrl,
             });
             const fresh = getThread(threadIdLocal);
-            const section = fresh
+            const classified = fresh
               ? await classifyInspectionPhotoSection(fresh, up.url)
               : null;
             if (fresh) {
@@ -1540,13 +1540,16 @@ export function ChatApp({ threadId }: Props) {
                 t.aiChatIds = fresh.aiChatIds;
               });
             }
-            if (section) {
-              const sectionLabel =
-                INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ??
-                section;
+            if (classified) {
+              const { section, elementId } = classified;
+              const sec = INSPECTION_SECTIONS.find((s) => s.snake === section);
+              const sectionLabel = sec?.label ?? section;
+              const elementLabel =
+                sec?.elements.find((e) => e.id === elementId)?.label ?? elementId;
               updateThread(threadIdLocal, (t) => {
                 t.draft.inspectionStep.photos.push({
                   section,
+                  elementId,
                   filename: up.filename,
                   dataUrl: a.dataUrl,
                   url: up.url,
@@ -1557,7 +1560,7 @@ export function ChatApp({ threadId }: Props) {
                 pushMsg(t, "inspection", {
                   id: msgId(),
                   role: "assistant",
-                  text: `📌 Закреплено в разделе «${sectionLabel}»`,
+                  text: `📌 «${sectionLabel}» → «${elementLabel}»`,
                   step: "inspection",
                   attachments: [{ url: up.url, label: a.filename }],
                   createdAt: Date.now(),
