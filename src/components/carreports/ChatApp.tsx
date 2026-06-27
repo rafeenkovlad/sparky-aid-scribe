@@ -1468,6 +1468,8 @@ export function ChatApp({ threadId }: Props) {
       });
 
       const classifiedSections = new Set<SectionSnake>();
+      const total = atts.length;
+      let done = 0;
 
       for (const a of atts) {
         const perStatusId = msgId();
@@ -1553,17 +1555,21 @@ export function ChatApp({ threadId }: Props) {
             });
           } finally {
             ctrl.remove();
+            // Финализатор пакета: запускаем ровно один раз изнутри
+            // последней завершившейся фото-задачи. Так мы не добавляем
+            // лишнюю задачу в очередь (счётчик «в очереди» не дёргается
+            // зря), и карточки разделов появляются только если что-то
+            // действительно классифицировано.
+            done += 1;
+            if (done === total && classifiedSections.size > 0) {
+              for (const section of classifiedSections) {
+                ensureSectionMessages(section);
+              }
+            }
           }
         });
       }
 
-      // После того как очередь обработает все фото — один раз показываем
-      // список разделов (как при нажатии «карандашика»).
-      void enqueueAI(threadIdLocal, async () => {
-        for (const section of classifiedSections) {
-          ensureSectionMessages(section);
-        }
-      });
 
 
       // Если кроме фото пришёл и текст — отдельная задача для extractForStep.
