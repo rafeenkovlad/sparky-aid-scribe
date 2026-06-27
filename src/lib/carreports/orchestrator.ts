@@ -133,7 +133,7 @@ export async function extractForStep(
       const key = findingKey(sectionSnake, eid);
       const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
 
-      const noDamage = typeof f.noDamage === "boolean" ? f.noDamage : base.noDamage;
+      let noDamage = typeof f.noDamage === "boolean" ? f.noDamage : base.noDamage;
 
       const sNames = Array.isArray(f.seriousTags)
         ? (f.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
@@ -163,6 +163,14 @@ export async function extractForStep(
           ? `${base.note}\n${f.note.trim()}`
           : f.note.trim()
         : base.note;
+
+      // Защита от противоречия: noDamage=true несовместим с наличием тегов
+      // (как серверных, так и pending). Сбрасываем в false, как это делают
+      // analyzeInspectionPhoto/Note в финальном маппинге.
+      if (noDamage === true && (sIds.size || nsIds.size || pending.length)) {
+        noDamage = false;
+      }
+
 
       nextFindings[key] = {
         section: sectionSnake,
