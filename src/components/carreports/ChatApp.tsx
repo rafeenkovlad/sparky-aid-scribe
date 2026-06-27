@@ -1983,6 +1983,7 @@ export function ChatApp({ threadId }: Props) {
   // Для шага «осмотр» карандаш доступен всегда — это вход в панель редактирования.
   const hasCurrentStepDraft =
     currentStep === "inspection" ||
+    currentStep === "legalMaterials" ||
     summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
