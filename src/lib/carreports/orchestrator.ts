@@ -106,6 +106,7 @@ export async function extractForStep(
         elementId?: string | null;
         confidence?: number;
         noMatch?: boolean;
+        bulkGeneralCondition?: boolean;
         reason?: string;
       }>(routeRes.content);
       const confidence =
@@ -132,6 +133,74 @@ export async function extractForStep(
           activeElement = pickedEl;
           elementId = pickedEl.id;
         }
+      }
+
+      // ─── Bulk: «все фото раздела — общее состояние» ───────────────────
+      if (route?.bulkGeneralCondition === true) {
+        const generalEl =
+          section.elements.find((el) => el.id === "generalCondition") ??
+          section.elements[section.elements.length - 1];
+        const nextPhotos = ins.photos.map((p) =>
+          p.section === sectionSnake
+            ? { ...p, elementId: generalEl.id }
+            : p,
+        );
+        // Перевешиваем существующие per-element findings раздела на
+        // generalCondition, объединяя заметки/теги.
+        const prev = ins.findings ?? {};
+        const next: Record<string, InspectionElementFinding> = {};
+        const genKey = findingKey(sectionSnake, generalEl.id);
+        const gen: InspectionElementFinding = prev[genKey]
+          ? { ...prev[genKey] }
+          : { section: sectionSnake, elementId: generalEl.id };
+        const sIds = new Set<number>(gen.seriousDamageTagIds ?? []);
+        const nsIds = new Set<number>(gen.noSeriousDamageTagIds ?? []);
+        const pend: PendingTagName[] = [...(gen.pendingTagNames ?? [])];
+        const notes: string[] = gen.note ? [gen.note] : [];
+        for (const [key, f] of Object.entries(prev)) {
+          if (!key.startsWith(`${sectionSnake}.`) || key === genKey) {
+            if (key !== genKey) next[key] = f;
+            continue;
+          }
+          for (const id of f.seriousDamageTagIds ?? []) sIds.add(id);
+          for (const id of f.noSeriousDamageTagIds ?? []) nsIds.add(id);
+          for (const p of f.pendingTagNames ?? []) {
+            if (!pend.some((x) => x.name === p.name)) pend.push(p);
+          }
+          if (f.note && !notes.includes(f.note)) notes.push(f.note);
+        }
+        const photoCount = nextPhotos.filter(
+          (p) => p.section === sectionSnake,
+        ).length;
+        next[genKey] = {
+          section: sectionSnake,
+          elementId: generalEl.id,
+          ...(sIds.size || nsIds.size || pend.length
+            ? { noDamage: false }
+            : gen.noDamage !== undefined
+              ? { noDamage: gen.noDamage }
+              : {}),
+          ...(sIds.size ? { seriousDamageTagIds: [...sIds] } : {}),
+          ...(nsIds.size ? { noSeriousDamageTagIds: [...nsIds] } : {}),
+          ...(pend.length ? { pendingTagNames: pend } : {}),
+          ...(notes.length ? { note: notes.join("\n") } : {}),
+        };
+        return {
+          patch: {
+            inspectionStep: {
+              ...ins,
+              photos: nextPhotos,
+              findings: next,
+              touched: true,
+              currentSection: sectionSnake,
+              currentElementId: generalEl.id,
+            },
+          },
+          reply:
+            `📌 Раздел «${section.label}»: повесила «${generalEl.label}» ` +
+            `на ${photoCount === 1 ? "1 фото" : `${photoCount} фото`}. ` +
+            `Дальше всё, что пришлёте в этот раздел, тоже пойдёт в общее состояние.`,
+        };
       }
     } catch {
       // если роутер упал — используем текущий раздел/элемент как раньше.
