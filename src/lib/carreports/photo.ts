@@ -233,7 +233,10 @@ export async function uploadPhoto(photo: PreparedPhoto): Promise<{
       remote: false,
       note: `Загрузка на сервер не удалась (${msg}). Фото сохранено локально в черновике.`,
     };
+  }
 }
+
+
 
 /**
  * Категория файла по MIME / расширению — для FileDTO бэкенда.
