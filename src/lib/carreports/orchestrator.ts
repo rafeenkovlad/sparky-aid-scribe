@@ -197,9 +197,9 @@ export async function extractForStep(
             },
           },
           reply:
-            `📌 Раздел «${section.label}»: повесила «${generalEl.label}» ` +
-            `на ${photoCount === 1 ? "1 фото" : `${photoCount} фото`}. ` +
-            `Дальше всё, что пришлёте в этот раздел, тоже пойдёт в общее состояние.`,
+            `📌 Раздел «${section.label}»: «${generalEl.label}» теперь стоит ` +
+            `на ${photoCount === 1 ? "1 фото" : `${photoCount} фото`} раздела. ` +
+            `Заметки и теги от элементов раздела объединены в общее состояние.`,
         };
       }
     } catch {
