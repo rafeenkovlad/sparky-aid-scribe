@@ -28,8 +28,35 @@ export async function preparePhoto(
 ): Promise<PreparedPhoto> {
   const maxBytes = opts.maxBytes ?? MAX_BYTES;
   const decoded = await ensureDecodable(file);
-  const bitmap = await readImage(decoded);
 
+  // Если файл уже в пределах лимита и в браузеро-декодируемом формате —
+  // не пережимаем, грузим оригинал. Превью для коллажа всё равно генерируем
+  // маленьким JPEG, чтобы не раздувать черновик в localStorage.
+  const decodedType = (decoded.type || "").toLowerCase();
+  const passthroughOk =
+    decoded.size <= maxBytes &&
+    (decodedType === "image/jpeg" ||
+      decodedType === "image/png" ||
+      decodedType === "image/webp");
+  if (passthroughOk) {
+    const bitmap = await readImage(decoded);
+    const thumbBlob = await encodeJpeg(bitmap, 512, 0.7);
+    const dataUrl = await blobToDataUrl(thumbBlob);
+    const ext = decodedType === "image/png"
+      ? ".png"
+      : decodedType === "image/webp"
+        ? ".webp"
+        : ".jpg";
+    const base = (decoded.name || file.name).replace(/\.[^.]+$/, "") || "photo";
+    const safe = base.replace(/[^\w.-]+/g, "_");
+    return {
+      filename: `${safe}_${Date.now()}${ext}`,
+      blob: decoded,
+      dataUrl,
+    };
+  }
+
+  const bitmap = await readImage(decoded);
   // Iteratively reduce quality, then dimensions, until under maxBytes.
   let edge = DEFAULT_MAX_EDGE;
   let quality = DEFAULT_QUALITY;
@@ -55,6 +82,7 @@ export async function preparePhoto(
   const filename = `${base}_${Date.now()}.jpg`;
   return { filename, blob, dataUrl };
 }
+
 
 async function encodeJpeg(
   bitmap: HTMLImageElement | ImageBitmap,
