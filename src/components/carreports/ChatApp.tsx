@@ -3102,7 +3102,7 @@ function MessageBubble({
                     </div>
                   );
                 })}
-              {interactive && onAddLegalMaterial && (
+              {onAddLegalMaterial && (
                 <button
                   type="button"
                   onClick={() => onAddLegalMaterial()}
