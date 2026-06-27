@@ -232,11 +232,48 @@ export async function uploadPhoto(photo: PreparedPhoto): Promise<{
 }
 
 /**
- * Проверяет, доступна ли картинка по URL (HEAD/Range), и если нет — повторно
- * загружает её во временное хранилище из локального dataUrl и возвращает
- * новый presigned GET URL. Если URL рабочий — возвращает его без изменений.
+ * Парсит срок жизни presigned-URL по `X-Amz-Date` + `X-Amz-Expires`. Возвращает
+ * `null`, если ссылка не AWS SigV4 (в т.ч. локальная) или параметры не читаемы.
+ */
+function presignedExpiryMs(url: string): number | null {
+  try {
+    const u = new URL(url);
+    const date = u.searchParams.get("X-Amz-Date");
+    const exp = u.searchParams.get("X-Amz-Expires");
+    if (!date || !exp) return null;
+    // X-Amz-Date: YYYYMMDDTHHMMSSZ
+    const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(date);
+    if (!m) return null;
+    const issuedAt = Date.UTC(
+      Number(m[1]),
+      Number(m[2]) - 1,
+      Number(m[3]),
+      Number(m[4]),
+      Number(m[5]),
+      Number(m[6]),
+    );
+    const seconds = Number(exp);
+    if (!Number.isFinite(seconds)) return null;
+    return issuedAt + seconds * 1000;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Проверяет, доступна ли картинка по URL, и если нет — повторно загружает её
+ * во временное хранилище из локального dataUrl и возвращает новый presigned
+ * GET URL. Если URL рабочий — возвращает его без изменений.
  *
- * Если ни URL, ни dataUrl недоступны — возвращает `null`.
+ * Стратегия:
+ *  1) Если URL — это AWS presigned GET, читаем `X-Amz-Date`+`X-Amz-Expires`
+ *     и считаем URL валидным, если до истечения ≥ 60с. Это избавляет от
+ *     ложных «недоступно» из-за CORS/HEAD-ограничений S3 (HEAD на
+ *     presigned-GET даёт 403, а Range требует CORS allow-headers).
+ *  2) Иначе пробуем лёгкий Range-GET (без HEAD, чтобы не упереться в CORS).
+ *  3) Если всё равно недоступно — перезаливаем из локального dataUrl.
+ *
+ * Если ни URL, ни dataUrl не дают результата — возвращает `null`.
  */
 export async function ensurePhotoAccessible(opts: {
   url?: string;
@@ -245,24 +282,27 @@ export async function ensurePhotoAccessible(opts: {
 }): Promise<string | null> {
   const { url, dataUrl, filename } = opts;
 
-  // 1) Попробуем подтвердить доступ к URL.
+  // 1) Быстрая проверка по сроку жизни presigned-URL — без сетевого запроса.
   if (url) {
-    try {
-      // HEAD не всегда поддерживается S3 presigned GET — пробуем оба варианта.
-      let res = await fetch(url, { method: "HEAD" }).catch(() => null);
-      if (!res || !res.ok) {
-        res = await fetch(url, {
+    const expiryMs = presignedExpiryMs(url);
+    if (expiryMs !== null) {
+      if (expiryMs - Date.now() > 60_000) return url;
+      // URL истёк или вот-вот истечёт — сразу к шагу 3.
+    } else {
+      // Не presigned (или нечитаемый) — пробуем сетевой Range-GET.
+      try {
+        const res = await fetch(url, {
           method: "GET",
           headers: { Range: "bytes=0-0" },
         }).catch(() => null);
+        if (res && (res.ok || res.status === 206)) return url;
+      } catch {
+        // ignore — пойдём перезаливать
       }
-      if (res && (res.ok || res.status === 206)) return url;
-    } catch {
-      // ignore, попробуем перезалить
     }
   }
 
-  // 2) Если не доступно — перезаливаем из локального превью.
+  // 2) Перезаливаем из локального превью.
   if (!dataUrl) return url ?? null;
   try {
     const blob = await (await fetch(dataUrl)).blob();
@@ -273,3 +313,4 @@ export async function ensurePhotoAccessible(opts: {
     return url ?? null;
   }
 }
+
