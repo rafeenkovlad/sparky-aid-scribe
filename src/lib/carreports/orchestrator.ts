@@ -164,6 +164,14 @@ export async function extractForStep(
           : f.note.trim()
         : base.note;
 
+      // Защита от противоречия: noDamage=true несовместим с наличием тегов
+      // (как серверных, так и pending). Сбрасываем в false, как это делают
+      // analyzeInspectionPhoto/Note в финальном маппинге.
+      if (noDamage === true && (sIds.size || nsIds.size || pending.length)) {
+        noDamage = false;
+      }
+
+
       nextFindings[key] = {
         section: sectionSnake,
         elementId: eid,
