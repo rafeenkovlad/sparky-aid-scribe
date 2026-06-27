@@ -154,6 +154,34 @@ export function ChatApp({ threadId }: Props) {
   const composerBackupRef = useRef<string | null>(null);
   /** Идёт ли AI-анализ заметки к фото. */
   const [photoAiBusy, setPhotoAiBusy] = useState(false);
+  /**
+   * Сериализатор задач на одно фото (text-note + vision). Гарантирует, что
+   * `savePhotoNote` и `runPhotoAi`, выпущенные параллельно по одному фото,
+   * не перезаписывают findings друг друга и не теряют теги.
+   */
+  const photoLockRef = useRef<Map<string, Promise<void>>>(new Map());
+  const photoBusyCountRef = useRef(0);
+  const runWithPhotoLock = useCallback(
+    (key: string, fn: () => Promise<void>) => {
+      const prev = photoLockRef.current.get(key) ?? Promise.resolve();
+      const next = prev.catch(() => {}).then(async () => {
+        photoBusyCountRef.current += 1;
+        setPhotoAiBusy(true);
+        try {
+          await fn();
+        } finally {
+          photoBusyCountRef.current = Math.max(0, photoBusyCountRef.current - 1);
+          if (photoBusyCountRef.current === 0) setPhotoAiBusy(false);
+        }
+      });
+      const tracked = next.finally(() => {
+        if (photoLockRef.current.get(key) === tracked) photoLockRef.current.delete(key);
+      });
+      photoLockRef.current.set(key, tracked);
+      return next;
+    },
+    [],
+  );
   /** Предложение по заметке: оригинал vs AI-переформулировка. */
   const [noteProposal, setNoteProposal] = useState<NoteProposalT | null>(null);
 
@@ -761,7 +789,10 @@ export function ChatApp({ threadId }: Props) {
       });
     }
 
-    (async () => {
+    const lockKey =
+      thread && photoFocusIdx !== null ? `${thread.id}:${photoFocusIdx}` : `note:${statusId}`;
+    runWithPhotoLock(lockKey, async () => {
+
       try {
         if (!thread || !photoFocus) {
           setNoteProposal((prev) =>
@@ -962,8 +993,8 @@ export function ChatApp({ threadId }: Props) {
           prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
         );
       }
-    })();
-  }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx]);
+    });
+  }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx, runWithPhotoLock]);
 
 
 
@@ -989,59 +1020,56 @@ export function ChatApp({ threadId }: Props) {
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
     if (photoFocusIdx === null || !thread || !photoFocus?.url || photoAiBusy) return;
-    setPhotoAiBusy(true);
-    try {
-      const fresh = getThread(thread.id);
-      if (!fresh) return;
-      const hint = composer.trim();
-      const usableUrl = await ensurePhotoAccessible({
-        url: photoFocus.url,
-        dataUrl: photoFocus.dataUrl,
-        filename: photoFocus.filename,
-      });
-      if (usableUrl && usableUrl !== photoFocus.url) {
+    const lockKey = `${thread.id}:${photoFocusIdx}`;
+    await runWithPhotoLock(lockKey, async () => {
+      try {
+        const fresh = getThread(thread.id);
+        if (!fresh) return;
+        const hint = composer.trim();
+        const usableUrl = await ensurePhotoAccessible({
+          url: photoFocus.url!,
+          dataUrl: photoFocus.dataUrl,
+          filename: photoFocus.filename,
+        });
+        if (usableUrl && usableUrl !== photoFocus.url) {
+          updateThread(thread.id, (t) => {
+            const pp = t.draft.inspectionStep.photos[photoFocusIdx];
+            if (pp) pp.url = usableUrl;
+          });
+        }
+        const r = await analyzeInspectionPhoto(
+          fresh,
+          photoFocus.section as SectionSnake,
+          usableUrl ?? photoFocus.url!,
+          hint || undefined,
+        );
         updateThread(thread.id, (t) => {
-          const pp = t.draft.inspectionStep.photos[photoFocusIdx];
-          if (pp) pp.url = usableUrl;
+          t.aiChatIds = fresh.aiChatIds;
+          const p = t.draft.inspectionStep.photos[photoFocusIdx];
+          if (!p) return;
+          if (!p.elementId && r.elementId) p.elementId = r.elementId;
+          const sec = p.section as SectionSnake;
+          const elId = p.elementId ?? r.elementId;
+          upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
+            const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
+            const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
+            f.seriousDamageTagIds = [...sSet];
+            f.noSeriousDamageTagIds = [...nsSet];
+            const existing = f.pendingTagNames ?? [];
+            const have = new Set(existing.map((p) => p.name.toLowerCase()));
+            for (const p of r.pendingTags) {
+              if (!have.has(p.name.toLowerCase())) existing.push(p);
+            }
+            f.pendingTagNames = existing;
+            if (!f.note && r.note) f.note = r.note;
+            if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
+              f.noDamage = false;
+            }
+          });
+          t.draft.inspectionStep.touched = true;
         });
-      }
-      const r = await analyzeInspectionPhoto(
-        fresh,
-        photoFocus.section as SectionSnake,
-        usableUrl ?? photoFocus.url,
-        hint || undefined,
-      );
-      updateThread(thread.id, (t) => {
-        t.aiChatIds = fresh.aiChatIds;
-        const p = t.draft.inspectionStep.photos[photoFocusIdx];
-        if (!p) return;
-        // Если фото ещё не привязано к элементу — берём из AI.
-        if (!p.elementId && r.elementId) p.elementId = r.elementId;
-        const sec = p.section as SectionSnake;
-        const elId = p.elementId ?? r.elementId;
-        upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
-          const sSet = new Set([...(f.seriousDamageTagIds ?? []), ...r.seriousTagIds]);
-          const nsSet = new Set([...(f.noSeriousDamageTagIds ?? []), ...r.noSeriousTagIds]);
-          f.seriousDamageTagIds = [...sSet];
-          f.noSeriousDamageTagIds = [...nsSet];
-          // Слияние pending по имени.
-          const existing = f.pendingTagNames ?? [];
-          const have = new Set(existing.map((p) => p.name.toLowerCase()));
-          for (const p of r.pendingTags) {
-            if (!have.has(p.name.toLowerCase())) existing.push(p);
-          }
-          f.pendingTagNames = existing;
-          // Не перезаписываем note пользователя — добавляем AI-фразу только если своей нет.
-          if (!f.note && r.note) f.note = r.note;
-          if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
-            f.noDamage = false;
-          }
-        });
-        t.draft.inspectionStep.touched = true;
-      });
-    } catch (e) {
-      const m = e instanceof Error ? e.message : "Ошибка ИИ";
-      if (thread) {
+      } catch (e) {
+        const m = e instanceof Error ? e.message : "Ошибка ИИ";
         updateThread(thread.id, (t) => {
           pushMsg(t, "inspection", {
             id: msgId(),
@@ -1051,10 +1079,8 @@ export function ChatApp({ threadId }: Props) {
           });
         });
       }
-    } finally {
-      setPhotoAiBusy(false);
-    }
-  }, [photoFocusIdx, thread, photoFocus, photoAiBusy, composer]);
+    });
+  }, [photoFocusIdx, thread, photoFocus, photoAiBusy, composer, runWithPhotoLock]);
 
 
 
