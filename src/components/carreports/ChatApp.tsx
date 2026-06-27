@@ -3038,13 +3038,8 @@ function MessageBubble({
                 {draft.legalReviewStep?.otherMaterials.length ?? 0} файл(ов)
               </div>
             </div>
-            {(draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 ? (
-              <div className="text-[12px] text-white/55">
-                Пока пусто. Добавьте файлы через карточку ниже.
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {(draft.legalReviewStep?.otherMaterials ?? []).map((mat, idx) => {
+            <div className="grid grid-cols-3 gap-2">
+              {(draft.legalReviewStep?.otherMaterials ?? []).map((mat, idx) => {
                   const icon =
                     mat.type === "image" ? "🖼️" : mat.type === "video" ? "🎬" : "📄";
                   const kb =
@@ -3103,8 +3098,18 @@ function MessageBubble({
                     </div>
                   );
                 })}
-              </div>
-            )}
+              {interactive && onAddLegalMaterial && (
+                <button
+                  type="button"
+                  onClick={() => onAddLegalMaterial()}
+                  className="aspect-square rounded-lg border border-dashed border-white/20 text-white/60 hover:text-white hover:border-white/40 flex flex-col items-center justify-center gap-1 text-[11px]"
+                >
+                  <Plus className="h-6 w-6" />
+                  Добавить
+                </button>
+              )}
+            </div>
+
           </div>
         )}
 
