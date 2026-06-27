@@ -81,8 +81,7 @@ export async function registerServiceWorker(onUpdateReady?: UpdateReadyHandler) 
 
     // Fired when a new SW has installed and is waiting (we already control the page).
     wb.addEventListener("waiting", promptUpdate);
-    // Also fired in newer workbox versions for the same situation.
-    wb.addEventListener("externalwaiting", promptUpdate);
+
 
     await wb.register();
   } catch (err) {
