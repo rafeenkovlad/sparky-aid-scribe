@@ -20,6 +20,7 @@ import { decodeVin } from "./storageApi";
 import {
   INSPECTION_SECTIONS,
   ZONE_TO_SECTION,
+  defaultElementIdFor,
   getSection,
   findingKey,
   type SectionSnake,
