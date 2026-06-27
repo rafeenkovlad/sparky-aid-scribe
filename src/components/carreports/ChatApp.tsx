@@ -605,44 +605,46 @@ export function ChatApp({ threadId }: Props) {
 
   const enterPhotoFocus = useCallback(
     (idx: number) => {
+      if (!thread) return;
       composerBackupRef.current = composer;
       setPhotoFocusIdx(idx);
-      if (thread) {
-        const p = thread.draft.inspectionStep.photos[idx];
+      // Один проход по треду: и читаем note для композера, и переносим/создаём
+      // карточку фокус-элемента в конец ленты. Раньше было два apdate'а и
+      // мутация существующего объекта (existing.photoIdx = ...), которая
+      // могла затереть поле в ещё отрендеренной ссылке.
+      let composerSeed: string | null = null;
+      updateThread(thread.id, (t) => {
+        const p = t.draft.inspectionStep.photos[idx];
         if (p) {
           const sec = p.section as SectionSnake;
-          const elId =
-            p.elementId ?? (INSPECTION_SECTIONS.find((s) => s.snake === sec)?.elements[0]?.id ?? "generalCondition");
-          const f = thread.draft.inspectionStep.findings?.[findingKey(sec, elId)];
-          setComposer(f?.note ?? "");
+          const elId = p.elementId ?? defaultElementIdFor(sec);
+          const f = t.draft.inspectionStep.findings?.[findingKey(sec, elId)];
+          composerSeed = f?.note ?? "";
         }
-      }
-      // Перетаскиваем (или создаём) единственное сообщение фокус-элемента в конец ленты.
-      if (thread) {
-        updateThread(thread.id, (t) => {
-          const arr = t.messages.inspection;
-          const existingIdx = arr.findIndex((m) => m.kind === "inspectionElementFocus");
-          if (existingIdx >= 0) {
-            const [existing] = arr.splice(existingIdx, 1);
-            existing.photoIdx = idx;
-            existing.createdAt = Date.now();
-            arr.push(existing);
-          } else {
-            pushMsg(t, "inspection", {
-              id: msgId(),
-              role: "assistant",
-              text: "",
-              kind: "inspectionElementFocus",
-              photoIdx: idx,
-              createdAt: Date.now(),
-            });
-          }
-        });
-      }
+        const arr = t.messages.inspection;
+        const existingIdx = arr.findIndex((m) => m.kind === "inspectionElementFocus");
+        const now = Date.now();
+        if (existingIdx >= 0) {
+          const [existing] = arr.splice(existingIdx, 1);
+          // Иммутабельная замена — не мутируем старый объект.
+          arr.push({ ...existing, photoIdx: idx, createdAt: now });
+        } else {
+          pushMsg(t, "inspection", {
+            id: msgId(),
+            role: "assistant",
+            text: "",
+            kind: "inspectionElementFocus",
+            photoIdx: idx,
+            createdAt: now,
+          });
+        }
+      });
+      if (composerSeed !== null) setComposer(composerSeed);
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [composer, thread],
+    [composer, thread, defaultElementIdFor],
   );
+
 
   const exitPhotoFocus = useCallback(() => {
     setPhotoFocusIdx(null);
