@@ -311,7 +311,7 @@ export const ZONE_TO_SECTION: Record<string, SectionSnake> = {
   transmission: "under_hood",
   suspension: "wheels_and_brakes",
   brakes: "wheels_and_brakes",
-  underbody: "body",
+  underbody: "body_reinforcement",
 };
 
 /** Composite key used in InspectionStep.findings: `${section}.${elementId}`. */
