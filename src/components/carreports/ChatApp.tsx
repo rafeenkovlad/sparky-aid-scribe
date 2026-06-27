@@ -1526,9 +1526,11 @@ export function ChatApp({ threadId }: Props) {
           running = a.filename;
           updateBatchStatus();
           try {
+            // Грузим уже подготовленный JPEG (preparePhoto конвертирует HEIC/HEIF
+            // → JPEG). Если отправить оригинальный HEIC, AI его не распознает.
             const up = await uploadTemporary({
-              filename: a.originalFilename,
-              blob: a.originalBlob,
+              filename: a.filename,
+              blob: a.blob,
               dataUrl: a.dataUrl,
             });
             const fresh = getThread(threadIdLocal);
