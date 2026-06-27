@@ -321,26 +321,29 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  /** Идемпотентно показывает в чате карточку коллажа раздела.
-   *  Коллаж сам умеет пустое состояние с кнопками загрузки, поэтому отдельная
-   *  upload-prompt-карточка больше не нужна — чистим её, если осталась. */
+  /** Идемпотентно показывает в чате одну карточку для раздела:
+   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем. */
   const ensureSectionMessages = useCallback(
     (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
         const promptId = `insp-prompt-${snake}`;
         const collageId = `insp-collage-${snake}`;
+        const hasPhotos = t.draft.inspectionStep.photos.some(
+          (p) => p.section === snake,
+        );
+        const keepId = hasPhotos ? collageId : promptId;
+        const dropId = hasPhotos ? promptId : collageId;
         const list = t.messages.inspection;
-        // Старая upload-prompt-карточка больше не используется — удаляем.
-        const promptIdx = list.findIndex((m) => m.id === promptId);
-        if (promptIdx >= 0) list.splice(promptIdx, 1);
-        if (list.some((m) => m.id === collageId)) return;
+        const dropIdx = list.findIndex((m) => m.id === dropId);
+        if (dropIdx >= 0) list.splice(dropIdx, 1);
+        if (list.some((m) => m.id === keepId)) return;
         pushMsg(t, "inspection", {
-          id: collageId,
+          id: keepId,
           role: "assistant",
           text: "",
           step: "inspection",
-          kind: "inspectionCollage",
+          kind: hasPhotos ? "inspectionCollage" : "inspectionUploadPrompt",
           sectionSnake: snake,
           createdAt: Date.now(),
         });
