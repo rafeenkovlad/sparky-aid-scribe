@@ -1105,10 +1105,13 @@ export async function analyzeInspectionNote(
   const { CLICHE_INSPECTION_NOTE } = await import("./cliche");
   const { elementHint } = await import("./inspectionElementHints");
   const tagCatalogue = await loadSectionTags(sectionSnake);
-  const id = aiChatIdFor(
-    thread,
-    `note:inspection:${sectionSnake}:${elementId ?? "any"}`,
-  );
+  // Если элемент уже выбран — используем стабильный ключ (история помогает
+  // переформулировать заметки одного элемента в одном стиле). Если элемента
+  // нет, не сваливаем все заметки в одну сессию "any" — иначе AI смешивает
+  // контексты разных элементов. Делаем ключ уникальным на каждый вызов.
+  const sessionScope =
+    elementId ?? `none:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+  const id = aiChatIdFor(thread, `note:inspection:${sectionSnake}:${sessionScope}`);
   const cliche = CLICHE_INSPECTION_NOTE(
     section.label,
     section.elements.map((el) => ({
