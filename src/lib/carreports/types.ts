@@ -79,7 +79,11 @@ export interface InspectionPhoto {
 
 export interface PendingTagName {
   name: string;
-  severity?: "serious" | "non_serious";
+  /**
+   * Серьёзность тега. Обязательное поле — счётчики паспорта/сводки фильтруют
+   * по `severity === "serious"`; без явного значения тег молча уезжает в minor.
+   */
+  severity: "serious" | "non_serious";
 }
 
 export interface InspectionElementFinding {
