@@ -1,6 +1,7 @@
-// Guarded service worker registration. Registers /sw.js only in production,
-// outside iframes and Lovable preview hosts. In any refused context, it
-// unregisters any existing /sw.js so stale workers do not linger in preview.
+// Guarded service worker registration using workbox-window so we can react
+// to "waiting" updates and prompt the user to reload into the new version.
+
+import type { Workbox } from "workbox-window";
 
 const SW_URL = "/sw.js";
 
@@ -12,7 +13,7 @@ function isRefusedContext(): boolean {
   try {
     if (window.top !== window.self) return true;
   } catch {
-    return true; // cross-origin iframe access throws -> refuse
+    return true;
   }
 
   const url = new URL(window.location.href);
@@ -41,7 +42,8 @@ async function unregisterOwnSW() {
     await Promise.all(
       regs
         .filter((r) => {
-          const scriptURL = r.active?.scriptURL ?? r.installing?.scriptURL ?? r.waiting?.scriptURL ?? "";
+          const scriptURL =
+            r.active?.scriptURL ?? r.installing?.scriptURL ?? r.waiting?.scriptURL ?? "";
           return scriptURL.endsWith(SW_URL);
         })
         .map((r) => r.unregister()),
@@ -51,13 +53,38 @@ async function unregisterOwnSW() {
   }
 }
 
-export async function registerServiceWorker() {
+export type UpdateReadyHandler = (activate: () => Promise<void>) => void;
+
+let registered = false;
+
+export async function registerServiceWorker(onUpdateReady?: UpdateReadyHandler) {
   if (isRefusedContext()) {
     await unregisterOwnSW();
     return;
   }
+  if (registered) return;
+  registered = true;
+
   try {
-    await navigator.serviceWorker.register(SW_URL, { scope: "/" });
+    const { Workbox } = await import("workbox-window");
+    const wb: Workbox = new Workbox(SW_URL, { scope: "/" });
+
+    const promptUpdate = () => {
+      if (!onUpdateReady) return;
+      onUpdateReady(async () => {
+        // Reload once the new SW takes control.
+        const reload = () => window.location.reload();
+        navigator.serviceWorker.addEventListener("controllerchange", reload, { once: true });
+        wb.messageSkipWaiting();
+      });
+    };
+
+    // Fired when a new SW has installed and is waiting (we already control the page).
+    wb.addEventListener("waiting", promptUpdate);
+    // Also fired in newer workbox versions for the same situation.
+    wb.addEventListener("externalwaiting", promptUpdate);
+
+    await wb.register();
   } catch (err) {
     console.warn("[pwa] SW registration failed", err);
   }
