@@ -2772,6 +2772,7 @@ interface BubbleProps {
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
   onElementFocusDismissNoteProposal?: () => void;
+  onDeleteLegalMaterial?: (idx: number) => void;
 }
 
 function MessageBubble({
