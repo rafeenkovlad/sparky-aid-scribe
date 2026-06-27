@@ -1464,51 +1464,78 @@ export function ChatApp({ threadId }: Props) {
     // c внутренним for-циклом). Пользователь видит реальный размер очереди:
     // «11 в очереди + 1 в работе» для 12 фоток.
     if (stepForTask === "inspection" && atts.length) {
-      // Убираем общий placeholder — вместо него ставим отдельные на каждое фото.
+      // Убираем общий placeholder — вместо него поставим один групповой статус
+      // на весь пакет (а не по одной строке на каждое фото).
       removeStatus();
 
       const { classifyInspectionPhotoSection } = await import(
         "@/lib/carreports/orchestrator"
       );
 
-      const makeStatusUpdater = (id: string) => ({
-        toRunning: (label: string) => {
-          updateThread(threadIdLocal, (t) => {
-            for (const key of Object.keys(t.messages) as StepId[]) {
-              const m = t.messages[key].find((x) => x.id === id);
-              if (m) { m.text = label; m.queueStatus = "running"; return; }
-            }
-          });
-        },
-        remove: () => {
-          updateThread(threadIdLocal, (t) => {
-            for (const key of Object.keys(t.messages) as StepId[]) {
-              const i = t.messages[key].findIndex((x) => x.id === id);
-              if (i >= 0) { t.messages[key].splice(i, 1); return; }
-            }
-          });
-        },
-      });
-
       const classifiedSections = new Set<SectionSnake>();
       const total = atts.length;
       let done = 0;
+      // Очередь имён ещё не начатых файлов и имя текущего «в работе» —
+      // нужны для единственной батч-строки статуса.
+      const queuedNames: string[] = atts.map((a) => a.filename);
+      let running: string | null = null;
+
+      const batchStatusId = msgId();
+      const renderBatchStatus = () => {
+        const queuedCount = queuedNames.length;
+        const parts: string[] = [];
+        if (running) parts.push(`🔄 Обработка: ${running}`);
+        if (queuedCount > 0) {
+          parts.push(
+            running
+              ? `⏳ Ещё в очереди: ${queuedCount}`
+              : `⏳ В очереди: ${queuedCount}`,
+          );
+        }
+        return parts.join("\n") || "🔄 Обработка…";
+      };
+      const updateBatchStatus = () => {
+        updateThread(threadIdLocal, (t) => {
+          for (const key of Object.keys(t.messages) as StepId[]) {
+            const m = t.messages[key].find((x) => x.id === batchStatusId);
+            if (m) {
+              m.text = renderBatchStatus();
+              m.queueStatus = running ? "running" : "queued";
+              return;
+            }
+          }
+        });
+      };
+      const removeBatchStatus = () => {
+        updateThread(threadIdLocal, (t) => {
+          for (const key of Object.keys(t.messages) as StepId[]) {
+            const i = t.messages[key].findIndex((x) => x.id === batchStatusId);
+            if (i >= 0) {
+              t.messages[key].splice(i, 1);
+              return;
+            }
+          }
+        });
+      };
+
+      updateThread(threadIdLocal, (t) => {
+        pushMsg(t, "inspection", {
+          id: batchStatusId,
+          role: "assistant",
+          text: renderBatchStatus(),
+          step: "inspection",
+          queueStatus: "queued",
+          createdAt: Date.now(),
+        });
+      });
 
       for (const a of atts) {
-        const perStatusId = msgId();
-        updateThread(threadIdLocal, (t) => {
-          pushMsg(t, "inspection", {
-            id: perStatusId,
-            role: "assistant",
-            text: `⏳ В очереди: ${a.filename}`,
-            step: "inspection",
-            queueStatus: "queued",
-            createdAt: Date.now(),
-          });
-        });
-        const ctrl = makeStatusUpdater(perStatusId);
         void enqueueAI(threadIdLocal, async () => {
-          ctrl.toRunning(`🔄 Обработка: ${a.filename}`);
+          // Перекладываем файл из «в очереди» в «в работе».
+          const idxInQueue = queuedNames.indexOf(a.filename);
+          if (idxInQueue >= 0) queuedNames.splice(idxInQueue, 1);
+          running = a.filename;
+          updateBatchStatus();
           try {
             const up = await uploadTemporary({
               filename: a.originalFilename,
@@ -1577,21 +1604,22 @@ export function ChatApp({ threadId }: Props) {
               });
             });
           } finally {
-            ctrl.remove();
-            // Финализатор пакета: запускаем ровно один раз изнутри
-            // последней завершившейся фото-задачи. Так мы не добавляем
-            // лишнюю задачу в очередь (счётчик «в очереди» не дёргается
-            // зря), и карточки разделов появляются только если что-то
-            // действительно классифицировано.
+            running = null;
             done += 1;
-            if (done === total && classifiedSections.size > 0) {
-              for (const section of classifiedSections) {
-                ensureSectionMessages(section);
+            if (done === total) {
+              removeBatchStatus();
+              if (classifiedSections.size > 0) {
+                for (const section of classifiedSections) {
+                  ensureSectionMessages(section);
+                }
               }
+            } else {
+              updateBatchStatus();
             }
           }
         });
       }
+
 
 
 
@@ -1608,9 +1636,24 @@ export function ChatApp({ threadId }: Props) {
             createdAt: Date.now(),
           });
         });
-        const ctrl = makeStatusUpdater(textStatusId);
+        const setTextStatus = (text: string, queueStatus: "queued" | "running") => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const m = t.messages[key].find((x) => x.id === textStatusId);
+              if (m) { m.text = text; m.queueStatus = queueStatus; return; }
+            }
+          });
+        };
+        const removeTextStatus = () => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const i = t.messages[key].findIndex((x) => x.id === textStatusId);
+              if (i >= 0) { t.messages[key].splice(i, 1); return; }
+            }
+          });
+        };
         void enqueueAI(threadIdLocal, async () => {
-          ctrl.toRunning("🔄 Обрабатывается…");
+          setTextStatus("🔄 Обрабатывается…", "running");
           try {
             const fresh = getThread(threadIdLocal);
             if (!fresh) return;
@@ -1659,7 +1702,7 @@ export function ChatApp({ threadId }: Props) {
               });
             });
           } finally {
-            ctrl.remove();
+            removeTextStatus();
           }
         });
       }
