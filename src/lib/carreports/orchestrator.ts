@@ -14,6 +14,7 @@ import {
   parseJsonResponse,
   pickEnum,
   CLICHE_ASK,
+  CLICHE_INSPECTION_ROUTE,
 } from "./cliche";
 
 import { decodeVin } from "./storageApi";
@@ -68,14 +69,73 @@ export async function extractForStep(
   if (step === "inspection") {
     const ins = thread.draft.inspectionStep;
     // Resolve cursor → active section + element. Legacy fallback via ZONE_TO_SECTION.
-    const sectionSnake: SectionSnake =
+    let sectionSnake: SectionSnake =
       (ins.currentSection as SectionSnake | undefined) ??
       (ins.currentZone ? ZONE_TO_SECTION[ins.currentZone] : undefined) ??
       INSPECTION_SECTIONS[0].snake;
-    const section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
-    const elementId = ins.currentElementId ?? section.elements[0].id;
-    const activeElement =
+    let section = getSection(sectionSnake) ?? INSPECTION_SECTIONS[0];
+    let elementId = ins.currentElementId ?? section.elements[0].id;
+    let activeElement =
       section.elements.find((e) => e.id === elementId) ?? section.elements[0];
+
+    // ─── Маршрутизация заметки по разделам/элементам ─────────────────────
+    // По свободному тексту эксперта пытаемся понять, к какому разделу/
+    // элементу относится сообщение. Если смысла нет — отвечаем «не поняла»
+    // и НЕ трогаем findings.
+    try {
+      const routeId = aiChatIdFor(thread, "route:inspection");
+      const routeRes = await chatCompletions({
+        id: routeId,
+        text,
+        cliche: CLICHE_INSPECTION_ROUTE(
+          INSPECTION_SECTIONS.map((s) => ({
+            snake: s.snake,
+            label: s.label,
+            elements: s.elements.map((el) => ({ id: el.id, label: el.label })),
+          })),
+          {
+            sectionSnake,
+            sectionLabel: section.label,
+            elementId: activeElement.id,
+            elementLabel: activeElement.label,
+          },
+        ),
+      });
+      const route = parseJsonResponse<{
+        section?: string | null;
+        elementId?: string | null;
+        confidence?: number;
+        noMatch?: boolean;
+        reason?: string;
+      }>(routeRes.content);
+      const confidence =
+        typeof route?.confidence === "number" ? route.confidence : 0;
+      if (route?.noMatch === true || confidence < 0.25) {
+        return {
+          patch: {},
+          reply:
+            "🤔 Не поняла, к какому разделу осмотра это относится. " +
+            "Сформулируйте, пожалуйста, иначе — или выберите раздел " +
+            "вручную внизу.",
+        };
+      }
+      if (route?.section) {
+        const picked = getSection(route.section as SectionSnake);
+        if (picked) {
+          section = picked;
+          sectionSnake = picked.snake;
+          const pickedEl =
+            (route.elementId &&
+              picked.elements.find((el) => el.id === route.elementId)) ||
+            picked.elements.find((el) => el.id === "generalCondition") ||
+            picked.elements[0];
+          activeElement = pickedEl;
+          elementId = pickedEl.id;
+        }
+      }
+    } catch {
+      // если роутер упал — используем текущий раздел/элемент как раньше.
+    }
 
     // Fetch tags catalogue for this section (cached); never throws.
     const tagCatalogue = await loadSectionTags(sectionSnake);
