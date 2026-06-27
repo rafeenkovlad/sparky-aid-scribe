@@ -2169,6 +2169,16 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
             onElementFocusDismissNoteProposal={dismissNoteProposal}
+            onDeleteLegalMaterial={(idx: number) => {
+              if (!thread) return;
+              updateThread(thread.id, (t) => {
+                const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
+                t.draft.legalReviewStep = {
+                  ...t.draft.legalReviewStep,
+                  otherMaterials: arr.filter((_, i) => i !== idx),
+                };
+              });
+            }}
           />
 
         ))}
