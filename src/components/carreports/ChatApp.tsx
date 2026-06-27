@@ -657,19 +657,6 @@ export function ChatApp({ threadId }: Props) {
     }
   }, []);
 
-  /**
-   * Дефолтный элемент раздела, если фото ещё не привязано вручную и AI ещё
-   * не успел классифицировать. Единый источник правды для всех точек:
-   * `mutatePhotoFinding`, оптимистичный черновик заметки и финальный апсерт.
-   * Совпадает с fallback в `analyzeInspectionPhoto/Note` (orchestrator.ts),
-   * чтобы оптимистичный finding не создавался под одним id, а AI потом — под другим.
-   */
-  const defaultElementIdFor = useCallback((sec: SectionSnake): string => {
-    const def = INSPECTION_SECTIONS.find((s) => s.snake === sec);
-    if (!def) return "generalCondition";
-    if (def.elements.some((el) => el.id === "generalCondition")) return "generalCondition";
-    return def.elements[0]?.id ?? "generalCondition";
-  }, []);
 
   /** Мутация finding текущего фото в фокус-режиме. */
   const mutatePhotoFinding = useCallback(
