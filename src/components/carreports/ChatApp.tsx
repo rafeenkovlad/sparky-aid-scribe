@@ -1558,8 +1558,11 @@ export function ChatApp({ threadId }: Props) {
       }
 
       // После того как очередь обработает все фото — один раз показываем
-      // список разделов (как при нажатии «карандашика»).
+      // карточки разделов (как при нажатии «карандашика»). Пост-задачу
+      // ставим только если действительно есть что показать: иначе
+      // в очереди мелькает пустой шаг и счётчик «в очереди» дёргается зря.
       void enqueueAI(threadIdLocal, async () => {
+        if (classifiedSections.size === 0) return;
         for (const section of classifiedSections) {
           ensureSectionMessages(section);
         }
