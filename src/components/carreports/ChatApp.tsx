@@ -2180,11 +2180,12 @@ export function ChatApp({ threadId }: Props) {
                 };
               });
             }}
+            onAddLegalMaterial={() => materialsInputRef.current?.click()}
           />
 
         ))}
 
-        {currentStep === "legalMaterials" && (
+        {currentStep === "legalMaterials" && (thread.draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 && (
           <div className="flex gap-2 items-start">
             <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden border border-white/15 bg-zinc-900">
               <img
@@ -2324,14 +2325,18 @@ export function ChatApp({ threadId }: Props) {
                   t.messages.legalMaterials = t.messages.legalMaterials.filter(
                     (m) => m.id !== collageId,
                   );
-                  pushMsg(t, "legalMaterials", {
-                    id: collageId,
-                    role: "assistant",
-                    text: "",
-                    step: "legalMaterials",
-                    kind: "legalMaterialsCollage",
-                    createdAt: Date.now(),
-                  });
+                  const hasFiles =
+                    (t.draft.legalReviewStep?.otherMaterials.length ?? 0) > 0;
+                  if (hasFiles) {
+                    pushMsg(t, "legalMaterials", {
+                      id: collageId,
+                      role: "assistant",
+                      text: "",
+                      step: "legalMaterials",
+                      kind: "legalMaterialsCollage",
+                      createdAt: Date.now(),
+                    });
+                  }
                   return;
                 }
                 const intro = STEP_INTROS[currentStep];
@@ -2799,6 +2804,7 @@ interface BubbleProps {
   onElementFocusPickNoteAi?: () => void;
   onElementFocusDismissNoteProposal?: () => void;
   onDeleteLegalMaterial?: (idx: number) => void;
+  onAddLegalMaterial?: () => void;
 }
 
 function MessageBubble({
@@ -2836,6 +2842,7 @@ function MessageBubble({
   onElementFocusPickNoteAi,
   onElementFocusDismissNoteProposal,
   onDeleteLegalMaterial,
+  onAddLegalMaterial,
 }: BubbleProps) {
 
 
@@ -3035,13 +3042,8 @@ function MessageBubble({
                 {draft.legalReviewStep?.otherMaterials.length ?? 0} файл(ов)
               </div>
             </div>
-            {(draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 ? (
-              <div className="text-[12px] text-white/55">
-                Пока пусто. Добавьте файлы через карточку ниже.
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {(draft.legalReviewStep?.otherMaterials ?? []).map((mat, idx) => {
+            <div className="grid grid-cols-3 gap-2">
+              {(draft.legalReviewStep?.otherMaterials ?? []).map((mat, idx) => {
                   const icon =
                     mat.type === "image" ? "🖼️" : mat.type === "video" ? "🎬" : "📄";
                   const kb =
@@ -3100,8 +3102,18 @@ function MessageBubble({
                     </div>
                   );
                 })}
-              </div>
-            )}
+              {interactive && onAddLegalMaterial && (
+                <button
+                  type="button"
+                  onClick={() => onAddLegalMaterial()}
+                  className="aspect-square rounded-lg border border-dashed border-white/20 text-white/60 hover:text-white hover:border-white/40 flex flex-col items-center justify-center gap-1 text-[11px]"
+                >
+                  <Plus className="h-6 w-6" />
+                  Добавить
+                </button>
+              )}
+            </div>
+
           </div>
         )}
 
