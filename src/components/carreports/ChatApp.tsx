@@ -321,7 +321,9 @@ export function ChatApp({ threadId }: Props) {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   /** Идемпотентно показывает в чате одну карточку для раздела:
-   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем. */
+   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем.
+   *  Если нужная карточка уже есть — оставляем её на месте (без filter+push),
+   *  чтобы лента не «прыгала» и не приходилось пересоздавать вложенные поля. */
   const ensureSectionMessages = useCallback(
     (snake: SectionSnake) => {
       if (!thread) return;
@@ -332,28 +334,27 @@ export function ChatApp({ threadId }: Props) {
           (p) => p.section === snake,
         );
         const keepId = hasPhotos ? collageId : promptId;
+        const dropId = hasPhotos ? promptId : collageId;
         const list = t.messages.inspection;
-        const existing = list.find((m) => m.id === keepId);
-        t.messages.inspection = list.filter(
-          (m) => m.id !== promptId && m.id !== collageId,
-        );
-        const now = Date.now();
+        // Убираем устаревший вариант карточки (если был).
+        const dropIdx = list.findIndex((m) => m.id === dropId);
+        if (dropIdx >= 0) list.splice(dropIdx, 1);
+        // Нужная карточка уже есть — ничего не трогаем.
+        if (list.some((m) => m.id === keepId)) return;
         pushMsg(t, "inspection", {
-          ...(existing ?? {
-            id: keepId,
-            role: "assistant",
-            text: "",
-            step: "inspection",
-            kind: hasPhotos ? "inspectionCollage" : "inspectionUploadPrompt",
-            sectionSnake: snake,
-            createdAt: now,
-          }),
-          createdAt: now,
+          id: keepId,
+          role: "assistant",
+          text: "",
+          step: "inspection",
+          kind: hasPhotos ? "inspectionCollage" : "inspectionUploadPrompt",
+          sectionSnake: snake,
+          createdAt: Date.now(),
         });
       });
     },
     [thread],
   );
+
 
   const selectSection = useCallback(
     (snake: SectionSnake) => {
