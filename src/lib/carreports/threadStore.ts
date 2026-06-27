@@ -52,9 +52,15 @@ function normalizeThread(t: Partial<Thread> & { id: string }): Thread {
       photos: Array.isArray(draft.inspectionStep?.photos) ? draft.inspectionStep!.photos : [],
       touched: !!draft.inspectionStep?.touched,
     },
+    legalReviewStep: {
+      otherMaterials: Array.isArray(draft.legalReviewStep?.otherMaterials)
+        ? draft.legalReviewStep!.otherMaterials
+        : [],
+    },
     testDriveStep: { ...(draft.testDriveStep ?? {}) },
     resultStep: { ...(draft.resultStep ?? {}) },
   };
+
   return {
     id: t.id,
     title: t.title ?? "Новый отчёт",
