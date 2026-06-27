@@ -182,7 +182,7 @@ export async function uploadTemporary(
   url: string;
   key?: string;
 }> {
-  const contentType = opts.contentType ?? "image/jpeg";
+  const contentType = opts.contentType ?? (photo.blob.type || "image/jpeg");
   type PresignResult = {
     url?: string;
     uploadUrl?: string;
