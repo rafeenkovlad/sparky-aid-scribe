@@ -789,7 +789,10 @@ export function ChatApp({ threadId }: Props) {
       });
     }
 
-    (async () => {
+    const lockKey =
+      thread && photoFocusIdx !== null ? `${thread.id}:${photoFocusIdx}` : `note:${statusId}`;
+    runWithPhotoLock(lockKey, async () => {
+
       try {
         if (!thread || !photoFocus) {
           setNoteProposal((prev) =>
