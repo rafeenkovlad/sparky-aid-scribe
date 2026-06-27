@@ -1702,7 +1702,7 @@ export function ChatApp({ threadId }: Props) {
               });
             });
           } finally {
-            ctrl.remove();
+            removeTextStatus();
           }
         });
       }
