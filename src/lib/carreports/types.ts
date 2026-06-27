@@ -6,9 +6,11 @@ export type StepId =
   | "characteristics"
   | "docs"
   | "inspection"
+  | "legalMaterials"
   | "testDrive"
   | "result"
   | "submit";
+
 
 export interface CarStep {
   vin?: string;
