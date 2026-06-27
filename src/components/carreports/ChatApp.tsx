@@ -53,6 +53,7 @@ import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLab
 
 import {
   INSPECTION_SECTIONS,
+  defaultElementIdFor,
   findingKey,
   getSection,
   type SectionSnake,
@@ -613,19 +614,9 @@ export function ChatApp({ threadId }: Props) {
       ? thread.draft.inspectionStep.photos[photoFocusIdx] ?? null
       : null;
 
-  /**
-   * Дефолтный элемент раздела, если фото ещё не привязано вручную и AI ещё
-   * не успел классифицировать. Единый источник правды для всех точек:
-   * `mutatePhotoFinding`, оптимистичный черновик заметки и финальный апсерт.
-   * Совпадает с fallback в `analyzeInspectionPhoto/Note` (orchestrator.ts),
-   * чтобы оптимистичный finding не создавался под одним id, а AI потом — под другим.
-   */
-  const defaultElementIdFor = useCallback((sec: SectionSnake): string => {
-    const def = INSPECTION_SECTIONS.find((s) => s.snake === sec);
-    if (!def) return "generalCondition";
-    if (def.elements.some((el) => el.id === "generalCondition")) return "generalCondition";
-    return def.elements[0]?.id ?? "generalCondition";
-  }, []);
+  // defaultElementIdFor — единый помощник в `inspectionSections.ts`,
+  // см. импорт сверху файла. Локального дублирования больше нет.
+
 
 
   const enterPhotoFocus = useCallback(
@@ -1580,7 +1571,7 @@ export function ChatApp({ threadId }: Props) {
                 pushMsg(t, "inspection", {
                   id: msgId(),
                   role: "assistant",
-                  text: "Не смог определить раздел — выберите вручную:",
+                  text: "",
                   step: "inspection",
                   kind: "inspectionAttachAssign",
                   pendingPhoto: {
@@ -1717,99 +1708,24 @@ export function ChatApp({ threadId }: Props) {
         // 1b) If photos attached — recognize them via vision and append to text.
         let textForAI = combined;
         if (atts.length) {
-          if (stepForTask === "inspection") {
-            // Для шага «Осмотр»: грузим оригиналы и просим AI определить раздел.
-            const { classifyInspectionPhotoSection } = await import(
-              "@/lib/carreports/orchestrator"
-            );
-            for (const a of atts) {
-              let up: { url: string; filename: string } | null = null;
-              try {
-                up = await uploadTemporary({
-                  filename: a.originalFilename,
-                  blob: a.originalBlob,
-                  dataUrl: a.dataUrl,
-                });
-              } catch (e) {
-                updateThread(threadIdLocal, (t) => {
-                  pushMsg(t, "inspection", {
-                    id: msgId(),
-                    role: "assistant",
-                    text: `⚠️ Не удалось загрузить ${a.filename}: ${e instanceof Error ? e.message : "ошибка"}`,
-                    createdAt: Date.now(),
-                  });
-                });
-                continue;
-              }
-              const uploaded = up;
-
-              const fresh = getThread(threadIdLocal);
-              const section = fresh
-                ? await classifyInspectionPhotoSection(fresh, uploaded.url)
-                : null;
-              if (fresh) {
-                updateThread(threadIdLocal, (t) => {
-                  t.aiChatIds = fresh.aiChatIds;
-                });
-              }
-
-              if (section) {
-                const sectionLabel =
-                  INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ?? section;
-                updateThread(threadIdLocal, (t) => {
-                  t.draft.inspectionStep.photos.push({
-                    section,
-                    filename: uploaded.filename,
-                    dataUrl: a.dataUrl,
-                    url: uploaded.url,
-                    remote: true,
-                    addedAt: Date.now(),
-                  });
-                  t.draft.inspectionStep.touched = true;
-                  pushMsg(t, "inspection", {
-                    id: msgId(),
-                    role: "assistant",
-                    text: `📌 Закреплено в разделе «${sectionLabel}»`,
-                    step: "inspection",
-                    attachments: [{ url: uploaded.url, label: a.filename }],
-                    createdAt: Date.now(),
-                  });
-                });
-              } else {
-                updateThread(threadIdLocal, (t) => {
-                  pushMsg(t, "inspection", {
-                    id: msgId(),
-                    role: "assistant",
-                    text: "Не смог определить раздел — выберите вручную:",
-                    step: "inspection",
-                    kind: "inspectionAttachAssign",
-                    pendingPhoto: {
-                      url: uploaded.url,
-                      dataUrl: a.dataUrl,
-                      filename: uploaded.filename,
-                      remote: true,
-                    },
-                    createdAt: Date.now(),
-                  });
-                });
-              }
-            }
-          } else {
-            const recognized = await analyzeAttachments(atts, stepForTask, combined);
-            if (recognized) {
-              updateThread(threadIdLocal, (t) => {
-                pushMsg(t, stepForTask, {
-                  id: msgId(),
-                  role: "assistant",
-                  text: `📄 Распознано с фото:\n${recognized}`,
-                  step: stepForTask,
-                  createdAt: Date.now(),
-                });
+          // Шаг «осмотр» с фото обрабатывается отдельной веткой выше
+          // (per-photo enqueue + батч-статус). Сюда долетают только
+          // не-inspection шаги — на них прогоняем общий vision-распознаватель.
+          const recognized = await analyzeAttachments(atts, stepForTask, combined);
+          if (recognized) {
+            updateThread(threadIdLocal, (t) => {
+              pushMsg(t, stepForTask, {
+                id: msgId(),
+                role: "assistant",
+                text: `📄 Распознано с фото:\n${recognized}`,
+                step: stepForTask,
+                createdAt: Date.now(),
               });
-              textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
-            }
+            });
+            textForAI = combined ? `${combined}\n\n[Данные с фото]\n${recognized}` : recognized;
           }
         }
+
 
         // Q&A mode: free-form question, no draft mutation.
         if (askModeLocal) {

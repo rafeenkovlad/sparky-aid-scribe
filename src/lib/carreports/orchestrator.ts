@@ -20,6 +20,7 @@ import { decodeVin } from "./storageApi";
 import {
   INSPECTION_SECTIONS,
   ZONE_TO_SECTION,
+  defaultElementIdFor,
   getSection,
   findingKey,
   type SectionSnake,
@@ -1057,7 +1058,7 @@ export async function analyzeInspectionPhoto(
   const elementId =
     typeof raw.elementId === "string" && elementIds.has(raw.elementId)
       ? raw.elementId
-      : "generalCondition";
+      : defaultElementIdFor(section.snake);
   const noDamage = raw.noDamage === true;
   const sNames = Array.isArray(raw.seriousTags)
     ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
@@ -1135,7 +1136,7 @@ export async function analyzeInspectionNote(
   const resolvedElementId =
     typeof raw.elementId === "string" && elementIds.has(raw.elementId)
       ? raw.elementId
-      : elementId ?? "generalCondition";
+      : elementId ?? defaultElementIdFor(section.snake);
   const noDamage = raw.noDamage === true;
   const sNames = Array.isArray(raw.seriousTags)
     ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
