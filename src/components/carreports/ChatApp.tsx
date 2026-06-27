@@ -204,7 +204,80 @@ export function ChatApp({ threadId }: Props) {
   >([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const materialsInputRef = useRef<HTMLInputElement>(null);
+  const materialsCameraRef = useRef<HTMLInputElement>(null);
   const [materialsBusy, setMaterialsBusy] = useState(false);
+
+  const handleMaterialFiles = useCallback(
+    async (files: File[]) => {
+      if (!thread || !files.length) return;
+      setMaterialsBusy(true);
+      try {
+        for (const f of files) {
+          const placeholderId = msgId();
+          updateThread(thread.id, (t) => {
+            pushMsg(t, "legalMaterials", {
+              id: placeholderId,
+              role: "assistant",
+              text: `⏳ Загружаю: ${f.name}…`,
+              step: "legalMaterials",
+              queueStatus: "running",
+              createdAt: Date.now(),
+            });
+          });
+          try {
+            const up = await uploadFile(f);
+            updateThread(thread.id, (t) => {
+              const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
+              t.draft.legalReviewStep = {
+                ...t.draft.legalReviewStep,
+                otherMaterials: [
+                  ...arr,
+                  {
+                    filename: up.filename,
+                    key: up.key,
+                    type: up.type,
+                    url: up.url,
+                    size: up.size,
+                    mimeType: up.mimeType,
+                    addedAt: Date.now(),
+                  },
+                ],
+              };
+              const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+              const icon = up.type === "image" ? "🖼️" : up.type === "video" ? "🎬" : "📄";
+              const kb =
+                up.size >= 1024 * 1024
+                  ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
+                  : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
+              const text = `${icon} ${f.name} · ${kb} · загружено`;
+              if (i >= 0) {
+                t.messages.legalMaterials[i] = {
+                  ...t.messages.legalMaterials[i],
+                  text,
+                  queueStatus: undefined,
+                };
+              }
+            });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "ошибка загрузки";
+            updateThread(thread.id, (t) => {
+              const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+              if (i >= 0) {
+                t.messages.legalMaterials[i] = {
+                  ...t.messages.legalMaterials[i],
+                  text: `❌ ${f.name}: ${msg}`,
+                  queueStatus: "error",
+                };
+              }
+            });
+          }
+        }
+      } finally {
+        setMaterialsBusy(false);
+      }
+    },
+    [thread],
+  );
 
 
   // Размер очереди AI-запросов по текущему треду (для индикатора).
