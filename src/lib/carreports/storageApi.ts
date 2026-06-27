@@ -393,11 +393,19 @@ function buildPrepareReportPayload(
           ? doc.engineModelMatchWithPTSOrSTS
           : true,
     },
-    // LegalReviewStepDTO: обе обязательные массивы.
+    // LegalReviewStepDTO: otherLegalReviews — массив FileDTO, batchIds — int[].
     legalReviewStep: {
-      otherLegalReviews: [],
+      otherLegalReviews: (draft.legalReviewStep?.otherMaterials ?? [])
+        .filter((m) => !!m.filename)
+        .map((m) => ({
+          filename: m.filename,
+          key: m.key ?? null,
+          type: m.type,
+          stepType: "legalReview",
+        })),
       batchIds: [],
     },
+
     inspectionStep: buildInspectionStep(draft),
     // TestDriveStepDTO: все *IsWorkingProperly — NotNull bool, теги — int[].
     testDriveStep: {
