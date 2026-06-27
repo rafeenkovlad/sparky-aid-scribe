@@ -903,9 +903,27 @@ export function ChatApp({ threadId }: Props) {
           t.aiChatIds = fresh.aiChatIds;
           const p = t.draft.inspectionStep.photos[photoFocusIdx ?? -1];
           if (!p) return;
+          // Какой elId был использован для оптимистичного черновика — чтобы
+          // подчистить «сиротский» finding, если AI определил другой элемент.
+          const optimisticElId = elIdInitial ?? defaultElementIdFor(sec);
           if (resultElementId) p.elementId = resultElementId;
           const elId = p.elementId ?? resultElementId ?? elIdInitial;
           if (!elId) return;
+          // Чистим сирот: если оптимистичный finding отличается от финального,
+          // содержит только наш черновик и не имеет тегов — удаляем его.
+          if (optimisticElId !== elId) {
+            const orphanKey = findingKey(sec, optimisticElId);
+            const orphan = t.draft.inspectionStep.findings?.[orphanKey];
+            const orphanEmpty =
+              orphan &&
+              !(orphan.seriousDamageTagIds?.length ?? 0) &&
+              !(orphan.noSeriousDamageTagIds?.length ?? 0) &&
+              !(orphan.pendingTagNames?.length ?? 0) &&
+              (orphan.note ?? "") === draftCombined;
+            if (orphanEmpty && t.draft.inspectionStep.findings) {
+              delete t.draft.inspectionStep.findings[orphanKey];
+            }
+          }
           elementLabelForSummary =
             sectionDef?.elements.find((el: { id: string; label: string }) => el.id === elId)?.label ?? elId;
           upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
