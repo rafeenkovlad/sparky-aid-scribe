@@ -321,8 +321,9 @@ export function ChatApp({ threadId }: Props) {
   );
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  /** Идемпотентно показывает в чате одну карточку для раздела:
-   *  collage — если есть фото, иначе upload-prompt. Другую карточку убираем. */
+  /** Показывает в чате одну карточку для раздела внизу ленты:
+   *  collage — если есть фото, иначе upload-prompt. Старые карточки этого
+   *  раздела убираем, чтобы свежая всплыла в конце. */
   const ensureSectionMessages = useCallback(
     (snake: SectionSnake) => {
       if (!thread) return;
@@ -333,11 +334,12 @@ export function ChatApp({ threadId }: Props) {
           (p) => p.section === snake,
         );
         const keepId = hasPhotos ? collageId : promptId;
-        const dropId = hasPhotos ? promptId : collageId;
         const list = t.messages.inspection;
-        const dropIdx = list.findIndex((m) => m.id === dropId);
-        if (dropIdx >= 0) list.splice(dropIdx, 1);
-        if (list.some((m) => m.id === keepId)) return;
+        for (let i = list.length - 1; i >= 0; i -= 1) {
+          if (list[i].id === promptId || list[i].id === collageId) {
+            list.splice(i, 1);
+          }
+        }
         pushMsg(t, "inspection", {
           id: keepId,
           role: "assistant",
