@@ -1471,16 +1471,16 @@ export function ChatApp({ threadId }: Props) {
 
       const batchStatusId = msgId();
       const renderBatchStatus = () => {
-        // Считаем так же, как глобальный индикатор очереди: в число входит
-        // и текущий «в работе» файл — чтобы цифры совпадали.
-        const totalRemaining = queuedNames.length + (running ? 1 : 0);
+        // «В очереди» — только ещё не начатые файлы; текущий «в работе»
+        // показываем отдельной строкой и не учитываем в счётчике очереди.
         const parts: string[] = [];
         if (running) parts.push(`🔄 Обработка: ${running}`);
-        if (totalRemaining > 0) {
-          parts.push(`⏳ В очереди: ${totalRemaining}`);
+        if (queuedNames.length > 0) {
+          parts.push(`⏳ В очереди: ${queuedNames.length}`);
         }
         return parts.join("\n") || "🔄 Обработка…";
       };
+
       const updateBatchStatus = () => {
         updateThread(threadIdLocal, (t) => {
           for (const key of Object.keys(t.messages) as StepId[]) {
