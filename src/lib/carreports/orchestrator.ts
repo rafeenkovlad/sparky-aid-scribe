@@ -1298,38 +1298,69 @@ export async function analyzeInspectionNote(
 
 
 /**
- * Определить, к какому разделу осмотра относится фото.
- * Возвращает snake-имя раздела или `null`, если уверенности нет.
+ * Определить, к какому разделу осмотра и какому элементу относится фото.
+ * Возвращает `{section, elementId}` или `null`, если уверенности нет.
+ * Если элемент по фото не однозначен — возвращает elementId="generalCondition".
  */
 export async function classifyInspectionPhotoSection(
   thread: Thread,
   photoUrl: string,
-): Promise<SectionSnake | null> {
+): Promise<{ section: SectionSnake; elementId: string } | null> {
   const id = aiChatIdFor(thread, `vision:section:${photoUrl.slice(-12)}`);
-  const sectionsList = INSPECTION_SECTIONS.map(
-    (s) => `- ${s.snake}: ${s.label}`,
-  ).join("\n");
+  const { elementHint } = await import("./inspectionElementHints");
+  const sectionsBlock = INSPECTION_SECTIONS.map((s) => {
+    const els = s.elements
+      .map((el) => {
+        const h = elementHint(s.snake, el.id).trim();
+        return h
+          ? `    • ${el.id} — ${el.label}\n        ↳ ${h}`
+          : `    • ${el.id} — ${el.label}`;
+      })
+      .join("\n");
+    return `- ${s.snake}: ${s.label}\n${els}`;
+  }).join("\n\n");
   const cliche =
-    "Ты — ассистент эксперта по осмотру авто. Тебе показывают одно фото. " +
-    "Определи, к какому из разделов осмотра оно относится. " +
-    "Разделы (snake_case: человекочитаемое название):\n" +
-    sectionsList +
-    "\n\nОтветь СТРОГО валидным JSON: {\"section\": \"<snake>\"} или " +
-    "{\"section\": null}, если ни один раздел не подходит уверенно. " +
-    "Никакого текста вокруг JSON.\n\n{text}";
+    "Ты — ассистент эксперта по осмотру авто. Тебе показывают одно фото.\n" +
+    "Определи к какому РАЗДЕЛУ и какому ЭЛЕМЕНТУ внутри раздела оно " +
+    "относится. Используй подсказки-референсы (после ↳) — они описывают " +
+    "характерные признаки элемента (расположение, форма, что вокруг).\n\n" +
+    "ВАЖНО:\n" +
+    "• Сначала выбирай РАЗДЕЛ (snake), потом ЭЛЕМЕНТ (id) ВНУТРИ этого раздела.\n" +
+    "• Если фото общее (видно несколько элементов раздела сразу) или ты не " +
+    "можешь однозначно выбрать один элемент — ставь " +
+    "elementId=\"generalCondition\". Это правильный, ожидаемый ответ.\n" +
+    "• НЕ выбирай первый элемент списка по умолчанию. Лучше generalCondition, " +
+    "чем угаданный конкретный элемент.\n" +
+    "• Если ни один раздел уверенно не подходит — верни {\"section\": null, " +
+    "\"elementId\": null}.\n\n" +
+    "Разделы и элементы:\n" +
+    sectionsBlock +
+    "\n\nОтветь СТРОГО валидным JSON одной строкой, без markdown:\n" +
+    "{\"section\": \"<snake>\", \"elementId\": \"<id или generalCondition>\"}\n" +
+    "или {\"section\": null, \"elementId\": null}.\n\n{text}";
 
   try {
     const res = await chatCompletions({
       id,
-      text: "Определи раздел осмотра по этому фото.",
+      text: "Определи раздел и элемент осмотра по этому фото.",
       cliche,
       fileUrls: [photoUrl],
     });
-    const raw = parseJsonResponse<{ section?: string | null }>(res.content) ?? {};
+    const raw =
+      parseJsonResponse<{ section?: string | null; elementId?: string | null }>(
+        res.content,
+      ) ?? {};
     const s = typeof raw.section === "string" ? raw.section.trim() : "";
     if (!s) return null;
     const known = INSPECTION_SECTIONS.find((x) => x.snake === s);
-    return known ? known.snake : null;
+    if (!known) return null;
+    const eidRaw =
+      typeof raw.elementId === "string" ? raw.elementId.trim() : "";
+    const eid =
+      (eidRaw && known.elements.find((e) => e.id === eidRaw)?.id) ||
+      known.elements.find((e) => e.id === "generalCondition")?.id ||
+      known.elements[known.elements.length - 1].id;
+    return { section: known.snake, elementId: eid };
   } catch {
     return null;
   }
