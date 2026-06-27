@@ -146,11 +146,15 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  * `ObjectStorage.GetTemporaryUploadUrlBucketTemp` (presigned PUT/POST).
  * Возвращает подписанный GET URL загруженного файла (для передачи в AI).
  */
-export async function uploadTemporary(photo: PreparedPhoto): Promise<{
+export async function uploadTemporary(
+  photo: PreparedPhoto,
+  opts: { contentType?: string } = {},
+): Promise<{
   filename: string;
   url: string;
   key?: string;
 }> {
+  const contentType = opts.contentType ?? "image/jpeg";
   type PresignResult = {
     url?: string;
     uploadUrl?: string;
@@ -167,7 +171,7 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
   };
   const r = await rpc<PresignResult>("ObjectStorage.GetTemporaryUploadUrlBucketTemp", {
     filename: photo.filename,
-    contentType: "image/jpeg",
+    contentType,
   });
   const uploadUrl = r.url ?? r.uploadUrl ?? r.putUrl ?? r.postUrl;
   if (!uploadUrl) {
@@ -186,10 +190,11 @@ export async function uploadTemporary(photo: PreparedPhoto): Promise<{
     // Presigned PUT.
     res = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": "image/jpeg" },
+      headers: { "Content-Type": contentType },
       body: photo.blob,
     });
   }
+
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new ApiError(`Upload ${res.status} ${body.slice(0, 200)}`, res.status);
