@@ -142,7 +142,14 @@ export function InspectionCollage(props: {
                 <button
                   type="button"
                   disabled={!interactive}
-                  onClick={() => onOpenPhoto(idx)}
+                  onPointerDown={(e) => {
+                    // Сразу реагируем на pointerdown, чтобы клик не «съедался»
+                    // схлопыванием композера (blur textarea → layout shift → cancel click).
+                    if (e.button !== undefined && e.button !== 0) return;
+                    if (!interactive) return;
+                    e.preventDefault();
+                    onOpenPhoto(idx);
+                  }}
                   className="absolute inset-0 w-full h-full"
                   title={elLabel ?? "Без элемента"}
                 >
@@ -177,7 +184,9 @@ export function InspectionCollage(props: {
                 {interactive && onDeletePhoto && (
                   <button
                     type="button"
-                    onClick={(e) => {
+                    onPointerDown={(e) => {
+                      if (e.button !== undefined && e.button !== 0) return;
+                      e.preventDefault();
                       e.stopPropagation();
                       onDeletePhoto(idx);
                     }}
