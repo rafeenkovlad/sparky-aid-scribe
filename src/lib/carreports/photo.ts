@@ -298,16 +298,18 @@ export async function uploadFile(file: File): Promise<{
   // чтобы укладываться в лимит бакета temp-carreports-files.
   if (kind === "image") {
     const prepared = await preparePhoto(file);
-    const up = await uploadTemporary(prepared, { contentType: "image/jpeg" });
+    const mime = prepared.blob.type || "image/jpeg";
+    const up = await uploadTemporary(prepared, { contentType: mime });
     return {
       filename: up.filename,
       url: up.url,
       key: up.key,
       type: "image",
       size: prepared.blob.size,
-      mimeType: "image/jpeg",
+      mimeType: mime,
     };
   }
+
 
   const contentType = file.type || "application/octet-stream";
   const safeBase = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^\w.-]+/g, "_");
