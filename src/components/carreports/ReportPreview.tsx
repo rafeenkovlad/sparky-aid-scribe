@@ -1,6 +1,6 @@
 import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { filledCount, isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
-import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
+import { INSPECTION_ZONES } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
 import { Check, ChevronRight, Eye, FileText } from "lucide-react";
 
