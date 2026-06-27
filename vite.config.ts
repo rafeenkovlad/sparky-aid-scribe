@@ -29,8 +29,9 @@ export default defineConfig({
           navigateFallback: null,
           navigationPreload: true,
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
+          // Do NOT skipWaiting/clientsClaim: keep the new SW in "waiting" so
+          // the UI can prompt the user to reload into the new version.
+
           // Only precache hashed static assets emitted by Vite. Skip HTML and
           // the manifest so navigations stay network-first.
           globPatterns: ["**/*.{js,css,woff,woff2,png,svg,ico}"],
