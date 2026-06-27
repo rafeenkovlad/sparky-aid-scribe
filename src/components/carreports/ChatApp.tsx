@@ -1204,7 +1204,7 @@ export function ChatApp({ threadId }: Props) {
           id: msgId(),
           role: "assistant",
           text:
-            `✅ AI-резюме готово (${r.model}, ${Math.round(r.latencyMs)} мс):\n\n` +
+            `✅ AI-резюме готово:\n\n` +
             r.summary +
             (r.verdict ? `\n\nВЕРДИКТ: ${r.verdict}` : "") +
             "\n\nПоправьте при необходимости и переходите к отправке.",
