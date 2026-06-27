@@ -1580,7 +1580,7 @@ export function ChatApp({ threadId }: Props) {
                 pushMsg(t, "inspection", {
                   id: msgId(),
                   role: "assistant",
-                  text: "Не смог определить раздел — выберите вручную:",
+                  text: "",
                   step: "inspection",
                   kind: "inspectionAttachAssign",
                   pendingPhoto: {
