@@ -2267,11 +2267,6 @@ export function ChatApp({ threadId }: Props) {
             ✨ AI-резюме
           </button>
         )}
-        {currentStep === "legalMaterials" && (
-          <div className="text-xs text-white/60 self-center">
-            Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}
-          </div>
-        )}
         {currentStep === "submit" && (
           <button
             onClick={() => void doSubmit()}
