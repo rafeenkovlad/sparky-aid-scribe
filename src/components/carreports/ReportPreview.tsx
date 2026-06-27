@@ -100,25 +100,6 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
               </button>
             );
           })}
-          {/* Inspection details */}
-          {thread.draft.inspectionStep.photos.length > 0 && (
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
-              {thread.draft.inspectionStep.photos.map((p, i) => (
-                <div key={i} className="relative aspect-square rounded-md overflow-hidden bg-white/5">
-                  {p.dataUrl ? (
-                    <img src={p.dataUrl} alt={p.filename} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] text-white/50">
-                      {p.filename}
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 inset-x-0 bg-black/60 text-[10px] text-white px-1 py-0.5 truncate">
-                    {zoneById(p.section)?.label ?? p.section}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
   );
