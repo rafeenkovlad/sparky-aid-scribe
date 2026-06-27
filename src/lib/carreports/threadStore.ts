@@ -152,6 +152,10 @@ export function updateThread(id: string, mut: (t: Thread) => Thread | void): Thr
           sectionNotes: { ...t.draft.inspectionStep.sectionNotes },
           photos: [...t.draft.inspectionStep.photos],
         },
+        legalReviewStep: {
+          ...t.draft.legalReviewStep,
+          otherMaterials: [...(t.draft.legalReviewStep?.otherMaterials ?? [])],
+        },
         testDriveStep: { ...t.draft.testDriveStep },
         resultStep: { ...t.draft.resultStep },
       },
@@ -160,10 +164,12 @@ export function updateThread(id: string, mut: (t: Thread) => Thread | void): Thr
         characteristics: [...t.messages.characteristics],
         docs: [...t.messages.docs],
         inspection: [...t.messages.inspection],
+        legalMaterials: [...(t.messages.legalMaterials ?? [])],
         testDrive: [...t.messages.testDrive],
         result: [...t.messages.result],
         submit: [...t.messages.submit],
       },
+
       aiChatIds: { ...t.aiChatIds },
     };
     const result = mut(clone) ?? clone;
