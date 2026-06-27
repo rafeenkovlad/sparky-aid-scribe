@@ -154,6 +154,34 @@ export function ChatApp({ threadId }: Props) {
   const composerBackupRef = useRef<string | null>(null);
   /** Идёт ли AI-анализ заметки к фото. */
   const [photoAiBusy, setPhotoAiBusy] = useState(false);
+  /**
+   * Сериализатор задач на одно фото (text-note + vision). Гарантирует, что
+   * `savePhotoNote` и `runPhotoAi`, выпущенные параллельно по одному фото,
+   * не перезаписывают findings друг друга и не теряют теги.
+   */
+  const photoLockRef = useRef<Map<string, Promise<void>>>(new Map());
+  const photoBusyCountRef = useRef(0);
+  const runWithPhotoLock = useCallback(
+    (key: string, fn: () => Promise<void>) => {
+      const prev = photoLockRef.current.get(key) ?? Promise.resolve();
+      const next = prev.catch(() => {}).then(async () => {
+        photoBusyCountRef.current += 1;
+        setPhotoAiBusy(true);
+        try {
+          await fn();
+        } finally {
+          photoBusyCountRef.current = Math.max(0, photoBusyCountRef.current - 1);
+          if (photoBusyCountRef.current === 0) setPhotoAiBusy(false);
+        }
+      });
+      const tracked = next.finally(() => {
+        if (photoLockRef.current.get(key) === tracked) photoLockRef.current.delete(key);
+      });
+      photoLockRef.current.set(key, tracked);
+      return next;
+    },
+    [],
+  );
   /** Предложение по заметке: оригинал vs AI-переформулировка. */
   const [noteProposal, setNoteProposal] = useState<NoteProposalT | null>(null);
 
