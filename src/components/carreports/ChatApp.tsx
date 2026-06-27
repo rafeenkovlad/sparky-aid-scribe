@@ -1636,9 +1636,24 @@ export function ChatApp({ threadId }: Props) {
             createdAt: Date.now(),
           });
         });
-        const ctrl = makeStatusUpdater(textStatusId);
+        const setTextStatus = (text: string, queueStatus: "queued" | "running") => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const m = t.messages[key].find((x) => x.id === textStatusId);
+              if (m) { m.text = text; m.queueStatus = queueStatus; return; }
+            }
+          });
+        };
+        const removeTextStatus = () => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const i = t.messages[key].findIndex((x) => x.id === textStatusId);
+              if (i >= 0) { t.messages[key].splice(i, 1); return; }
+            }
+          });
+        };
         void enqueueAI(threadIdLocal, async () => {
-          ctrl.toRunning("🔄 Обрабатывается…");
+          setTextStatus("🔄 Обрабатывается…", "running");
           try {
             const fresh = getThread(threadIdLocal);
             if (!fresh) return;
