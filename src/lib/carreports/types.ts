@@ -230,7 +230,8 @@ export interface ChatMessage {
     | "inspectionUploadPrompt"
     | "inspectionCollage"
     | "inspectionAttachAssign"
-    | "inspectionElementFocus";
+    | "inspectionElementFocus"
+    | "legalMaterialsCollage";
   /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
   sectionSnake?: string;
   /** индекс фото в inspectionStep.photos для kind=inspectionElementFocus */

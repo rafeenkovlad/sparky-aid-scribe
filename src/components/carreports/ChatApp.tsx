@@ -1983,6 +1983,7 @@ export function ChatApp({ threadId }: Props) {
   // Для шага «осмотр» карандаш доступен всегда — это вход в панель редактирования.
   const hasCurrentStepDraft =
     currentStep === "inspection" ||
+    currentStep === "legalMaterials" ||
     summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
@@ -2169,6 +2170,16 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
             onElementFocusDismissNoteProposal={dismissNoteProposal}
+            onDeleteLegalMaterial={(idx: number) => {
+              if (!thread) return;
+              updateThread(thread.id, (t) => {
+                const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
+                t.draft.legalReviewStep = {
+                  ...t.draft.legalReviewStep,
+                  otherMaterials: arr.filter((_, i) => i !== idx),
+                };
+              });
+            }}
           />
 
         ))}
@@ -2306,6 +2317,21 @@ export function ChatApp({ threadId }: Props) {
                     createdAt: Date.now(),
                   });
 
+                  return;
+                }
+                if (currentStep === "legalMaterials") {
+                  const collageId = "legal-materials-collage";
+                  t.messages.legalMaterials = t.messages.legalMaterials.filter(
+                    (m) => m.id !== collageId,
+                  );
+                  pushMsg(t, "legalMaterials", {
+                    id: collageId,
+                    role: "assistant",
+                    text: "",
+                    step: "legalMaterials",
+                    kind: "legalMaterialsCollage",
+                    createdAt: Date.now(),
+                  });
                   return;
                 }
                 const intro = STEP_INTROS[currentStep];
@@ -2772,6 +2798,7 @@ interface BubbleProps {
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
   onElementFocusDismissNoteProposal?: () => void;
+  onDeleteLegalMaterial?: (idx: number) => void;
 }
 
 function MessageBubble({
@@ -2808,6 +2835,7 @@ function MessageBubble({
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
   onElementFocusDismissNoteProposal,
+  onDeleteLegalMaterial,
 }: BubbleProps) {
 
 
@@ -2994,6 +3022,84 @@ function MessageBubble({
                     {s.label}
                   </button>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {msg.kind === "legalMaterialsCollage" && draft && (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-3 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[13px] text-white">Загруженные материалы</div>
+              <div className="text-[11px] text-white/45">
+                {draft.legalReviewStep?.otherMaterials.length ?? 0} файл(ов)
+              </div>
+            </div>
+            {(draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 ? (
+              <div className="text-[12px] text-white/55">
+                Пока пусто. Добавьте файлы через карточку ниже.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {(draft.legalReviewStep?.otherMaterials ?? []).map((mat, idx) => {
+                  const icon =
+                    mat.type === "image" ? "🖼️" : mat.type === "video" ? "🎬" : "📄";
+                  const kb =
+                    mat.size && mat.size >= 1024 * 1024
+                      ? `${(mat.size / 1024 / 1024).toFixed(1)} МБ`
+                      : mat.size
+                        ? `${Math.max(1, Math.round(mat.size / 1024))} КБ`
+                        : "";
+                  return (
+                    <div
+                      key={`${mat.key}:${idx}`}
+                      className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-white/5 group"
+                    >
+                      <a
+                        href={mat.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="absolute inset-0 w-full h-full flex items-center justify-center"
+                        title={mat.filename}
+                      >
+                        {mat.type === "image" && (mat.url || mat.dataUrl) ? (
+                          <img
+                            src={mat.dataUrl || mat.url}
+                            alt={mat.filename}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1 text-white/70 px-1 text-center">
+                            <span className="text-2xl">{icon}</span>
+                            <span className="text-[10px] truncate w-full">
+                              {mat.filename}
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 px-1.5 py-0.5 bg-gradient-to-t from-black/80 to-transparent">
+                          <div className="text-[10px] text-white/85 truncate">
+                            {kb}
+                          </div>
+                        </div>
+                      </a>
+                      {interactive && onDeleteLegalMaterial && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            if (e.button !== undefined && e.button !== 0) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDeleteLegalMaterial(idx);
+                          }}
+                          aria-label="Удалить файл"
+                          className="absolute top-1 right-1 z-10 h-5 w-5 rounded-full bg-black/55 hover:bg-rose-500/80 text-white flex items-center justify-center ring-1 ring-white/15 backdrop-blur-md opacity-80 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
