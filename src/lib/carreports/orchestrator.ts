@@ -133,7 +133,7 @@ export async function extractForStep(
       const key = findingKey(sectionSnake, eid);
       const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
 
-      const noDamage = typeof f.noDamage === "boolean" ? f.noDamage : base.noDamage;
+      let noDamage = typeof f.noDamage === "boolean" ? f.noDamage : base.noDamage;
 
       const sNames = Array.isArray(f.seriousTags)
         ? (f.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
