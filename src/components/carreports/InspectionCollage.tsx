@@ -104,9 +104,11 @@ export function InspectionCollage(props: {
       </div>
 
       {list.length === 0 && (
-        <div className="text-[12px] text-white/55">
-          Пока пусто. Добавьте фото — коллаж появится здесь.
-        </div>
+        <EmptyCollageUploader
+          sectionSnake={sectionSnake}
+          onPick={onPick}
+          interactive={interactive}
+        />
       )}
 
       {list.length > 0 && (
