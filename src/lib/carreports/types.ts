@@ -6,9 +6,11 @@ export type StepId =
   | "characteristics"
   | "docs"
   | "inspection"
+  | "legalMaterials"
   | "testDrive"
   | "result"
   | "submit";
+
 
 export interface CarStep {
   vin?: string;
@@ -138,6 +140,31 @@ export interface ResultStep {
   resultSpecialistNote?: string;
 }
 
+/** Файл, прикреплённый к шагу «Дополнительные материалы проверки».
+ *  Соответствует FileDTO бэкенда (filename / key / type / stepType). */
+export interface LegalReviewMaterial {
+  /** Имя файла с расширением. */
+  filename: string;
+  /** S3-ключ во временном бакете (возвращает ObjectStorage). */
+  key?: string;
+  /** Категория файла (по mime/расширению). */
+  type: "image" | "video" | "document";
+  /** Presigned GET URL (для предпросмотра, временно). */
+  url?: string;
+  /** Локальное превью (data: URL) — только для картинок. */
+  dataUrl?: string;
+  /** Исходный размер в байтах. */
+  size?: number;
+  /** Mime-тип, как сообщил браузер. */
+  mimeType?: string;
+  addedAt?: number;
+}
+
+export interface LegalReviewStep {
+  /** Дополнительные материалы проверки (otherLegalReviews в DTO). */
+  otherMaterials: LegalReviewMaterial[];
+}
+
 export interface ReportDraft {
   reportName?: string;
   reportDate?: string;
@@ -145,9 +172,11 @@ export interface ReportDraft {
   characteristicsStep: CharacteristicsStep;
   documentReconciliationStep: DocumentReconciliationStep;
   inspectionStep: InspectionStep;
+  legalReviewStep: LegalReviewStep;
   testDriveStep: TestDriveStep;
   resultStep: ResultStep;
 }
+
 
 export type ChatRole = "user" | "assistant" | "system";
 
@@ -230,11 +259,13 @@ export function emptyStepMessages(): StepMessages {
     characteristics: [],
     docs: [],
     inspection: [],
+    legalMaterials: [],
     testDrive: [],
     result: [],
     submit: [],
   };
 }
+
 
 export interface Thread {
   id: string;
@@ -253,7 +284,9 @@ export function emptyDraft(): ReportDraft {
     characteristicsStep: {},
     documentReconciliationStep: {},
     inspectionStep: { sectionNotes: {}, photos: [], touched: false },
+    legalReviewStep: { otherMaterials: [] },
     testDriveStep: {},
     resultStep: {},
   };
 }
+

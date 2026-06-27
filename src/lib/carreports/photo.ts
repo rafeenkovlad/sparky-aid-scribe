@@ -236,6 +236,57 @@ export async function uploadPhoto(photo: PreparedPhoto): Promise<{
   }
 }
 
+
+
+/**
+ * Категория файла по MIME / расширению — для FileDTO бэкенда.
+ * Бэкенд принимает только: image | video | document.
+ */
+export function classifyFile(file: { name?: string; type?: string }): "image" | "video" | "document" {
+  const t = (file.type ?? "").toLowerCase();
+  const n = (file.name ?? "").toLowerCase();
+  if (t.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?)$/.test(n))
+    return "image";
+  if (t.startsWith("video/") || /\.(mp4|mov|avi|mkv|webm|m4v)$/.test(n)) return "video";
+  return "document";
+}
+
+/**
+ * Универсальная загрузка произвольного файла во временное объектное хранилище.
+ * Не сжимает и не конвертирует — отправляет файл как есть с его MIME-типом.
+ * Возвращает имя на сервере, presigned GET URL и S3-ключ.
+ */
+export async function uploadFile(file: File): Promise<{
+  filename: string;
+  url: string;
+  key?: string;
+  type: "image" | "video" | "document";
+  size: number;
+  mimeType: string;
+}> {
+  const contentType = file.type || "application/octet-stream";
+  const safeBase = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^\w.-]+/g, "_");
+  const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? "").toLowerCase();
+  const filename = `${safeBase}_${Date.now()}${ext}`;
+  // Превью data: URL — только для картинок и небольших файлов.
+  const dataUrl = file.type.startsWith("image/") && file.size < 4 * 1024 * 1024
+    ? await blobToDataUrl(file)
+    : "";
+  const up = await uploadTemporary(
+    { filename, blob: file, dataUrl },
+    { contentType },
+  );
+  return {
+    filename: up.filename,
+    url: up.url,
+    key: up.key,
+    type: classifyFile(file),
+    size: file.size,
+    mimeType: contentType,
+  };
+}
+
+
 /**
  * Парсит срок жизни presigned-URL по `X-Amz-Date` + `X-Amz-Expires`. Возвращает
  * `null`, если ссылка не AWS SigV4 (в т.ч. локальная) или параметры не читаемы.

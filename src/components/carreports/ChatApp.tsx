@@ -75,7 +75,7 @@ import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementF
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { Sparkles } from "lucide-react";
 
-import { ensurePhotoAccessible, preparePhoto, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
+import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
@@ -100,6 +100,7 @@ function totalMessages(m: Thread["messages"]): number {
     m.characteristics.length +
     m.docs.length +
     m.inspection.length +
+    (m.legalMaterials?.length ?? 0) +
     m.testDrive.length +
     m.result.length +
     m.submit.length
@@ -110,10 +111,12 @@ const STEP_PLACEHOLDERS: Record<StepId, string> = {
   characteristics: "Марка, модель, поколение, год, двигатель, КПП, привод, цвет… (Enter — отправить)",
   docs: "Кол-во владельцев, совпадения VIN/двигателя/ФИО с ПТС/СТС… (Enter — отправить)",
   inspection: "Заметки по текущей зоне осмотра… (Enter — сохранить)",
+  legalMaterials: "Комментарий к материалам (необязательно). Файлы добавляйте кнопкой 📎 справа.",
   testDrive: "Тест-драйв: двигатель, КПП, руль, подвеска, тормоза, замечания… (Enter — отправить)",
   result: "Итоговый комментарий специалиста и вердикт… (Enter — отправить)",
   submit: "Готово к отправке — подтвердите или уточните детали… (Enter — отправить)",
 };
+
 
 function makeIntroMessage(step: StepId): ChatMessage {
   const intro = STEP_INTROS[step];
@@ -200,6 +203,9 @@ export function ChatApp({ threadId }: Props) {
     }>
   >([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const materialsInputRef = useRef<HTMLInputElement>(null);
+  const [materialsBusy, setMaterialsBusy] = useState(false);
+
 
   // Размер очереди AI-запросов по текущему треду (для индикатора).
   const queueSize = useSyncExternalStore(
@@ -1317,10 +1323,12 @@ export function ChatApp({ threadId }: Props) {
         characteristics: "Извлеки характеристики авто с фото: марка, модель, поколение, год, объём и мощность двигателя, тип топлива, КПП, привод, цвет, комплектация.",
         docs: "На фото — ПТС/СТС или договор. Извлеки: ФИО владельца, кол-во владельцев, VIN, номер двигателя, серию/номер документа.",
         inspection: "На фото — элемент кузова/салона. Опиши состояние и видимые дефекты (царапины, сколы, ржавчина, вмятины, трещины), укажи деталь.",
+        legalMaterials: "Опиши, что видно на материале (документ, скан, отчёт сканера) — кратко, по фактам.",
         testDrive: "На фото — приборная панель / салон при тест-драйве. Опиши показания (пробег, ошибки, ESP/ABS, давление) и особенности.",
         result: "Опиши, что видно на фото — кратко, по фактам.",
         submit: "Опиши, что видно на фото — кратко, по фактам.",
       };
+
       // 1) Загружаем все фото во временное объектное хранилище.
       const urls: string[] = [];
       const failures: string[] = [];
@@ -2119,6 +2127,98 @@ export function ChatApp({ threadId }: Props) {
             ✨ AI-резюме
           </button>
         )}
+        {currentStep === "legalMaterials" && (
+          <>
+            <input
+              ref={materialsInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.avi,.pdf,.doc,.docx,image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (!files.length || !thread) return;
+                setMaterialsBusy(true);
+                try {
+                  for (const f of files) {
+                    const placeholderId = msgId();
+                    updateThread(thread.id, (t) => {
+                      pushMsg(t, "legalMaterials", {
+                        id: placeholderId,
+                        role: "assistant",
+                        text: `⏳ Загружаю: ${f.name}…`,
+                        step: "legalMaterials",
+                        queueStatus: "running",
+                        createdAt: Date.now(),
+                      });
+                    });
+                    try {
+                      const up = await uploadFile(f);
+                      updateThread(thread.id, (t) => {
+                        const arr = t.draft.legalReviewStep?.otherMaterials ?? [];
+                        t.draft.legalReviewStep = {
+                          ...t.draft.legalReviewStep,
+                          otherMaterials: [
+                            ...arr,
+                            {
+                              filename: up.filename,
+                              key: up.key,
+                              type: up.type,
+                              url: up.url,
+                              size: up.size,
+                              mimeType: up.mimeType,
+                              addedAt: Date.now(),
+                            },
+                          ],
+                        };
+                        const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+                        const icon = up.type === "image" ? "🖼️" : up.type === "video" ? "🎬" : "📄";
+                        const kb = up.size >= 1024 * 1024
+                          ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
+                          : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
+                        const text = `${icon} ${f.name} · ${kb} · загружено`;
+                        if (i >= 0) {
+                          t.messages.legalMaterials[i] = {
+                            ...t.messages.legalMaterials[i],
+                            text,
+                            queueStatus: undefined,
+                          };
+                        }
+                      });
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : "ошибка загрузки";
+                      updateThread(thread.id, (t) => {
+                        const i = t.messages.legalMaterials.findIndex((m) => m.id === placeholderId);
+                        if (i >= 0) {
+                          t.messages.legalMaterials[i] = {
+                            ...t.messages.legalMaterials[i],
+                            text: `❌ ${f.name}: ${msg}`,
+                            queueStatus: "error",
+                          };
+                        }
+                      });
+                    }
+                  }
+                } finally {
+                  setMaterialsBusy(false);
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => materialsInputRef.current?.click()}
+              disabled={materialsBusy}
+              className="rounded-full bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1.5"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              {materialsBusy ? "Загрузка…" : "Прикрепить файл"}
+            </button>
+            <div className="text-xs text-white/60 self-center">
+              Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}
+            </div>
+          </>
+        )}
         {currentStep === "submit" && (
           <button
             onClick={() => void doSubmit()}
@@ -2128,6 +2228,7 @@ export function ChatApp({ threadId }: Props) {
             <CheckCheck className="h-3.5 w-3.5" /> Отправить отчёт
           </button>
         )}
+
         <button
           onClick={() => {
             setAskMode(false);

@@ -35,6 +35,10 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       );
     }
 
+    case "legalMaterials": {
+      // Шаг не обязательный — считается «затронутым», если есть хотя бы 1 файл.
+      return (d.legalReviewStep?.otherMaterials?.length ?? 0) > 0;
+    }
     case "testDrive": {
       const c = d.testDriveStep ?? {};
       return !!c.notDone || !!c.notes;
@@ -47,6 +51,7 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
       return false;
   }
 }
+
 
 /** Return a human-readable prompt for the next missing required field, or null
  *  if the step is already complete. Used to guide the user step-by-step. */
