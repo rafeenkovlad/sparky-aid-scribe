@@ -1471,15 +1471,13 @@ export function ChatApp({ threadId }: Props) {
 
       const batchStatusId = msgId();
       const renderBatchStatus = () => {
-        const queuedCount = queuedNames.length;
+        // Считаем так же, как глобальный индикатор очереди: в число входит
+        // и текущий «в работе» файл — чтобы цифры совпадали.
+        const totalRemaining = queuedNames.length + (running ? 1 : 0);
         const parts: string[] = [];
         if (running) parts.push(`🔄 Обработка: ${running}`);
-        if (queuedCount > 0) {
-          parts.push(
-            running
-              ? `⏳ Ещё в очереди: ${queuedCount}`
-              : `⏳ В очереди: ${queuedCount}`,
-          );
+        if (totalRemaining > 0) {
+          parts.push(`⏳ В очереди: ${totalRemaining}`);
         }
         return parts.join("\n") || "🔄 Обработка…";
       };
