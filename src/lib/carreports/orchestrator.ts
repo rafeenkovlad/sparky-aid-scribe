@@ -1136,7 +1136,7 @@ export async function analyzeInspectionNote(
   const resolvedElementId =
     typeof raw.elementId === "string" && elementIds.has(raw.elementId)
       ? raw.elementId
-      : elementId ?? "generalCondition";
+      : elementId ?? defaultElementIdFor(section.snake);
   const noDamage = raw.noDamage === true;
   const sNames = Array.isArray(raw.seriousTags)
     ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
