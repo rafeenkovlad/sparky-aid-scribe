@@ -264,23 +264,43 @@ export async function uploadFile(file: File): Promise<{
   size: number;
   mimeType: string;
 }> {
+  const kind = classifyFile(file);
+
+  // Картинки (включая HEIC/HEIF) — конвертируем в JPEG и ужимаем до ≤2МБ,
+  // чтобы укладываться в лимит бакета temp-carreports-files.
+  if (kind === "image") {
+    const prepared = await preparePhoto(file);
+    const up = await uploadTemporary(prepared, { contentType: "image/jpeg" });
+    return {
+      filename: up.filename,
+      url: up.url,
+      key: up.key,
+      type: "image",
+      size: prepared.blob.size,
+      mimeType: "image/jpeg",
+    };
+  }
+
   const contentType = file.type || "application/octet-stream";
   const safeBase = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^\w.-]+/g, "_");
   const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? "").toLowerCase();
   const filename = `${safeBase}_${Date.now()}${ext}`;
-  // Превью data: URL — только для картинок и небольших файлов.
-  const dataUrl = file.type.startsWith("image/") && file.size < 4 * 1024 * 1024
-    ? await blobToDataUrl(file)
-    : "";
+  if (file.size > MAX_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    throw new ApiError(
+      `Файл слишком большой (${mb} МБ). Лимит — 2 МБ. Сожмите или загрузите по частям.`,
+      413,
+    );
+  }
   const up = await uploadTemporary(
-    { filename, blob: file, dataUrl },
+    { filename, blob: file, dataUrl: "" },
     { contentType },
   );
   return {
     filename: up.filename,
     url: up.url,
     key: up.key,
-    type: classifyFile(file),
+    type: kind,
     size: file.size,
     mimeType: contentType,
   };
