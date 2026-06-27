@@ -123,3 +123,4 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
       </div>
   );
 }
+
