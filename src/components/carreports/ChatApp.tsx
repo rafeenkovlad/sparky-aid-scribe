@@ -3084,7 +3084,7 @@ function MessageBubble({
                           </div>
                         </div>
                       </a>
-                      {interactive && onDeleteLegalMaterial && (
+                      {onDeleteLegalMaterial && (
                         <button
                           type="button"
                           onPointerDown={(e) => {
@@ -3102,7 +3102,7 @@ function MessageBubble({
                     </div>
                   );
                 })}
-              {interactive && onAddLegalMaterial && (
+              {onAddLegalMaterial && (
                 <button
                   type="button"
                   onClick={() => onAddLegalMaterial()}
