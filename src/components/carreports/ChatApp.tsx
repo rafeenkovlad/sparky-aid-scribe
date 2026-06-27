@@ -564,7 +564,6 @@ export function ChatApp({ threadId }: Props) {
     [thread, ensureSectionMessages],
   );
 
-  /** Закрепить ожидающее фото из чата за выбранным разделом. */
   const assignPendingPhoto = useCallback(
     (messageId: string, sectionSnake: SectionSnake) => {
       if (!thread) return;
@@ -585,8 +584,18 @@ export function ChatApp({ threadId }: Props) {
           const label =
             INSPECTION_SECTIONS.find((s) => s.snake === sectionSnake)?.label ??
             sectionSnake;
-          m.pendingPhoto = { ...photo, assignedSection: sectionSnake };
+          // Сворачиваем карточку выбора в обычное «📌 Закреплено…»,
+          // как при автоклассификации. Иначе в чате остаются полупустые
+          // карточки выбора, которые засоряют ленту.
+          m.kind = undefined;
+          m.pendingPhoto = undefined;
           m.text = `📌 Закреплено в разделе «${label}»`;
+          m.attachments = [
+            {
+              url: photo.url ?? photo.dataUrl ?? "",
+              label: photo.filename,
+            },
+          ];
           ensureSectionMessages(sectionSnake);
           break;
         }
@@ -594,6 +603,7 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread, ensureSectionMessages],
   );
+
 
 
   // ─── Photo focus mode (chat-with-photo) ──────────────────────────────────
