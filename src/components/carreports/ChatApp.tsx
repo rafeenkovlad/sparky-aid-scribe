@@ -2318,6 +2318,21 @@ export function ChatApp({ threadId }: Props) {
 
                   return;
                 }
+                if (currentStep === "legalMaterials") {
+                  const collageId = "legal-materials-collage";
+                  t.messages.legalMaterials = t.messages.legalMaterials.filter(
+                    (m) => m.id !== collageId,
+                  );
+                  pushMsg(t, "legalMaterials", {
+                    id: collageId,
+                    role: "assistant",
+                    text: "",
+                    step: "legalMaterials",
+                    kind: "legalMaterialsCollage",
+                    createdAt: Date.now(),
+                  });
+                  return;
+                }
                 const intro = STEP_INTROS[currentStep];
                 const recapId = `recap-${currentStep}`;
                 t.messages[currentStep] = t.messages[currentStep].filter(
