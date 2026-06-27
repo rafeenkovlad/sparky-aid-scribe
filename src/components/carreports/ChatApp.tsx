@@ -1467,6 +1467,8 @@ export function ChatApp({ threadId }: Props) {
         },
       });
 
+      const classifiedSections = new Set<SectionSnake>();
+
       for (const a of atts) {
         const perStatusId = msgId();
         updateThread(threadIdLocal, (t) => {
@@ -1520,8 +1522,7 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               });
-              ensureSectionMessages(section);
-
+              classifiedSections.add(section);
             } else {
               updateThread(threadIdLocal, (t) => {
                 pushMsg(t, "inspection", {
@@ -1555,6 +1556,15 @@ export function ChatApp({ threadId }: Props) {
           }
         });
       }
+
+      // После того как очередь обработает все фото — один раз показываем
+      // список разделов (как при нажатии «карандашика»).
+      void enqueueAI(threadIdLocal, async () => {
+        for (const section of classifiedSections) {
+          ensureSectionMessages(section);
+        }
+      });
+
 
       // Если кроме фото пришёл и текст — отдельная задача для extractForStep.
       if (combined) {
