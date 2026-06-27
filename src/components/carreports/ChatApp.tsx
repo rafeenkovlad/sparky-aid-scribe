@@ -2185,7 +2185,7 @@ export function ChatApp({ threadId }: Props) {
 
         ))}
 
-        {currentStep === "legalMaterials" && (
+        {currentStep === "legalMaterials" && (thread.draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 && (
           <div className="flex gap-2 items-start">
             <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden border border-white/15 bg-zinc-900">
               <img
