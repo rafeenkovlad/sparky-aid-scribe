@@ -203,6 +203,9 @@ export function ChatApp({ threadId }: Props) {
     }>
   >([]);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const materialsInputRef = useRef<HTMLInputElement>(null);
+  const [materialsBusy, setMaterialsBusy] = useState(false);
+
 
   // Размер очереди AI-запросов по текущему треду (для индикатора).
   const queueSize = useSyncExternalStore(
