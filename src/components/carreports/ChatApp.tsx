@@ -993,8 +993,8 @@ export function ChatApp({ threadId }: Props) {
           prev && prev.original === text ? { ...prev, ai: "", loading: false } : prev,
         );
       }
-    })();
-  }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx]);
+    });
+  }, [composer, mutatePhotoFinding, thread, photoFocus, photoFocusIdx, runWithPhotoLock]);
 
 
 
