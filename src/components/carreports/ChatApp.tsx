@@ -2325,14 +2325,18 @@ export function ChatApp({ threadId }: Props) {
                   t.messages.legalMaterials = t.messages.legalMaterials.filter(
                     (m) => m.id !== collageId,
                   );
-                  pushMsg(t, "legalMaterials", {
-                    id: collageId,
-                    role: "assistant",
-                    text: "",
-                    step: "legalMaterials",
-                    kind: "legalMaterialsCollage",
-                    createdAt: Date.now(),
-                  });
+                  const hasFiles =
+                    (t.draft.legalReviewStep?.otherMaterials.length ?? 0) > 0;
+                  if (hasFiles) {
+                    pushMsg(t, "legalMaterials", {
+                      id: collageId,
+                      role: "assistant",
+                      text: "",
+                      step: "legalMaterials",
+                      kind: "legalMaterialsCollage",
+                      createdAt: Date.now(),
+                    });
+                  }
                   return;
                 }
                 const intro = STEP_INTROS[currentStep];
