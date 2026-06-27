@@ -1058,7 +1058,7 @@ export async function analyzeInspectionPhoto(
   const elementId =
     typeof raw.elementId === "string" && elementIds.has(raw.elementId)
       ? raw.elementId
-      : "generalCondition";
+      : defaultElementIdFor(section.snake);
   const noDamage = raw.noDamage === true;
   const sNames = Array.isArray(raw.seriousTags)
     ? (raw.seriousTags as unknown[]).filter((x): x is string => typeof x === "string")
