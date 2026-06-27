@@ -906,7 +906,10 @@ export function ChatApp({ threadId }: Props) {
               if (!have.has(pp.name.toLowerCase())) existing.push(pp);
             }
             f.pendingTagNames = existing;
-            f.note = r.note?.trim() ? r.note.trim() : text;
+            // Приоритет: AI-версия (она уже учла existingNote и переформулировала).
+            // Если AI промолчал — оставляем оптимистичный черновик "previousNote + text",
+            // а не сырой text, чтобы не потерять прежнюю заметку.
+            f.note = r.note?.trim() ? r.note.trim() : draftCombined;
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
