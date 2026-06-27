@@ -1436,6 +1436,196 @@ export function ChatApp({ threadId }: Props) {
       });
     };
 
+    // ─── Спец-кейс: шаг «осмотр» с фото ────────────────────────────────────
+    // Каждое фото — отдельная задача в очереди ИИ (а не один общий task
+    // c внутренним for-циклом). Пользователь видит реальный размер очереди:
+    // «11 в очереди + 1 в работе» для 12 фоток.
+    if (stepForTask === "inspection" && atts.length) {
+      // Убираем общий placeholder — вместо него ставим отдельные на каждое фото.
+      removeStatus();
+
+      const { classifyInspectionPhotoSection } = await import(
+        "@/lib/carreports/orchestrator"
+      );
+
+      const makeStatusUpdater = (id: string) => ({
+        toRunning: (label: string) => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const m = t.messages[key].find((x) => x.id === id);
+              if (m) { m.text = label; m.queueStatus = "running"; return; }
+            }
+          });
+        },
+        remove: () => {
+          updateThread(threadIdLocal, (t) => {
+            for (const key of Object.keys(t.messages) as StepId[]) {
+              const i = t.messages[key].findIndex((x) => x.id === id);
+              if (i >= 0) { t.messages[key].splice(i, 1); return; }
+            }
+          });
+        },
+      });
+
+      for (const a of atts) {
+        const perStatusId = msgId();
+        updateThread(threadIdLocal, (t) => {
+          pushMsg(t, "inspection", {
+            id: perStatusId,
+            role: "assistant",
+            text: `⏳ В очереди: ${a.filename}`,
+            step: "inspection",
+            queueStatus: "queued",
+            createdAt: Date.now(),
+          });
+        });
+        const ctrl = makeStatusUpdater(perStatusId);
+        void enqueueAI(threadIdLocal, async () => {
+          ctrl.toRunning(`🔄 Обработка: ${a.filename}`);
+          try {
+            const up = await uploadTemporary({
+              filename: a.originalFilename,
+              blob: a.originalBlob,
+              dataUrl: a.dataUrl,
+            });
+            const fresh = getThread(threadIdLocal);
+            const section = fresh
+              ? await classifyInspectionPhotoSection(fresh, up.url)
+              : null;
+            if (fresh) {
+              updateThread(threadIdLocal, (t) => {
+                t.aiChatIds = fresh.aiChatIds;
+              });
+            }
+            if (section) {
+              const sectionLabel =
+                INSPECTION_SECTIONS.find((s) => s.snake === section)?.label ??
+                section;
+              updateThread(threadIdLocal, (t) => {
+                t.draft.inspectionStep.photos.push({
+                  section,
+                  filename: up.filename,
+                  dataUrl: a.dataUrl,
+                  url: up.url,
+                  remote: true,
+                  addedAt: Date.now(),
+                });
+                t.draft.inspectionStep.touched = true;
+                pushMsg(t, "inspection", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: `📌 Закреплено в разделе «${sectionLabel}»`,
+                  step: "inspection",
+                  attachments: [{ url: up.url, label: a.filename }],
+                  createdAt: Date.now(),
+                });
+              });
+            } else {
+              updateThread(threadIdLocal, (t) => {
+                pushMsg(t, "inspection", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "Не смог определить раздел — выберите вручную:",
+                  step: "inspection",
+                  kind: "inspectionAttachAssign",
+                  pendingPhoto: {
+                    url: up.url,
+                    dataUrl: a.dataUrl,
+                    filename: up.filename,
+                    remote: true,
+                  },
+                  createdAt: Date.now(),
+                });
+              });
+            }
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "ошибка";
+            updateThread(threadIdLocal, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `⚠️ Не удалось обработать ${a.filename}: ${message}`,
+                createdAt: Date.now(),
+              });
+            });
+          } finally {
+            ctrl.remove();
+          }
+        });
+      }
+
+      // Если кроме фото пришёл и текст — отдельная задача для extractForStep.
+      if (combined) {
+        const textStatusId = msgId();
+        updateThread(threadIdLocal, (t) => {
+          pushMsg(t, "inspection", {
+            id: textStatusId,
+            role: "assistant",
+            text: "⏳ В очереди…",
+            step: "inspection",
+            queueStatus: "queued",
+            createdAt: Date.now(),
+          });
+        });
+        const ctrl = makeStatusUpdater(textStatusId);
+        void enqueueAI(threadIdLocal, async () => {
+          ctrl.toRunning("🔄 Обрабатывается…");
+          try {
+            const fresh = getThread(threadIdLocal);
+            if (!fresh) return;
+            const onClarify = (entry: { kind: "ai" | "web"; label: string; detail?: string }) => {
+              const icon = entry.kind === "web" ? "🌐" : "🧠";
+              updateThread(threadIdLocal, (t) => {
+                pushMsg(t, "inspection", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: `${icon} ${entry.label}${entry.detail ? `\n${entry.detail}` : ""}`,
+                  step: "inspection",
+                  createdAt: Date.now(),
+                });
+              });
+            };
+            const { patch, reply, attachments, chips } = await extractForStep(
+              "inspection",
+              combined,
+              fresh,
+              { onClarify },
+            );
+            updateThread(threadIdLocal, (t) => {
+              Object.assign(t.draft, patch);
+              if (reply) {
+                pushMsg(t, "inspection", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: reply,
+                  step: "inspection",
+                  ...(attachments && attachments.length ? { attachments } : {}),
+                  ...(chips && chips.length
+                    ? { chips, optionsStep: "inspection", selectedChipValues: [] }
+                    : {}),
+                  createdAt: Date.now(),
+                });
+              }
+            });
+          } catch (e) {
+            const message = e instanceof Error ? e.message : "Ошибка ИИ";
+            updateThread(threadIdLocal, (t) => {
+              pushMsg(t, "inspection", {
+                id: msgId(),
+                role: "assistant",
+                text: `⚠️ ${message}`,
+                createdAt: Date.now(),
+              });
+            });
+          } finally {
+            ctrl.remove();
+          }
+        });
+      }
+      return;
+    }
+
+
     void enqueueAI(threadIdLocal, async () => {
       setStatus({ text: "🔄 Обрабатывается…", queueStatus: "running" });
 
