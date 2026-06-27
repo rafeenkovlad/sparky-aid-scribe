@@ -2809,6 +2809,7 @@ function MessageBubble({
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
   onElementFocusDismissNoteProposal,
+  onDeleteLegalMaterial,
 }: BubbleProps) {
 
 
