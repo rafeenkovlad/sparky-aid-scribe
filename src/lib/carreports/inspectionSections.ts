@@ -318,3 +318,18 @@ export const ZONE_TO_SECTION: Record<string, SectionSnake> = {
 export function findingKey(section: SectionSnake, elementId: string): string {
   return `${section}.${elementId}`;
 }
+
+/**
+ * Дефолтный elementId раздела для случаев, когда AI ещё не классифицировал
+ * фото/заметку и явный элемент не передан. Единый источник правды для
+ * `analyzeInspectionPhoto/Note` (orchestrator) и `mutatePhotoFinding /
+ * savePhotoNote / enterPhotoFocus` (ChatApp). Иначе оптимистичный finding
+ * мог создаваться под одним id, а финальный апсерт AI — под другим.
+ */
+export function defaultElementIdFor(snake: SectionSnake): string {
+  const def = INSPECTION_SECTIONS.find((s) => s.snake === snake);
+  if (!def) return "generalCondition";
+  if (def.elements.some((el) => el.id === "generalCondition")) return "generalCondition";
+  return def.elements[0]?.id ?? "generalCondition";
+}
+
