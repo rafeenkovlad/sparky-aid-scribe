@@ -938,9 +938,28 @@ export function ChatApp({ threadId }: Props) {
             }
             f.pendingTagNames = existing;
             // Приоритет: AI-версия (она уже учла existingNote и переформулировала).
-            // Если AI промолчал — оставляем оптимистичный черновик "previousNote + text",
-            // а не сырой text, чтобы не потерять прежнюю заметку.
-            f.note = r.note?.trim() ? r.note.trim() : draftCombined;
+            // Если AI промолчал — оставляем оптимистичный черновик "previousNote + text".
+            // Защита: если previousNote был, но AI вернул заметно более короткий
+            // текст или потерял ключевые фрагменты прежней заметки — склеиваем
+            // previousNote + r.note, чтобы не затереть данные пользователя.
+            const aiNote = r.note?.trim() ?? "";
+            let mergedNote = aiNote || draftCombined;
+            if (aiNote && previousNote && aiNote !== previousNote) {
+              const prevLow = previousNote.toLowerCase();
+              const aiLow = aiNote.toLowerCase();
+              const tokens = Array.from(
+                new Set(prevLow.match(/[\p{L}\p{N}]{4,}/gu) ?? []),
+              );
+              const covered = tokens.length
+                ? tokens.filter((t) => aiLow.includes(t)).length / tokens.length
+                : 1;
+              const tooShort = aiNote.length < previousNote.length * 0.6;
+              const lostContent = tokens.length >= 3 && covered < 0.5;
+              if ((tooShort || lostContent) && !aiLow.includes(prevLow)) {
+                mergedNote = `${previousNote}\n${aiNote}`;
+              }
+            }
+            f.note = mergedNote;
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
