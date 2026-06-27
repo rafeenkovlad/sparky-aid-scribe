@@ -2180,6 +2180,7 @@ export function ChatApp({ threadId }: Props) {
                 };
               });
             }}
+            onAddLegalMaterial={() => materialsInputRef.current?.click()}
           />
 
         ))}
