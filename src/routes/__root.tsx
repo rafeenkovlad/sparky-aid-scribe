@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { Toaster } from "../components/ui/sonner";
+import { toast } from "sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -128,14 +131,29 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    void import("../lib/pwa/register-sw").then((m) => m.registerServiceWorker());
+    void import("../lib/pwa/register-sw").then((m) =>
+      m.registerServiceWorker((activate) => {
+        toast("Доступна новая версия", {
+          description: "Обновите приложение, чтобы применить изменения.",
+          duration: Infinity,
+          action: {
+            label: "Обновить",
+            onClick: () => {
+              void activate();
+            },
+          },
+        });
+      }),
+    );
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <Toaster position="bottom-center" />
     </QueryClientProvider>
   );
 }
+
 
