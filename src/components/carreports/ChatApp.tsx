@@ -53,6 +53,7 @@ import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLab
 
 import {
   INSPECTION_SECTIONS,
+  defaultElementIdFor,
   findingKey,
   getSection,
   type SectionSnake,
