@@ -259,11 +259,13 @@ export function emptyStepMessages(): StepMessages {
     characteristics: [],
     docs: [],
     inspection: [],
+    legalMaterials: [],
     testDrive: [],
     result: [],
     submit: [],
   };
 }
+
 
 export interface Thread {
   id: string;
