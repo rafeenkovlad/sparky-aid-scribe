@@ -764,6 +764,7 @@ export function ChatApp({ threadId }: Props) {
     // mutatePhotoFinding мог проскочить чужой апдейт (AI-таск, повторный
     // клик «Сохранить») — и мы дублировали кусок текста.
     let previousNote = "";
+    let draftCombined = text;
     if (thread && photoFocus && photoFocusIdx !== null) {
       const idxLocal = photoFocusIdx;
       updateThread(thread.id, (t) => {
@@ -773,7 +774,7 @@ export function ChatApp({ threadId }: Props) {
         const elId = p.elementId ?? defaultElementIdFor(sec);
         const key = findingKey(sec, elId);
         previousNote = (t.draft.inspectionStep.findings?.[key]?.note ?? "").trim();
-        const draftCombined = previousNote && previousNote !== text
+        draftCombined = previousNote && previousNote !== text
           ? `${previousNote}\n${text}`
           : text;
         upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
@@ -782,6 +783,7 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.touched = true;
       });
     }
+
 
     setComposer("");
     setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
