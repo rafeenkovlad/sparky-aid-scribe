@@ -2173,6 +2173,58 @@ export function ChatApp({ threadId }: Props) {
 
         ))}
 
+        {currentStep === "legalMaterials" && (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-3 space-y-2.5">
+            <div className="text-sm text-white">
+              Прикрепите дополнительные материалы проверки — фото, видео, документы или
+              отчёты сканеров. <span className="text-white/60">Файлов: {thread.draft.legalReviewStep?.otherMaterials.length ?? 0}</span>
+            </div>
+            <input
+              ref={materialsCameraRef}
+              type="file"
+              accept="image/*,.heic,.heif"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (files.length) void handleMaterialFiles(files);
+              }}
+            />
+            <input
+              ref={materialsInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.mp4,.mov,.avi,.pdf,.doc,.docx,image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (files.length) void handleMaterialFiles(files);
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={materialsBusy}
+                onClick={() => materialsCameraRef.current?.click()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm py-2.5"
+              >
+                <Camera className="h-5 w-5" /> Снять
+              </button>
+              <button
+                type="button"
+                disabled={materialsBusy}
+                onClick={() => materialsInputRef.current?.click()}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white text-sm py-2.5"
+              >
+                <Paperclip className="h-5 w-5" /> {materialsBusy ? "Загрузка…" : "Файлы"}
+              </button>
+            </div>
+          </div>
+        )}
+
+
         {(busy || queueSize > 0) && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="inline-block h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
