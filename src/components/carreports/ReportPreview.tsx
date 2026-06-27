@@ -30,11 +30,17 @@ function summaryFor(step: StepId, t: Thread): string {
       if (zones.length === 0) return "—";
       return `${zones.length}/${INSPECTION_ZONES.length} зон · ${ins.photos.length} фото`;
     }
+    case "legalMaterials": {
+      const files = t.draft.legalReviewStep?.otherMaterials ?? [];
+      if (!files.length) return "—";
+      return `${files.length} файл(ов)`;
+    }
     case "testDrive": {
       const td = t.draft.testDriveStep ?? {};
       if (td.notDone) return "Не проводился";
       return td.notes ? td.notes.split("\n")[0] : "—";
     }
+
     case "result": {
       const r = t.draft.resultStep ?? {};
       const bits = [r.summaryInspectionNote, r.resultSpecialistNote].filter(Boolean);
