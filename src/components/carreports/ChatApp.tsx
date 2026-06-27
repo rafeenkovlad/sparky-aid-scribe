@@ -759,26 +759,30 @@ export function ChatApp({ threadId }: Props) {
   const savePhotoNote = useCallback(() => {
     const text = composer.trim();
     if (!text) return;
-    // Перед перезаписью — запомним прежнюю заметку, чтобы передать её ИИ
-    // и попросить слить старое и новое (а не затирать).
+    // Атомарно: читаем актуальный note и записываем объединённый черновик
+    // в одной транзакции updateThread. Раньше между чтением previousNote и
+    // mutatePhotoFinding мог проскочить чужой апдейт (AI-таск, повторный
+    // клик «Сохранить») — и мы дублировали кусок текста.
     let previousNote = "";
     if (thread && photoFocus && photoFocusIdx !== null) {
-      const fresh0 = getThread(thread.id);
-      const p0 = fresh0?.draft.inspectionStep.photos[photoFocusIdx];
-      const elId0 = p0?.elementId ?? photoFocus.elementId ?? null;
-      if (p0 && elId0) {
-        const key = findingKey(p0.section as SectionSnake, elId0);
-        previousNote = (fresh0!.draft.inspectionStep.findings?.[key]?.note ?? "").trim();
-      }
+      const idxLocal = photoFocusIdx;
+      updateThread(thread.id, (t) => {
+        const p = t.draft.inspectionStep.photos[idxLocal];
+        if (!p) return;
+        const sec = p.section as SectionSnake;
+        const elId = p.elementId ?? defaultElementIdFor(sec);
+        const key = findingKey(sec, elId);
+        previousNote = (t.draft.inspectionStep.findings?.[key]?.note ?? "").trim();
+        const draftCombined = previousNote && previousNote !== text
+          ? `${previousNote}\n${text}`
+          : text;
+        upsertFinding(t.draft.inspectionStep, sec, elId, (f) => {
+          f.note = draftCombined;
+        });
+        t.draft.inspectionStep.touched = true;
+      });
     }
-    // Пишем оригинал сразу — пользователь видит свой текст, пока ИИ думает.
-    // Если уже была заметка — показываем объединённый черновик "старое + новое".
-    const draftCombined = previousNote && previousNote !== text
-      ? `${previousNote}\n${text}`
-      : text;
-    mutatePhotoFinding((f) => {
-      f.note = draftCombined;
-    });
+
     setComposer("");
     setNoteProposal({ original: text, ai: null, loading: true, picked: "ai" });
 
