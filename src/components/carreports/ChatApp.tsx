@@ -1520,6 +1520,8 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               });
+              ensureSectionMessages(section);
+
             } else {
               updateThread(threadIdLocal, (t) => {
                 pushMsg(t, "inspection", {
