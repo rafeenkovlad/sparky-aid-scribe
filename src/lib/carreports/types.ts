@@ -69,7 +69,9 @@ export interface InspectionPhoto {
   /** element id раздела, к которому привязано фото (см. INSPECTION_SECTIONS). */
   elementId?: string;
   filename: string;
-  /** local preview (data: URL). May be absent for server-only photos. */
+  /** id записи в IndexedDB-кеше с полным blob'ом (см. lib/carreports/photoCache). */
+  photoId?: string;
+  /** thumb (≤256px) data: URL для UI-превью. Может отсутствовать у server-only фото. */
   dataUrl?: string;
   /** presigned view URL (для отправки в AI vision). */
   url?: string;
@@ -77,6 +79,7 @@ export interface InspectionPhoto {
   remote?: boolean;
   addedAt?: number;
 }
+
 
 
 export interface PendingTagName {
