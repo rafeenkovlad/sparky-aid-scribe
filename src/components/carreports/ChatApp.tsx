@@ -2181,9 +2181,15 @@ export function ChatApp({ threadId }: Props) {
             onOpenAnnotator={enterPhotoFocus}
             onDeleteInspectionPhoto={(idx: number) => {
               if (!thread) return;
+              const removed = thread.draft.inspectionStep.photos[idx];
               updateThread(thread.id, (t) => {
                 t.draft.inspectionStep.photos.splice(idx, 1);
               });
+              if (removed?.photoId) {
+                void import("@/lib/carreports/photoCache").then((m) =>
+                  m.deletePhoto(removed.photoId!),
+                );
+              }
               if (photoFocusIdx === idx) exitPhotoFocus();
               else if (photoFocusIdx !== null && photoFocusIdx > idx)
                 setPhotoFocusIdx(photoFocusIdx - 1);
