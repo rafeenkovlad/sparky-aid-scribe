@@ -211,6 +211,8 @@ export function ChatApp({ threadId }: Props) {
   const [pendingAttachments, setPendingAttachments] = useState<
     Array<{
       id: string;
+      /** id записи в IndexedDB-кеше — для перезалива/превью без base64 в state. */
+      photoId: string;
       dataUrl: string;
       blob: Blob;
       filename: string;
