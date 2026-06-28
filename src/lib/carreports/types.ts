@@ -148,13 +148,15 @@ export interface ResultStep {
 export interface LegalReviewMaterial {
   /** Имя файла с расширением. */
   filename: string;
+  /** id записи в IndexedDB-кеше (если файл готовился через preparePhoto). */
+  photoId?: string;
   /** S3-ключ во временном бакете (возвращает ObjectStorage). */
   key?: string;
   /** Категория файла (по mime/расширению). */
   type: "image" | "video" | "document";
   /** Presigned GET URL (для предпросмотра, временно). */
   url?: string;
-  /** Локальное превью (data: URL) — только для картинок. */
+  /** Локальное thumb-превью (data: URL) — только для картинок, ≤256 px. */
   dataUrl?: string;
   /** Исходный размер в байтах. */
   size?: number;
@@ -162,6 +164,7 @@ export interface LegalReviewMaterial {
   mimeType?: string;
   addedAt?: number;
 }
+
 
 export interface LegalReviewStep {
   /** Дополнительные материалы проверки (otherLegalReviews в DTO). */
