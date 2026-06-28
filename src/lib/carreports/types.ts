@@ -247,10 +247,13 @@ export interface ChatMessage {
     url: string;
     dataUrl: string;
     filename: string;
+    /** id записи в IndexedDB-кеше (для перезалива в случае истечения URL). */
+    photoId?: string;
     remote?: boolean;
     /** если уже закреплено — сюда пишем snake-раздел, чтобы скрыть чипы */
     assignedSection?: string;
   };
+
   /** статус задачи в очереди ИИ (для плейсхолдер-сообщений) */
   queueStatus?: "queued" | "running" | "error";
   createdAt: number;
