@@ -672,6 +672,7 @@ export function ChatApp({ threadId }: Props) {
           t.draft.inspectionStep.photos.push({
             section: sectionSnake,
             filename: photo.filename,
+            photoId: photo.photoId,
             dataUrl: photo.dataUrl,
             url: photo.url,
             remote: photo.remote === true,
