@@ -136,6 +136,10 @@ function makeIntroMessage(step: StepId): ChatMessage {
 export function ChatApp({ threadId }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // Один раз при монтировании чистим IndexedDB-кеш фото от «сирот» — записей,
+  // которые больше не указаны ни в одном треде (например, после удаления
+  // треда в этой или другой вкладке).
+  const gcRanRef = useRef(false);
   const threads = useThreads();
   const token = useToken();
   const navigate = useNavigate();
