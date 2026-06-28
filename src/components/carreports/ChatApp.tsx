@@ -1379,6 +1379,7 @@ export function ChatApp({ threadId }: Props) {
         ...prev,
         {
           id: msgId(),
+          photoId: prepared.photoId,
           dataUrl: prepared.dataUrl,
           blob: prepared.blob,
           filename: prepared.filename,
