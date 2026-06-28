@@ -398,8 +398,10 @@ export async function ensurePhotoAccessible(opts: {
   url?: string;
   dataUrl?: string;
   filename?: string;
+  /** id записи в IndexedDB-кеше — приоритетный источник blob'а для перезалива. */
+  photoId?: string;
 }): Promise<string | null> {
-  const { url, dataUrl, filename } = opts;
+  const { url, dataUrl, filename, photoId } = opts;
 
   // 1) Быстрая проверка по сроку жизни presigned-URL — без сетевого запроса.
   if (url) {
@@ -421,7 +423,21 @@ export async function ensurePhotoAccessible(opts: {
     }
   }
 
-  // 2) Перезаливаем из локального превью.
+  // 2a) Предпочтительно перезаливаем из IndexedDB-кеша (полный blob).
+  if (photoId) {
+    try {
+      const blob = await getPhoto(photoId);
+      if (blob) {
+        const name = filename ?? `photo-${Date.now()}.jpg`;
+        const r = await uploadTemporary({ filename: name, blob, photoId });
+        return r.url;
+      }
+    } catch {
+      /* fallthrough → dataUrl */
+    }
+  }
+
+  // 2b) Fallback: thumb dataUrl (для старых записей без photoId).
   if (!dataUrl) return url ?? null;
   try {
     const blob = await (await fetch(dataUrl)).blob();
@@ -432,4 +448,5 @@ export async function ensurePhotoAccessible(opts: {
     return url ?? null;
   }
 }
+
 
