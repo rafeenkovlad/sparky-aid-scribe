@@ -136,11 +136,30 @@ function makeIntroMessage(step: StepId): ChatMessage {
 export function ChatApp({ threadId }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // Один раз при монтировании чистим IndexedDB-кеш фото от «сирот» — записей,
+  // которые больше не указаны ни в одном треде (например, после удаления
+  // треда в этой или другой вкладке).
+  const gcRanRef = useRef(false);
   const threads = useThreads();
   const token = useToken();
   const navigate = useNavigate();
 
   const thread = useMemo(() => threads.find((t) => t.id === threadId) ?? null, [threads, threadId]);
+
+  useEffect(() => {
+    if (gcRanRef.current || !mounted) return;
+    gcRanRef.current = true;
+    const keep = new Set<string>();
+    for (const t of threads) {
+      for (const p of t.draft.inspectionStep.photos) {
+        if (p.photoId) keep.add(p.photoId);
+      }
+      for (const m of t.draft.legalReviewStep?.otherMaterials ?? []) {
+        if (m.photoId) keep.add(m.photoId);
+      }
+    }
+    void import("@/lib/carreports/photoCache").then((mod) => mod.gcOrphans(keep));
+  }, [mounted, threads]);
 
   const [tokenOpen, setTokenOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -211,6 +230,8 @@ export function ChatApp({ threadId }: Props) {
   const [pendingAttachments, setPendingAttachments] = useState<
     Array<{
       id: string;
+      /** id записи в IndexedDB-кеше — для перезалива/превью без base64 в state. */
+      photoId: string;
       dataUrl: string;
       blob: Blob;
       filename: string;
@@ -599,6 +620,7 @@ export function ChatApp({ threadId }: Props) {
             section: sectionSnake,
             elementId,
             filename: up.filename,
+            photoId: prepared.photoId,
             dataUrl: prepared.dataUrl,
             url: up.url,
             remote: up.remote,
@@ -634,6 +656,7 @@ export function ChatApp({ threadId }: Props) {
             t.draft.inspectionStep.photos.push({
               section: sectionSnake,
               filename: up.filename,
+              photoId: prepared.photoId,
               dataUrl: prepared.dataUrl,
               url: up.url,
               remote: up.remote,
@@ -670,6 +693,7 @@ export function ChatApp({ threadId }: Props) {
           t.draft.inspectionStep.photos.push({
             section: sectionSnake,
             filename: photo.filename,
+            photoId: photo.photoId,
             dataUrl: photo.dataUrl,
             url: photo.url,
             remote: photo.remote === true,
@@ -844,9 +868,15 @@ export function ChatApp({ threadId }: Props) {
   const deletePhotoFocus = useCallback(() => {
     if (photoFocusIdx === null || !thread) return;
     const idx = photoFocusIdx;
+    const removed = thread.draft.inspectionStep.photos[idx];
     updateThread(thread.id, (t) => {
       t.draft.inspectionStep.photos.splice(idx, 1);
     });
+    if (removed?.photoId) {
+      void import("@/lib/carreports/photoCache").then((m) =>
+        m.deletePhoto(removed.photoId!),
+      );
+    }
     exitPhotoFocus();
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
@@ -943,6 +973,7 @@ export function ChatApp({ threadId }: Props) {
             url: photoFocus.url,
             dataUrl: photoFocus.dataUrl,
             filename: photoFocus.filename,
+            photoId: photoFocus.photoId,
           });
           if (usableUrl && usableUrl !== photoFocus.url) {
             updateThread(thread.id, (t) => {
@@ -1191,6 +1222,7 @@ export function ChatApp({ threadId }: Props) {
           url: photoFocus.url!,
           dataUrl: photoFocus.dataUrl,
           filename: photoFocus.filename,
+          photoId: photoFocus.photoId,
         });
         if (usableUrl && usableUrl !== photoFocus.url) {
           updateThread(thread.id, (t) => {
@@ -1374,6 +1406,7 @@ export function ChatApp({ threadId }: Props) {
         ...prev,
         {
           id: msgId(),
+          photoId: prepared.photoId,
           dataUrl: prepared.dataUrl,
           blob: prepared.blob,
           filename: prepared.filename,
@@ -1677,6 +1710,7 @@ export function ChatApp({ threadId }: Props) {
                   section,
                   elementId,
                   filename: displayFilename,
+                  photoId: a.photoId,
                   dataUrl: a.dataUrl,
                   url: displayUrl,
                   remote: true,
@@ -1705,6 +1739,7 @@ export function ChatApp({ threadId }: Props) {
                     url: displayUrl,
                     dataUrl: a.dataUrl,
                     filename: displayFilename,
+                    photoId: a.photoId,
                     remote: true,
                   },
                   createdAt: Date.now(),
@@ -2165,9 +2200,15 @@ export function ChatApp({ threadId }: Props) {
             onOpenAnnotator={enterPhotoFocus}
             onDeleteInspectionPhoto={(idx: number) => {
               if (!thread) return;
+              const removed = thread.draft.inspectionStep.photos[idx];
               updateThread(thread.id, (t) => {
                 t.draft.inspectionStep.photos.splice(idx, 1);
               });
+              if (removed?.photoId) {
+                void import("@/lib/carreports/photoCache").then((m) =>
+                  m.deletePhoto(removed.photoId!),
+                );
+              }
               if (photoFocusIdx === idx) exitPhotoFocus();
               else if (photoFocusIdx !== null && photoFocusIdx > idx)
                 setPhotoFocusIdx(photoFocusIdx - 1);

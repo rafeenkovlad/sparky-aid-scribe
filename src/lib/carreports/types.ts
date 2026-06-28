@@ -69,7 +69,9 @@ export interface InspectionPhoto {
   /** element id раздела, к которому привязано фото (см. INSPECTION_SECTIONS). */
   elementId?: string;
   filename: string;
-  /** local preview (data: URL). May be absent for server-only photos. */
+  /** id записи в IndexedDB-кеше с полным blob'ом (см. lib/carreports/photoCache). */
+  photoId?: string;
+  /** thumb (≤256px) data: URL для UI-превью. Может отсутствовать у server-only фото. */
   dataUrl?: string;
   /** presigned view URL (для отправки в AI vision). */
   url?: string;
@@ -77,6 +79,7 @@ export interface InspectionPhoto {
   remote?: boolean;
   addedAt?: number;
 }
+
 
 
 export interface PendingTagName {
@@ -145,13 +148,15 @@ export interface ResultStep {
 export interface LegalReviewMaterial {
   /** Имя файла с расширением. */
   filename: string;
+  /** id записи в IndexedDB-кеше (если файл готовился через preparePhoto). */
+  photoId?: string;
   /** S3-ключ во временном бакете (возвращает ObjectStorage). */
   key?: string;
   /** Категория файла (по mime/расширению). */
   type: "image" | "video" | "document";
   /** Presigned GET URL (для предпросмотра, временно). */
   url?: string;
-  /** Локальное превью (data: URL) — только для картинок. */
+  /** Локальное thumb-превью (data: URL) — только для картинок, ≤256 px. */
   dataUrl?: string;
   /** Исходный размер в байтах. */
   size?: number;
@@ -159,6 +164,7 @@ export interface LegalReviewMaterial {
   mimeType?: string;
   addedAt?: number;
 }
+
 
 export interface LegalReviewStep {
   /** Дополнительные материалы проверки (otherLegalReviews в DTO). */
@@ -241,10 +247,13 @@ export interface ChatMessage {
     url: string;
     dataUrl: string;
     filename: string;
+    /** id записи в IndexedDB-кеше (для перезалива в случае истечения URL). */
+    photoId?: string;
     remote?: boolean;
     /** если уже закреплено — сюда пишем snake-раздел, чтобы скрыть чипы */
     assignedSection?: string;
   };
+
   /** статус задачи в очереди ИИ (для плейсхолдер-сообщений) */
   queueStatus?: "queued" | "running" | "error";
   createdAt: number;

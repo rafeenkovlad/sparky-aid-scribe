@@ -1,19 +1,21 @@
 // Client-side photo pipeline:
-// 1) downscale to JPEG (≤ ~1600px long edge, q=0.82)
-// 2) try presigned PUT via Storage (best-effort)
-// 3) fall back to keeping the data URL locally for preview
-//
-// Final shape stored in thread.draft.inspectionStep.photos[i]:
-//   { section, filename, dataUrl? }
+// 1) downscale to JPEG (≤ ~1600px long edge, q=0.82) для отправки в AI/хранилище
+// 2) генерируем тонкий thumb (≤ 256 px, ~5–30 КБ) для мгновенного превью в UI
+// 3) полный blob кешируем в IndexedDB под стабильным photoId — состояние треда
+//    хранит только { photoId, filename, url?, dataUrl (thumb) }, без base64 на
+//    весь файл. Это экономит RAM и квоту localStorage.
 
 import { ApiError, rpc } from "./storageApi";
+import { getPhoto, newPhotoId, putPhoto } from "./photoCache";
 
 export interface PreparedPhoto {
+  /** стабильный id для IndexedDB-кеша полного blob'а */
+  photoId: string;
   /** display name */
   filename: string;
   /** JPEG blob ready to upload */
   blob: Blob;
-  /** small in-memory preview */
+  /** тонкий 256-px JPEG-thumb в виде data: URL для UI-превью */
   dataUrl: string;
 }
 
@@ -21,6 +23,9 @@ const DEFAULT_MAX_EDGE = 1600;
 const DEFAULT_QUALITY = 0.82;
 /** Hard size cap — 2 MB. */
 const MAX_BYTES = 2 * 1024 * 1024;
+/** Размер thumb для UI (256 px по длинной стороне). */
+const THUMB_EDGE = 256;
+const THUMB_QUALITY = 0.7;
 
 export async function preparePhoto(
   file: File,
@@ -30,18 +35,20 @@ export async function preparePhoto(
   const decoded = await ensureDecodable(file);
 
   // Если файл уже в пределах лимита и в браузеро-декодируемом формате —
-  // не пережимаем, грузим оригинал. Превью для коллажа всё равно генерируем
-  // маленьким JPEG, чтобы не раздувать черновик в localStorage.
+  // не пережимаем, грузим оригинал.
   const decodedType = (decoded.type || "").toLowerCase();
   const passthroughOk =
     decoded.size <= maxBytes &&
     (decodedType === "image/jpeg" ||
       decodedType === "image/png" ||
       decodedType === "image/webp");
+
+  let blob: Blob;
+  let bitmap: HTMLImageElement | ImageBitmap;
+  let filename: string;
   if (passthroughOk) {
-    const bitmap = await readImage(decoded);
-    const thumbBlob = await encodeJpeg(bitmap, 512, 0.7);
-    const dataUrl = await blobToDataUrl(thumbBlob);
+    bitmap = await readImage(decoded);
+    blob = decoded;
     const ext = decodedType === "image/png"
       ? ".png"
       : decodedType === "image/webp"
@@ -49,39 +56,45 @@ export async function preparePhoto(
         : ".jpg";
     const base = (decoded.name || file.name).replace(/\.[^.]+$/, "") || "photo";
     const safe = base.replace(/[^\w.-]+/g, "_");
-    return {
-      filename: `${safe}_${Date.now()}${ext}`,
-      blob: decoded,
-      dataUrl,
-    };
-  }
-
-  const bitmap = await readImage(decoded);
-  // Iteratively reduce quality, then dimensions, until under maxBytes.
-  let edge = DEFAULT_MAX_EDGE;
-  let quality = DEFAULT_QUALITY;
-  let blob = await encodeJpeg(bitmap, edge, quality);
-  // 1) reduce quality
-  while (blob.size > maxBytes && quality > 0.4) {
-    quality = Math.max(0.4, quality - 0.1);
-    blob = await encodeJpeg(bitmap, edge, quality);
-  }
-  // 2) reduce dimensions
-  while (blob.size > maxBytes && edge > 640) {
-    edge = Math.round(edge * 0.8);
-    quality = DEFAULT_QUALITY;
+    filename = `${safe}_${Date.now()}${ext}`;
+  } else {
+    bitmap = await readImage(decoded);
+    // Iteratively reduce quality, then dimensions, until under maxBytes.
+    let edge = DEFAULT_MAX_EDGE;
+    let quality = DEFAULT_QUALITY;
     blob = await encodeJpeg(bitmap, edge, quality);
     while (blob.size > maxBytes && quality > 0.4) {
       quality = Math.max(0.4, quality - 0.1);
       blob = await encodeJpeg(bitmap, edge, quality);
     }
+    while (blob.size > maxBytes && edge > 640) {
+      edge = Math.round(edge * 0.8);
+      quality = DEFAULT_QUALITY;
+      blob = await encodeJpeg(bitmap, edge, quality);
+      while (blob.size > maxBytes && quality > 0.4) {
+        quality = Math.max(0.4, quality - 0.1);
+        blob = await encodeJpeg(bitmap, edge, quality);
+      }
+    }
+    const base = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^\w.-]+/g, "_");
+    filename = `${base}_${Date.now()}.jpg`;
   }
 
-  const dataUrl = await blobToDataUrl(blob);
-  const base = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^\w.-]+/g, "_");
-  const filename = `${base}_${Date.now()}.jpg`;
-  return { filename, blob, dataUrl };
+  // Тонкий thumb (≤ 256 px) — только для превью в UI / fallback'а.
+  const thumbBlob = await encodeJpeg(bitmap, THUMB_EDGE, THUMB_QUALITY);
+  const dataUrl = await blobToDataUrl(thumbBlob);
+
+  // Полный blob уезжает в IndexedDB, чтобы не лежать в React state / LS.
+  const photoId = newPhotoId();
+  try {
+    await putPhoto(photoId, blob);
+  } catch {
+    /* best-effort */
+  }
+
+  return { photoId, filename, blob, dataUrl };
 }
+
 
 
 async function encodeJpeg(
@@ -175,7 +188,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  * Возвращает подписанный GET URL загруженного файла (для передачи в AI).
  */
 export async function uploadTemporary(
-  photo: PreparedPhoto,
+  photo: { filename: string; blob: Blob; dataUrl?: string; photoId?: string },
   opts: { contentType?: string } = {},
 ): Promise<{
   filename: string;
@@ -385,8 +398,10 @@ export async function ensurePhotoAccessible(opts: {
   url?: string;
   dataUrl?: string;
   filename?: string;
+  /** id записи в IndexedDB-кеше — приоритетный источник blob'а для перезалива. */
+  photoId?: string;
 }): Promise<string | null> {
-  const { url, dataUrl, filename } = opts;
+  const { url, dataUrl, filename, photoId } = opts;
 
   // 1) Быстрая проверка по сроку жизни presigned-URL — без сетевого запроса.
   if (url) {
@@ -408,7 +423,21 @@ export async function ensurePhotoAccessible(opts: {
     }
   }
 
-  // 2) Перезаливаем из локального превью.
+  // 2a) Предпочтительно перезаливаем из IndexedDB-кеша (полный blob).
+  if (photoId) {
+    try {
+      const blob = await getPhoto(photoId);
+      if (blob) {
+        const name = filename ?? `photo-${Date.now()}.jpg`;
+        const r = await uploadTemporary({ filename: name, blob, photoId });
+        return r.url;
+      }
+    } catch {
+      /* fallthrough → dataUrl */
+    }
+  }
+
+  // 2b) Fallback: thumb dataUrl (для старых записей без photoId).
   if (!dataUrl) return url ?? null;
   try {
     const blob = await (await fetch(dataUrl)).blob();
@@ -419,4 +448,5 @@ export async function ensurePhotoAccessible(opts: {
     return url ?? null;
   }
 }
+
 
