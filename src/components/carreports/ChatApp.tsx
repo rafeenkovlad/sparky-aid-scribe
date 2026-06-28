@@ -2534,8 +2534,12 @@ export function ChatApp({ threadId }: Props) {
             voice.state === "error" ||
             voice.state === "recording" ||
             voice.state === "transcribing";
-          const maxComposerH = () =>
-            Math.max(120, window.innerHeight - 200);
+          const maxComposerH = () => {
+            const vh =
+              (typeof window !== "undefined" && window.visualViewport?.height) ||
+              (typeof window !== "undefined" ? window.innerHeight : 800);
+            return Math.max(120, vh - 200);
+          };
           return (
             <div className="w-full">
               <div
