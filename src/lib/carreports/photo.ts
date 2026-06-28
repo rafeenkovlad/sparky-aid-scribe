@@ -188,7 +188,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
  * Возвращает подписанный GET URL загруженного файла (для передачи в AI).
  */
 export async function uploadTemporary(
-  photo: PreparedPhoto,
+  photo: { filename: string; blob: Blob; dataUrl?: string; photoId?: string },
   opts: { contentType?: string } = {},
 ): Promise<{
   filename: string;
