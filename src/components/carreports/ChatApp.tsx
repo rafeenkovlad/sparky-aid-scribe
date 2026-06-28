@@ -849,9 +849,15 @@ export function ChatApp({ threadId }: Props) {
   const deletePhotoFocus = useCallback(() => {
     if (photoFocusIdx === null || !thread) return;
     const idx = photoFocusIdx;
+    const removed = thread.draft.inspectionStep.photos[idx];
     updateThread(thread.id, (t) => {
       t.draft.inspectionStep.photos.splice(idx, 1);
     });
+    if (removed?.photoId) {
+      void import("@/lib/carreports/photoCache").then((m) =>
+        m.deletePhoto(removed.photoId!),
+      );
+    }
     exitPhotoFocus();
   }, [photoFocusIdx, thread, exitPhotoFocus]);
 
