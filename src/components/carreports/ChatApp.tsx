@@ -150,6 +150,23 @@ export function ChatApp({ threadId }: Props) {
   const [composerFocused, setComposerFocused] = useState(false);
   const [composerHeight, setComposerHeight] = useState<number | null>(null);
   const composerDragRef = useRef<{ startY: number; startH: number } | null>(null);
+  // Re-render when the visual viewport changes (e.g. mobile keyboard opens),
+  // so the composer height cap recomputes against the actually visible area.
+  const [, setVvTick] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      setVvTick((n) => n + 1);
+      setComposerHeight((h) => {
+        if (h == null) return h;
+        const cap = Math.max(120, vv.height - 200);
+        return Math.min(h, cap);
+      });
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
   /** Открытый «чат с фотографией»: индекс фото в `inspectionStep.photos`. */
