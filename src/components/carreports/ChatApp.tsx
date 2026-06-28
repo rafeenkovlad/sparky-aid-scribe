@@ -599,6 +599,7 @@ export function ChatApp({ threadId }: Props) {
             section: sectionSnake,
             elementId,
             filename: up.filename,
+            photoId: prepared.photoId,
             dataUrl: prepared.dataUrl,
             url: up.url,
             remote: up.remote,
