@@ -137,8 +137,23 @@
     border-color: var(--color-border);
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* iOS Safari auto-zooms inputs with font-size < 16px on focus. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
