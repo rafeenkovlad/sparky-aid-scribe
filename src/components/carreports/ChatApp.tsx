@@ -1197,6 +1197,7 @@ export function ChatApp({ threadId }: Props) {
           url: photoFocus.url!,
           dataUrl: photoFocus.dataUrl,
           filename: photoFocus.filename,
+          photoId: photoFocus.photoId,
         });
         if (usableUrl && usableUrl !== photoFocus.url) {
           updateThread(thread.id, (t) => {
