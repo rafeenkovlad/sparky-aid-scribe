@@ -146,6 +146,21 @@ export function ChatApp({ threadId }: Props) {
 
   const thread = useMemo(() => threads.find((t) => t.id === threadId) ?? null, [threads, threadId]);
 
+  useEffect(() => {
+    if (gcRanRef.current || !mounted) return;
+    gcRanRef.current = true;
+    const keep = new Set<string>();
+    for (const t of threads) {
+      for (const p of t.draft.inspectionStep.photos) {
+        if (p.photoId) keep.add(p.photoId);
+      }
+      for (const m of t.draft.legalReviewStep?.otherMaterials ?? []) {
+        if (m.photoId) keep.add(m.photoId);
+      }
+    }
+    void import("@/lib/carreports/photoCache").then((mod) => mod.gcOrphans(keep));
+  }, [mounted, threads]);
+
   const [tokenOpen, setTokenOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
