@@ -2073,6 +2073,7 @@ export function ChatApp({ threadId }: Props) {
               >
                 <Settings2 className="h-4 w-4 mr-2" /> Токен carreports
               </Button>
+              <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
             <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wider text-white/40">История</div>
             <div className="px-2 pb-4 space-y-1 overflow-y-auto" style={{ maxHeight: "60dvh" }}>
