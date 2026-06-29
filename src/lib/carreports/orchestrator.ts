@@ -83,19 +83,20 @@ export interface NotePatched {
 }
 
 /** Карты «русская подпись категории → ключ в testDriveStep». */
-const TD_TAG_CATEGORIES: Array<{ label: string; key:
+type TdTagKey =
   | "testDriveEngineTags"
   | "testDriveTransmissionTags"
   | "testDriveSteeringWheelTags"
   | "testDriveSuspensionInDriveTags"
   | "testDriveBrakesInDriveTags";
-}> = [
-  { label: "Двигатель", key: "testDriveEngineTags" },
-  { label: "КПП", key: "testDriveTransmissionTags" },
-  { label: "Руль", key: "testDriveSteeringWheelTags" },
-  { label: "Подвеска", key: "testDriveSuspensionInDriveTags" },
-  { label: "Тормоза", key: "testDriveBrakesInDriveTags" },
+const TD_TAG_CATEGORIES: Array<{ label: string; key: TdTagKey; section: string }> = [
+  { label: "Двигатель", key: "testDriveEngineTags", section: "engine" },
+  { label: "КПП", key: "testDriveTransmissionTags", section: "transmission" },
+  { label: "Руль", key: "testDriveSteeringWheelTags", section: "steering_wheel" },
+  { label: "Подвеска", key: "testDriveSuspensionInDriveTags", section: "suspension_in_drive" },
+  { label: "Тормоза", key: "testDriveBrakesInDriveTags", section: "brakes_in_drive" },
 ];
+
 
 /** Парсит шаблон правки тест-драйва и применяет diff: удалённые теги
  *  пытается снести через Storage.RemoveUserTag, добавленные оставляет в
