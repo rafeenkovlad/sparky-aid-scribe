@@ -172,12 +172,12 @@ function StepBody({
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       if (td.notDone) return <div className="text-white/70 text-[13px]">Тест-драйв не проводился.</div>;
-      const flags: Array<[string, boolean | undefined, string[] | undefined]> = [
-        ["Двигатель", td.testDriveEngineIsWorkingProperly, td.testDriveEngineTags],
-        ["КПП", td.testDriveTransmissionIsWorkingProperly, td.testDriveTransmissionTags],
-        ["Руль", td.testDriveSteeringWheelIsWorkingProperly, td.testDriveSteeringWheelTags],
-        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags],
-        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags],
+      const flags: Array<[string, boolean | undefined, string[] | undefined, TestDriveTagCatKey]> = [
+        ["Двигатель", td.testDriveEngineIsWorkingProperly, td.testDriveEngineTags, "testDriveEngineTags"],
+        ["КПП", td.testDriveTransmissionIsWorkingProperly, td.testDriveTransmissionTags, "testDriveTransmissionTags"],
+        ["Руль", td.testDriveSteeringWheelIsWorkingProperly, td.testDriveSteeringWheelTags, "testDriveSteeringWheelTags"],
+        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags, "testDriveSuspensionInDriveTags"],
+        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags, "testDriveBrakesInDriveTags"],
       ];
       const cleanTags = (arr?: string[]) =>
         Array.isArray(arr)
@@ -190,7 +190,7 @@ function StepBody({
       return (
         <div className="space-y-2 text-[13px] leading-tight">
           <ul className="space-y-1">
-            {flags.map(([label, val, tagArr]) => {
+            {flags.map(([label, val, tagArr, catKey]) => {
               const tags = cleanTags(tagArr);
               return (
                 <li key={label} className="min-w-0">
@@ -208,8 +208,8 @@ function StepBody({
                       {val === true ? "ок" : val === false ? "замечания" : "—"}
                     </span>
                   </div>
-                  {tags.length > 0 && (
-                    <div className="pl-5 mt-1 flex flex-wrap gap-1">
+                  {(tags.length > 0 || onTestDriveAddTag) && (
+                    <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
                       {tags.map((t, i) => (
                         <span
                           key={`${t}-${i}`}
@@ -218,12 +218,20 @@ function StepBody({
                           {t}
                         </span>
                       ))}
+                      {onTestDriveAddTag && (
+                        <TestDriveTagPicker
+                          catKey={catKey}
+                          selectedNames={tags}
+                          onAdd={(name) => onTestDriveAddTag(catKey, name)}
+                        />
+                      )}
                     </div>
                   )}
                 </li>
               );
             })}
           </ul>
+
 
           {(td.notes || td.testDriveNote) && (
             <div className="pt-2 border-t border-white/5">
