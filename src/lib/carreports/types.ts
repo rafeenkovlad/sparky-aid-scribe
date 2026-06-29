@@ -213,6 +213,27 @@ export interface MessageAttachment {
   kind?: "brand" | "model" | "generation";
 }
 
+/**
+ * Ссылка на конкретное поле заметки в draft. Используется для карточки
+ * «переформулировать заметку» и для последующей записи AI‑версии обратно.
+ */
+export type NoteRef =
+  | { kind: "inspection"; section: string; elementId: string }
+  | { kind: "testDrive" }
+  | { kind: "docs" }
+  | { kind: "resultSummary" }
+  | { kind: "resultVerdict" };
+
+export interface NoteProposalPayload {
+  ref: NoteRef;
+  /** короткая подпись scope: «Осмотр · Капот», «Тест‑драйв», … */
+  scopeLabel: string;
+  original: string;
+  ai: string | null;
+  loading: boolean;
+  picked?: "original" | "ai";
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -232,6 +253,7 @@ export interface ChatMessage {
     | "passport"
     | "docsPassport"
     | "stepPassport"
+    | "noteProposal"
     | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
@@ -257,6 +279,8 @@ export interface ChatMessage {
 
   /** статус задачи в очереди ИИ (для плейсхолдер-сообщений) */
   queueStatus?: "queued" | "running" | "error";
+  /** payload for kind=noteProposal — reformulation card state */
+  noteProposal?: NoteProposalPayload;
   createdAt: number;
 
 }

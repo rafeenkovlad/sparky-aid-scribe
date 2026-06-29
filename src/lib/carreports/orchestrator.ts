@@ -57,6 +57,7 @@ import type {
   DocumentReconciliationStep,
   InspectionElementFinding,
   MessageAttachment,
+  NoteRef,
   PendingTagName,
   StepId,
   TestDriveStep,
@@ -69,6 +70,15 @@ function todayIso(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${dd}`;
+}
+
+/** Описание заметки, которую пользователь только что заполнил/обновил —
+ *  чтобы UI мог предложить переформулировку. */
+export interface NotePatched {
+  ref: NoteRef;
+  scopeLabel: string;
+  originalText: string;
+  tagNames: string[];
 }
 
 /** Run extraction for a step and return the patch + a short assistant reply. */
@@ -84,6 +94,7 @@ export async function extractForStep(
   reply: string;
   attachments?: MessageAttachment[];
   chips?: ChatChip[];
+  notePatched?: NotePatched;
 }> {
   // Inspection step: AI splits the dictated note into per-element findings,
   // resolves tag names against the server section catalogue, stores both the
@@ -370,6 +381,37 @@ export async function extractForStep(
       ? "\n\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
       : "";
 
+    // ─── Если у какого‑то затронутого элемента появилась/обновилась
+    //     текстовая заметка — пробрасываем notePatched, чтобы UI предложил
+    //     переформулировку. Берём первый такой элемент.
+    let notePatched: NotePatched | undefined;
+    for (const eid of touchedElements) {
+      const key = findingKey(sectionSnake, eid);
+      const before = prevFindings[key]?.note ?? "";
+      const after = nextFindings[key]?.note ?? "";
+      if (after && after.trim() && after !== before) {
+        const el = section.elements.find((x) => x.id === eid);
+        const f = nextFindings[key];
+        const names: string[] = [];
+        for (const id of f?.seriousDamageTagIds ?? []) {
+          const n = idToName.get(id);
+          if (n) names.push(n);
+        }
+        for (const id of f?.noSeriousDamageTagIds ?? []) {
+          const n = idToName.get(id);
+          if (n) names.push(n);
+        }
+        for (const p of f?.pendingTagNames ?? []) names.push(p.name);
+        notePatched = {
+          ref: { kind: "inspection", section: sectionSnake, elementId: eid },
+          scopeLabel: `Осмотр · ${section.label}${el ? " · " + el.label : ""}`,
+          originalText: after,
+          tagNames: names,
+        };
+        break;
+      }
+    }
+
     return {
       patch: {
         inspectionStep: {
@@ -381,6 +423,7 @@ export async function extractForStep(
         },
       },
       reply: head + tail,
+      ...(notePatched ? { notePatched } : {}),
     };
   }
 
@@ -424,10 +467,33 @@ export async function extractForStep(
           : prev.notes
             ? `${prev.notes}\n${text}`
             : text;
+      const tdNote = typeof merged.testDriveNote === "string" ? merged.testDriveNote : "";
+      const tdPrevNote = typeof prev.testDriveNote === "string" ? prev.testDriveNote : "";
+      const tdTagNames: string[] = [];
+      for (const k of [
+        "testDriveEngineTags",
+        "testDriveTransmissionTags",
+        "testDriveSteeringWheelTags",
+        "testDriveSuspensionInDriveTags",
+        "testDriveBrakesInDriveTags",
+      ] as const) {
+        const v = merged[k];
+        if (Array.isArray(v)) for (const x of v) if (typeof x === "string") tdTagNames.push(x);
+      }
+      const notePatched: NotePatched | undefined =
+        tdNote && tdNote.trim() && tdNote !== tdPrevNote
+          ? {
+              ref: { kind: "testDrive" },
+              scopeLabel: "Тест‑драйв",
+              originalText: tdNote,
+              tagNames: tdTagNames,
+            }
+          : undefined;
       return {
         patch: { testDriveStep: merged },
         reply: summarizeTestDrive(merged),
         chips: testDriveChips(),
+        ...(notePatched ? { notePatched } : {}),
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
@@ -467,10 +533,34 @@ export async function extractForStep(
       const bits: string[] = [];
       if (raw.summaryInspectionNote) bits.push(`📝 Резюме:\n${raw.summaryInspectionNote.trim()}`);
       if (raw.resultSpecialistNote) bits.push(`✅ Вердикт:\n${raw.resultSpecialistNote.trim()}`);
+      // Предложение переформулировать — приоритет вердикту, потом резюме.
+      let notePatched: NotePatched | undefined;
+      if (
+        merged.resultSpecialistNote &&
+        merged.resultSpecialistNote !== prev.resultSpecialistNote
+      ) {
+        notePatched = {
+          ref: { kind: "resultVerdict" },
+          scopeLabel: "Результат · Вердикт",
+          originalText: merged.resultSpecialistNote,
+          tagNames: [],
+        };
+      } else if (
+        merged.summaryInspectionNote &&
+        merged.summaryInspectionNote !== prev.summaryInspectionNote
+      ) {
+        notePatched = {
+          ref: { kind: "resultSummary" },
+          scopeLabel: "Результат · Резюме",
+          originalText: merged.summaryInspectionNote,
+          tagNames: [],
+        };
+      }
       return {
         patch: { resultStep: merged },
         reply: bits.length ? bits.join("\n\n") : "Зафиксировал.",
         chips: resultChips(),
+        ...(notePatched ? { notePatched } : {}),
       };
     } catch {
       const isRec = /рекоменд/i.test(text);
@@ -1061,7 +1151,28 @@ export async function extractForStep(
         c.engineModelMatchWithPTSOrSTS = data.engineModelMatchWithPTSOrSTS;
       if (typeof data.note === "string") c.note = data.note;
       const merged = { ...thread.draft.documentReconciliationStep, ...c };
-      return { patch: { documentReconciliationStep: merged }, reply: summarizeDocs(merged) };
+      const prevDocNote = thread.draft.documentReconciliationStep?.note ?? "";
+      const tags: string[] = [];
+      const fmt = (b: boolean | null | undefined, ok: string, no: string) =>
+        b === true ? ok : b === false ? no : null;
+      const vinTag = fmt(merged.vinOnBodyMatchWithPTSOrSTS, "VIN совпадает", "VIN не совпадает");
+      const engTag = fmt(merged.engineModelMatchWithPTSOrSTS, "Двигатель совпадает", "Двигатель не совпадает");
+      const ownTag = fmt(merged.ownerFullNameMatchWithPTSOrSTS, "Собственник совпадает", "Собственник не совпадает");
+      for (const t of [vinTag, engTag, ownTag]) if (t) tags.push(t);
+      const docNotePatched: NotePatched | undefined =
+        merged.note && merged.note.trim() && merged.note !== prevDocNote
+          ? {
+              ref: { kind: "docs" },
+              scopeLabel: "Документы",
+              originalText: merged.note,
+              tagNames: tags,
+            }
+          : undefined;
+      return {
+        patch: { documentReconciliationStep: merged },
+        reply: summarizeDocs(merged),
+        ...(docNotePatched ? { notePatched: docNotePatched } : {}),
+      };
     }
     default:
       return { patch: {}, reply: "" };
@@ -1241,6 +1352,38 @@ export async function analyzeInspectionPhoto(
     note: typeof raw.note === "string" ? raw.note.trim() : "",
   };
 }
+
+/**
+ * Переформулировать произвольную заметку (любой шаг). Возвращает новый текст
+ * или null, если AI вернул пустоту/ошибку. Учитывает зафиксированные теги:
+ * AI не должен дублировать их словами.
+ */
+export async function reformulateNote(
+  thread: Thread,
+  ref: NoteRef,
+  stepLabel: string,
+  scopeLabel: string,
+  tagNames: string[],
+  originalText: string,
+): Promise<string | null> {
+  if (!originalText || !originalText.trim()) return null;
+  try {
+    const { CLICHE_REFORMULATE_NOTE } = await import("./cliche");
+    const key =
+      ref.kind === "inspection"
+        ? `${ref.kind}:${ref.section}:${ref.elementId}`
+        : ref.kind;
+    const id = aiChatIdFor(thread, `reformulate:${key}`);
+    const cliche = CLICHE_REFORMULATE_NOTE(stepLabel, scopeLabel, tagNames, originalText);
+    const res = await chatCompletions({ id, text: originalText, cliche, model: "gpt-5.4" });
+    const raw = parseJsonResponse<{ note?: string }>(res.content) ?? {};
+    const out = typeof raw.note === "string" ? raw.note.trim() : "";
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
 
 /**
  * Обработать текст заметки без фото: подобрать теги (из каталога или

@@ -38,6 +38,7 @@ import { InspectionDateField } from "./InspectionDateField";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
+import { NoteProposalCard } from "./NoteProposalCard";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
@@ -49,8 +50,8 @@ import {
 } from "@/lib/carreports/threadStore";
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
-import type { ChatChip, ChatMessage, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote } from "@/lib/carreports/orchestrator";
+import type { ChatChip, ChatMessage, NoteRef, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
+import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote, reformulateNote, type NotePatched } from "@/lib/carreports/orchestrator";
 import { filledCount, isStepFilled, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
@@ -157,6 +158,24 @@ function makeStepPassportMessage(step: StepId): ChatMessage {
     kind: "stepPassport",
     createdAt: Date.now(),
   };
+}
+
+/** Сериализуем NoteRef в стабильный ключ (для id сообщения, dedup, in-flight). */
+function noteRefKey(ref: NoteRef): string {
+  return ref.kind === "inspection"
+    ? `${ref.kind}:${ref.section}:${ref.elementId}`
+    : ref.kind;
+}
+
+/** Шаг, к которому относится NoteRef — нужно для pushMsg/фильтрации. */
+function stepForNoteRef(ref: NoteRef): StepId {
+  switch (ref.kind) {
+    case "inspection": return "inspection";
+    case "testDrive": return "testDrive";
+    case "docs": return "docs";
+    case "resultSummary":
+    case "resultVerdict": return "result";
+  }
 }
 
 export function ChatApp({ threadId }: Props) {
@@ -1236,6 +1255,152 @@ export function ChatApp({ threadId }: Props) {
 
   const dismissNoteProposal = useCallback(() => setNoteProposal(null), []);
 
+  // ─── Чат‑карточка «переформулировать заметку» ─────────────────────────
+  // Один inflight на ref — чтобы не дублировать переформулировку.
+  const noteReformInflight = useRef<Set<string>>(new Set());
+
+  /** Записать text в нужное поле draft по NoteRef. */
+  const writeNoteToDraft = useCallback(
+    (threadIdLocal: string, ref: NoteRef, text: string) => {
+      updateThread(threadIdLocal, (t) => {
+        if (ref.kind === "inspection") {
+          const key = findingKey(ref.section as SectionSnake, ref.elementId);
+          const findings = { ...(t.draft.inspectionStep.findings ?? {}) };
+          const f = findings[key];
+          if (f) findings[key] = { ...f, note: text };
+          t.draft.inspectionStep = { ...t.draft.inspectionStep, findings };
+        } else if (ref.kind === "testDrive") {
+          t.draft.testDriveStep = {
+            ...t.draft.testDriveStep,
+            testDriveNote: text,
+            notes: text,
+          };
+        } else if (ref.kind === "docs") {
+          t.draft.documentReconciliationStep = {
+            ...t.draft.documentReconciliationStep,
+            note: text,
+          };
+        } else if (ref.kind === "resultSummary") {
+          t.draft.resultStep = { ...t.draft.resultStep, summaryInspectionNote: text };
+        } else if (ref.kind === "resultVerdict") {
+          t.draft.resultStep = { ...t.draft.resultStep, resultSpecialistNote: text };
+        }
+      });
+    },
+    [],
+  );
+
+  /** Обновить поле noteProposal у конкретного сообщения. */
+  const patchNoteProposalMsg = useCallback(
+    (
+      threadIdLocal: string,
+      step: StepId,
+      messageId: string,
+      patch: Partial<NonNullable<ChatMessage["noteProposal"]>>,
+    ) => {
+      updateThread(threadIdLocal, (t) => {
+        const m = t.messages[step].find((x) => x.id === messageId);
+        if (m?.noteProposal) m.noteProposal = { ...m.noteProposal, ...patch };
+      });
+    },
+    [],
+  );
+
+  /** Пушит карточку‑proposal и запускает переформулировку. */
+  const pushChatNoteProposal = useCallback(
+    (threadIdLocal: string, np: NotePatched) => {
+      const step = stepForNoteRef(np.ref);
+      const stableId = `note-proposal:${noteRefKey(np.ref)}`;
+      updateThread(threadIdLocal, (t) => {
+        // не плодим карточки на тот же ref — заменяем
+        t.messages[step] = t.messages[step].filter((m) => m.id !== stableId);
+        pushMsg(t, step, {
+          id: stableId,
+          role: "assistant",
+          text: "",
+          step,
+          kind: "noteProposal",
+          noteProposal: {
+            ref: np.ref,
+            scopeLabel: np.scopeLabel,
+            original: np.originalText,
+            ai: null,
+            loading: true,
+          },
+          createdAt: Date.now(),
+        });
+      });
+      const key = noteRefKey(np.ref);
+      if (noteReformInflight.current.has(key)) return;
+      noteReformInflight.current.add(key);
+      void (async () => {
+        try {
+          const t = getThread(threadIdLocal);
+          if (!t) return;
+          const stepLabel = stepById(step).label;
+          const aiText = await reformulateNote(
+            t,
+            np.ref,
+            stepLabel,
+            np.scopeLabel,
+            np.tagNames,
+            np.originalText,
+          );
+          patchNoteProposalMsg(threadIdLocal, step, stableId, {
+            ai: aiText,
+            loading: false,
+          });
+        } finally {
+          noteReformInflight.current.delete(key);
+        }
+      })();
+    },
+    [patchNoteProposalMsg],
+  );
+
+  const acceptChatNoteOriginal = useCallback(
+    (ref: NoteRef) => {
+      if (!thread) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      patchNoteProposalMsg(thread.id, step, stableId, { picked: "original" });
+    },
+    [thread, patchNoteProposalMsg],
+  );
+
+  const acceptChatNoteAi = useCallback(
+    (ref: NoteRef, aiText: string) => {
+      if (!thread || !aiText) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      writeNoteToDraft(thread.id, ref, aiText);
+      patchNoteProposalMsg(thread.id, step, stableId, { picked: "ai" });
+      updateThread(thread.id, (t) => {
+        pushMsg(t, step, {
+          id: msgId(),
+          role: "assistant",
+          text: "✏️ Заметка обновлена переформулированным вариантом.",
+          step,
+          createdAt: Date.now(),
+        });
+      });
+    },
+    [thread, writeNoteToDraft, patchNoteProposalMsg],
+  );
+
+  const dismissChatNoteProposal = useCallback(
+    (ref: NoteRef) => {
+      if (!thread) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      updateThread(thread.id, (t) => {
+        t.messages[step] = t.messages[step].filter((m) => m.id !== stableId);
+      });
+    },
+    [thread],
+  );
+
+
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
     if (photoFocusIdx === null || !thread || !photoFocus?.url || photoAiBusy) return;
@@ -1857,7 +2022,7 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             };
-            const { patch, reply, attachments, chips } = await extractForStep(
+            const { patch, reply, attachments, chips, notePatched } = await extractForStep(
               "inspection",
               combined,
               fresh,
@@ -1879,6 +2044,7 @@ export function ChatApp({ threadId }: Props) {
                 });
               }
             });
+            if (notePatched) pushChatNoteProposal(threadIdLocal, notePatched);
           } catch (e) {
             const message = e instanceof Error ? e.message : "Ошибка ИИ";
             updateThread(threadIdLocal, (t) => {
@@ -1957,7 +2123,7 @@ export function ChatApp({ threadId }: Props) {
             });
           });
         };
-        const { patch, reply, attachments, chips } = await extractForStep(stepForTask, textForAI || combined, fresh, { onClarify });
+        const { patch, reply, attachments, chips, notePatched } = await extractForStep(stepForTask, textForAI || combined, fresh, { onClarify });
         updateThread(threadIdLocal, (t) => {
           Object.assign(t.draft, patch);
           if (reply) {
@@ -1999,6 +2165,7 @@ export function ChatApp({ threadId }: Props) {
                 : "Новый отчёт";
           }
         });
+        if (notePatched) pushChatNoteProposal(threadIdLocal, notePatched);
         // After car extract: if VIN newly known, decode it and fill characteristics
         if (stepForTask === "car") {
           const after = getThread(threadIdLocal);
@@ -2301,6 +2468,9 @@ export function ChatApp({ threadId }: Props) {
               });
             }}
             onAddLegalMaterial={() => materialsInputRef.current?.click()}
+            onChatNoteAcceptOriginal={acceptChatNoteOriginal}
+            onChatNoteAcceptAi={acceptChatNoteAi}
+            onChatNoteDismiss={dismissChatNoteProposal}
           />
 
         ))}
@@ -2975,6 +3145,10 @@ interface BubbleProps {
   onElementFocusDismissNoteProposal?: () => void;
   onDeleteLegalMaterial?: (idx: number) => void;
   onAddLegalMaterial?: () => void;
+  /** Chat-level note proposal handlers (предлагать переформулировку заметки) */
+  onChatNoteAcceptOriginal?: (ref: NoteRef) => void;
+  onChatNoteAcceptAi?: (ref: NoteRef, ai: string) => void;
+  onChatNoteDismiss?: (ref: NoteRef) => void;
 }
 
 function MessageBubble({
@@ -3015,6 +3189,9 @@ function MessageBubble({
   onElementFocusDismissNoteProposal,
   onDeleteLegalMaterial,
   onAddLegalMaterial,
+  onChatNoteAcceptOriginal,
+  onChatNoteAcceptAi,
+  onChatNoteDismiss,
 }: BubbleProps) {
 
 
@@ -3095,6 +3272,16 @@ function MessageBubble({
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
+          />
+        ) : msg.kind === "noteProposal" && msg.noteProposal ? (
+          <NoteProposalCard
+            payload={msg.noteProposal}
+            onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
+            onPickAi={() =>
+              msg.noteProposal!.ai &&
+              onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
+            }
+            onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
           />
         ) : (
           msg.text && (
