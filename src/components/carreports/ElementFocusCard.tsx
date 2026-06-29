@@ -468,6 +468,17 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
             <div className="text-[13.5px] leading-relaxed text-white/85 whitespace-pre-wrap">
               {finding.note}
             </div>
+            {chatNoteProposal &&
+              chatNoteProposal.payload.ref.kind === "inspection" &&
+              chatNoteProposal.payload.ref.section === sectionSnake &&
+              chatNoteProposal.payload.ref.elementId === elementId && (
+                <NoteProposalInline
+                  payload={chatNoteProposal.payload}
+                  onPickOriginal={chatNoteProposal.onPickOriginal}
+                  onPickAi={chatNoteProposal.onPickAi}
+                  onDismiss={chatNoteProposal.onDismiss}
+                />
+              )}
           </div>
         )}
       </div>
