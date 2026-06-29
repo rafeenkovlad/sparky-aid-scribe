@@ -227,7 +227,7 @@ async function handleTestDriveEdit(
           entry.list[origIdx] = n.name; // визуальное имя (fallback)
           tagTypes[n.name.trim().toLowerCase()] = n.type;
           try {
-            const created = await addUserTag(section, n.name, n.type);
+            const created = await addUserTag(section, n.name, n.type, "test_drive");
             if (created?.id) {
               entry.list[origIdx] = String(created.id);
               tagTypes[n.name.trim().toLowerCase()] = n.type;
