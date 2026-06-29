@@ -494,7 +494,7 @@ function TestDriveTagPicker({
                 <button
                   type="button"
                   onClick={() => {
-                    onAdd(t.name);
+                    onAdd(t);
                     setOpen(false);
                   }}
                   className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
