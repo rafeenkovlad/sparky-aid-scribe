@@ -533,10 +533,34 @@ export async function extractForStep(
       const bits: string[] = [];
       if (raw.summaryInspectionNote) bits.push(`📝 Резюме:\n${raw.summaryInspectionNote.trim()}`);
       if (raw.resultSpecialistNote) bits.push(`✅ Вердикт:\n${raw.resultSpecialistNote.trim()}`);
+      // Предложение переформулировать — приоритет вердикту, потом резюме.
+      let notePatched: NotePatched | undefined;
+      if (
+        merged.resultSpecialistNote &&
+        merged.resultSpecialistNote !== prev.resultSpecialistNote
+      ) {
+        notePatched = {
+          ref: { kind: "resultVerdict" },
+          scopeLabel: "Результат · Вердикт",
+          originalText: merged.resultSpecialistNote,
+          tagNames: [],
+        };
+      } else if (
+        merged.summaryInspectionNote &&
+        merged.summaryInspectionNote !== prev.summaryInspectionNote
+      ) {
+        notePatched = {
+          ref: { kind: "resultSummary" },
+          scopeLabel: "Результат · Резюме",
+          originalText: merged.summaryInspectionNote,
+          tagNames: [],
+        };
+      }
       return {
         patch: { resultStep: merged },
         reply: bits.length ? bits.join("\n\n") : "Зафиксировал.",
         chips: resultChips(),
+        ...(notePatched ? { notePatched } : {}),
       };
     } catch {
       const isRec = /рекоменд/i.test(text);
