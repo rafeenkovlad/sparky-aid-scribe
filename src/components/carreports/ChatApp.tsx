@@ -37,6 +37,7 @@ import { InspectionDateField } from "./InspectionDateField";
 
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
+import { StepPassport } from "./StepPassport";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
@@ -50,7 +51,7 @@ import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote } from "@/lib/carreports/orchestrator";
-import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
+import { filledCount, isStepFilled, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
   INSPECTION_SECTIONS,
