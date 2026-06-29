@@ -96,6 +96,18 @@ function pushMsg(t: Thread, step: StepId, m: ChatMessage): void {
   t.messages[step].push({ ...m, step: m.step ?? step });
 }
 
+function isLastMessagePassport(t: Thread): boolean {
+  const all: ChatMessage[] = [];
+  for (const k of Object.keys(t.messages) as StepId[]) {
+    const arr = t.messages[k];
+    if (arr && arr.length) all.push(...arr);
+  }
+  if (!all.length) return false;
+  all.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  const last = all[all.length - 1];
+  return last.kind === "stepPassport" || last.kind === "passport" || last.kind === "docsPassport";
+}
+
 function totalMessages(m: Thread["messages"]): number {
   return (
     m.car.length +
@@ -1379,8 +1391,10 @@ export function ChatApp({ threadId }: Props) {
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
       if (isStepFilled(nextStep, t.draft)) {
-        // Шаг уже заполнен — показываем паспорт вместо intro+ask.
-        pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+        // Шаг уже заполнен — показываем паспорт, но не дублируем подряд.
+        if (!isLastMessagePassport(t)) {
+          pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+        }
       } else {
         // Always greet on step entry — intro message with quick-pick chips.
         pushMsg(t, nextStep, makeIntroMessage(nextStep));
@@ -2020,7 +2034,9 @@ export function ChatApp({ threadId }: Props) {
       t.stepIndex = idx;
       if (!changed) return;
       if (isStepFilled(step, t.draft)) {
-        pushMsg(t, step, makeStepPassportMessage(step));
+        if (!isLastMessagePassport(t)) {
+          pushMsg(t, step, makeStepPassportMessage(step));
+        }
       } else {
         pushMsg(t, step, makeIntroMessage(step));
         const ask = nextMissingPrompt(step, t.draft);
