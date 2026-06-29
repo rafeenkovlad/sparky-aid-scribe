@@ -110,20 +110,22 @@ export function findTagId(catalogue: UserTag[], name: string): UserTag | null {
   return contains ?? null;
 }
 
-/** Create a new user tag in a given section and return its id. */
+/** Create a new user tag in a given step/section and return its id.
+ *  `type` обязателен: фронт никогда не должен отправлять AddUserTag без типа. */
 export async function addUserTag(
-  section: SectionSnake,
+  section: string,
   name: string,
-  type?: "serious" | "non_serious",
+  type: "serious" | "non_serious",
+  step: string = "inspection",
 ): Promise<UserTag | null> {
   try {
-    const params: Record<string, unknown> = { step: "inspection", section, name };
-    if (type) params.type = type;
+    const params: Record<string, unknown> = { step, section, name, type };
     const r = await rpc<{ result?: UserTag } | UserTag>("Storage.AddUserTag", params);
     const tag = (r as { result?: UserTag }).result ?? (r as UserTag);
     if (tag && typeof tag.id === "number") {
       // invalidate cache so the new tag appears next time
-      cache.delete(section);
+      cache.delete(`${step}:${section}`);
+      cache.delete(`${step}:*`);
       return tag;
     }
     return null;
@@ -131,6 +133,7 @@ export async function addUserTag(
     return null;
   }
 }
+
 
 /** Rename an existing user tag. Returns true on success. */
 export async function updateUserTag(
