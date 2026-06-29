@@ -2516,7 +2516,36 @@ export function ChatApp({ threadId }: Props) {
               {countDocsPassport(thread.draft)}/4
             </span>
           </button>
-        )}
+        {(currentStep === "inspection" ||
+          currentStep === "legalMaterials" ||
+          currentStep === "testDrive" ||
+          currentStep === "result") &&
+          isStepFilled(currentStep, thread.draft) && (
+            <button
+              type="button"
+              onClick={() => {
+                const passportId = `passport-${currentStep}`;
+                updateThread(thread.id, (t) => {
+                  t.messages[currentStep] = t.messages[currentStep].filter(
+                    (m) => m.id !== passportId,
+                  );
+                  pushMsg(t, currentStep, {
+                    id: passportId,
+                    role: "assistant",
+                    text: "",
+                    step: currentStep,
+                    kind: "stepPassport",
+                    createdAt: Date.now(),
+                  });
+                });
+              }}
+              aria-label="Паспорт шага"
+              title="Паспорт шага"
+              className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center justify-center"
+            >
+              <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+            </button>
+          )}
         <button
           type="button"
           onPointerDown={(e) => {
