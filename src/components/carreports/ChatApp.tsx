@@ -1400,6 +1400,33 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
+  /** Активные предложения переформулировать заметку в текущем шаге. */
+  const stepNoteProposals = useMemo(() => {
+    const out: Array<{
+      payload: NonNullable<ChatMessage["noteProposal"]>;
+      onPickOriginal: () => void;
+      onPickAi: () => void;
+      onDismiss: () => void;
+    }> = [];
+    for (const m of currentStepMessages) {
+      if (m.kind !== "noteProposal" || !m.noteProposal) continue;
+      const p = m.noteProposal;
+      out.push({
+        payload: p,
+        onPickOriginal: () => acceptChatNoteOriginal(p.ref),
+        onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
+        onDismiss: () => dismissChatNoteProposal(p.ref),
+      });
+    }
+    return out;
+  }, [currentStepMessages, acceptChatNoteOriginal, acceptChatNoteAi, dismissChatNoteProposal]);
+
+  /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
+   *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */
+  const hasStepPassport = useMemo(
+    () => currentStepMessages.some((m) => m.kind === "stepPassport"),
+    [currentStepMessages],
+
 
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
