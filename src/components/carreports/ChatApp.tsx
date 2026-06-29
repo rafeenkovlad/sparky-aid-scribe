@@ -1426,6 +1426,9 @@ export function ChatApp({ threadId }: Props) {
   const hasStepPassport = useMemo(
     () => currentStepMessages.some((m) => m.kind === "stepPassport"),
     [currentStepMessages],
+  );
+
+
 
 
   /** Распознать тег / описание по заметке через ИИ. */
