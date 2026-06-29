@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Pencil,
   Plus,
   Sparkles,
   Trash2,
