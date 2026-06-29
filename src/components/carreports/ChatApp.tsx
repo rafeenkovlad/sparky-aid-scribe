@@ -3181,6 +3181,13 @@ interface BubbleProps {
   onChatNoteAcceptOriginal?: (ref: NoteRef) => void;
   onChatNoteAcceptAi?: (ref: NoteRef, ai: string) => void;
   onChatNoteDismiss?: (ref: NoteRef) => void;
+  stepNoteProposals?: Array<{
+    payload: NonNullable<ChatMessage["noteProposal"]>;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  }>;
+  hasStepPassport?: boolean;
 }
 
 function MessageBubble({
