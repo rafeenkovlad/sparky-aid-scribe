@@ -135,6 +135,18 @@ function makeIntroMessage(step: StepId): ChatMessage {
   };
 }
 
+/** Сообщение-«паспорт заполненности» уже заполненного шага. */
+function makeStepPassportMessage(step: StepId): ChatMessage {
+  return {
+    id: msgId(),
+    role: "assistant",
+    text: "",
+    step,
+    kind: "stepPassport",
+    createdAt: Date.now(),
+  };
+}
+
 export function ChatApp({ threadId }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
