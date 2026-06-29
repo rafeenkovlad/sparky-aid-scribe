@@ -143,7 +143,7 @@ export async function updateUserTag(
 ): Promise<boolean> {
   try {
     await rpc("Storage.UpdateUserTag", { id, name });
-    cache.delete(section);
+    cache.delete(`inspection:${section}`);
     return true;
   } catch {
     return false;
