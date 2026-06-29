@@ -421,30 +421,27 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
         )}
         {!tagsLoading && !tagsError && (
           <>
-            <TagRow
+            <InspectionTagPickerRow
               tone="serious"
-              section={sectionSnake}
+              label="Серьёзные"
               tags={serious}
               selected={sIds}
               pending={pending.filter((p) => p.severity === "serious")}
-              onTap={onToggleTag}
+              onToggleTag={onToggleTag}
               onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-              onAdd={(name) => onAddPendingTag(name, "serious")}
-              onCatalogChanged={() => setTokenTick((t) => t + 1)}
             />
-            <TagRow
+            <InspectionTagPickerRow
               tone="minor"
-              section={sectionSnake}
+              label="Мелкие"
               tags={minor}
               selected={nsIds}
               pending={pending.filter((p) => p.severity !== "serious")}
-              onTap={onToggleTag}
+              onToggleTag={onToggleTag}
               onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-              onAdd={(name) => onAddPendingTag(name, "non_serious")}
-              onCatalogChanged={() => setTokenTick((t) => t + 1)}
             />
           </>
         )}
+
 
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
