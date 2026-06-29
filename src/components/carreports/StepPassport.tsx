@@ -1,4 +1,4 @@
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Pencil, ShieldCheck } from "lucide-react";
 import type { ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
@@ -12,24 +12,36 @@ interface Props {
   onEdit?: (template: string) => void;
   onConfirm?: () => void;
   onDocsAllMatch?: () => void;
+  onTestDriveAllOk?: () => void;
 }
 
 /**
  * Универсальная карточка-«паспорт заполненности» шага.
  * Показывается при входе в шаг, который уже был заполнен ранее.
  */
-export function StepPassport({ step, draft, onEdit, onConfirm, onDocsAllMatch }: Props) {
-  const hideConfirm = step === "legalMaterials";
+export function StepPassport({
+  step,
+  draft,
+  onEdit,
+  onConfirm,
+  onDocsAllMatch,
+  onTestDriveAllOk,
+}: Props) {
+  const hideConfirm = step === "legalMaterials" || step === "testDrive";
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
       <div className="mb-2">
-        <span className="text-white/70 font-medium">
-          {stepById(step).label} · уже заполнено
-        </span>
+        <span className="text-white/70 font-medium">{stepById(step).label}</span>
       </div>
 
       <div className="-mx-0.5">
-        <StepBody step={step} draft={draft} onEdit={onEdit} onDocsAllMatch={onDocsAllMatch} />
+        <StepBody
+          step={step}
+          draft={draft}
+          onEdit={onEdit}
+          onDocsAllMatch={onDocsAllMatch}
+          onTestDriveAllOk={onTestDriveAllOk}
+        />
       </div>
 
       {onConfirm && !hideConfirm && (
@@ -51,11 +63,13 @@ function StepBody({
   draft,
   onEdit,
   onDocsAllMatch,
+  onTestDriveAllOk,
 }: {
   step: StepId;
   draft: ReportDraft;
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
+  onTestDriveAllOk?: () => void;
 }) {
   switch (step) {
     case "car":
