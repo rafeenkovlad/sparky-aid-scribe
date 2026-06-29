@@ -34,6 +34,7 @@ export function StepPassport({
   onConfirm,
   onDocsAllMatch,
   onTestDriveAllOk,
+  noteProposals,
 }: Props) {
   const hideConfirm = step === "legalMaterials" || step === "testDrive";
   return (
@@ -49,6 +50,7 @@ export function StepPassport({
           onEdit={onEdit}
           onDocsAllMatch={onDocsAllMatch}
           onTestDriveAllOk={onTestDriveAllOk}
+          noteProposals={noteProposals}
         />
       </div>
 
@@ -66,18 +68,27 @@ export function StepPassport({
   );
 }
 
+function findProposal(
+  noteProposals: Props["noteProposals"],
+  match: (ref: NoteRef) => boolean,
+) {
+  return noteProposals?.find((p) => match(p.payload.ref));
+}
+
 function StepBody({
   step,
   draft,
   onEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
+  noteProposals,
 }: {
   step: StepId;
   draft: ReportDraft;
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  noteProposals?: Props["noteProposals"];
 }) {
   switch (step) {
     case "car":
