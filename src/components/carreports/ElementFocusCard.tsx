@@ -563,6 +563,51 @@ function PassportRow({
   );
 }
 
+function ElementPickerRow({
+  elements,
+  selectedId,
+  onChange,
+  updating,
+  flashing,
+}: {
+  elements: { id: string; label: string }[];
+  selectedId: string;
+  onChange: (id: string) => void;
+  updating?: boolean;
+  flashing?: boolean;
+}) {
+  return (
+    <li
+      className={
+        "flex items-baseline gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      {updating ? (
+        <Loader2 className="h-3 w-3 shrink-0 translate-y-0.5 animate-spin text-orange-300/80" />
+      ) : (
+        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+      )}
+      <span className="shrink-0 text-white/55">Элемент</span>
+      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <div className="relative inline-flex items-center min-w-0">
+        <select
+          value={selectedId}
+          onChange={(e) => onChange(e.target.value)}
+          className="appearance-none bg-transparent text-right text-white/85 text-[13px] pr-4 pl-1 py-0 outline-none cursor-pointer hover:text-white focus:text-white max-w-[180px] truncate"
+        >
+          {elements.map((el) => (
+            <option key={el.id} value={el.id} className="bg-zinc-900 text-white">
+              {el.label}
+            </option>
+          ))}
+        </select>
+        <ChevronRight className="h-3 w-3 absolute right-0 rotate-90 pointer-events-none text-white/50" />
+      </div>
+    </li>
+  );
+}
+
 
 function ChipScroller(props: { children: React.ReactNode }) {
   return (
