@@ -59,6 +59,13 @@ export interface ElementFocusCardProps {
   onDismissNoteProposal?: () => void;
   /** ИИ сейчас анализирует заметку — подсвечиваем поля паспорта. */
   aiUpdating?: boolean;
+  /** Inline-предложение переформулировать заметку из чат-пайплайна. */
+  chatNoteProposal?: {
+    payload: NoteProposalPayload;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  };
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
