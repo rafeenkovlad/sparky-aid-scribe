@@ -516,7 +516,9 @@ function TestDriveTagPicker({
                   type="button"
                   onClick={() => {
                     onAdd(t);
-                    setOpen(false);
+                    // Не закрываем дропдаун: сбрасываем список и заново
+                    // запрашиваем теги с учётом обновлённого selectedTagIds.
+                    setTags(null);
                   }}
                   className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
                 >
