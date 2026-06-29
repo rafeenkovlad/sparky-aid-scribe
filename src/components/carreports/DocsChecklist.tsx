@@ -127,6 +127,14 @@ export function DocsChecklist({ draft, onEdit, onAllMatch, noteProposal }: Props
             <Row key={it.label} item={it} muted />
           ))}
         </ul>
+        {noteProposal && (
+          <NoteProposalInline
+            payload={noteProposal.payload}
+            onPickOriginal={noteProposal.onPickOriginal}
+            onPickAi={noteProposal.onPickAi}
+            onDismiss={noteProposal.onDismiss}
+          />
+        )}
       </div>
 
       {(onAllMatch || onEdit) && (
