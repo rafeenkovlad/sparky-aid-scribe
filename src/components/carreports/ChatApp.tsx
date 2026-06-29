@@ -160,6 +160,24 @@ function makeStepPassportMessage(step: StepId): ChatMessage {
   };
 }
 
+/** Сериализуем NoteRef в стабильный ключ (для id сообщения, dedup, in-flight). */
+function noteRefKey(ref: NoteRef): string {
+  return ref.kind === "inspection"
+    ? `${ref.kind}:${ref.section}:${ref.elementId}`
+    : ref.kind;
+}
+
+/** Шаг, к которому относится NoteRef — нужно для pushMsg/фильтрации. */
+function stepForNoteRef(ref: NoteRef): StepId {
+  switch (ref.kind) {
+    case "inspection": return "inspection";
+    case "testDrive": return "testDrive";
+    case "docs": return "docs";
+    case "resultSummary":
+    case "resultVerdict": return "result";
+  }
+}
+
 export function ChatApp({ threadId }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
