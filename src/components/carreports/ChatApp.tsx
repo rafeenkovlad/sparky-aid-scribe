@@ -3237,7 +3237,7 @@ interface BubbleProps {
       | "testDriveSteeringWheelTags"
       | "testDriveSuspensionInDriveTags"
       | "testDriveBrakesInDriveTags",
-    name: string,
+    tag: UserTag,
   ) => void;
   onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
