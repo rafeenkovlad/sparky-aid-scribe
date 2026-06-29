@@ -1378,17 +1378,22 @@ export function ChatApp({ threadId }: Props) {
     const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
-      // Always greet on step entry — intro message with quick-pick chips.
-      pushMsg(t, nextStep, makeIntroMessage(nextStep));
-      const ask = nextMissingPrompt(nextStep, t.draft);
-      if (ask) {
-        pushMsg(t, nextStep, {
-          id: msgId(),
-          role: "assistant",
-          text: `➡️ ${ask}`,
-          step: nextStep,
-          createdAt: Date.now(),
-        });
+      if (isStepFilled(nextStep, t.draft)) {
+        // Шаг уже заполнен — показываем паспорт вместо intro+ask.
+        pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+      } else {
+        // Always greet on step entry — intro message with quick-pick chips.
+        pushMsg(t, nextStep, makeIntroMessage(nextStep));
+        const ask = nextMissingPrompt(nextStep, t.draft);
+        if (ask) {
+          pushMsg(t, nextStep, {
+            id: msgId(),
+            role: "assistant",
+            text: `➡️ ${ask}`,
+            step: nextStep,
+            createdAt: Date.now(),
+          });
+        }
       }
     });
   }, [thread]);
@@ -2013,7 +2018,10 @@ export function ChatApp({ threadId }: Props) {
     updateThread(thread.id, (t) => {
       const changed = t.stepIndex !== idx;
       t.stepIndex = idx;
-      if (changed) {
+      if (!changed) return;
+      if (isStepFilled(step, t.draft)) {
+        pushMsg(t, step, makeStepPassportMessage(step));
+      } else {
         pushMsg(t, step, makeIntroMessage(step));
         const ask = nextMissingPrompt(step, t.draft);
         if (ask) {
