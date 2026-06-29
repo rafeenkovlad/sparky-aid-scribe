@@ -21,6 +21,7 @@ import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, NoteProposalPayload, PendingTagName } from "@/lib/carreports/types";
 import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { NoteProposalInline } from "./NoteProposalInline";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
