@@ -274,11 +274,13 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
     Array.isArray(arr) ? arr.filter((x) => typeof x === "string" && x.trim()).join(", ") : "";
   return [
     "Тест-драйв (правка):",
-    `Заметка: ${note}`,
     `Двигатель: ${join(t.testDriveEngineTags)}`,
     `КПП: ${join(t.testDriveTransmissionTags)}`,
     `Руль: ${join(t.testDriveSteeringWheelTags)}`,
     `Подвеска: ${join(t.testDriveSuspensionInDriveTags)}`,
     `Тормоза: ${join(t.testDriveBrakesInDriveTags)}`,
+    "",
+    `Заметка: ${note}`,
   ].join("\n");
+
 }
