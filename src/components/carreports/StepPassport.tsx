@@ -33,6 +33,8 @@ interface Props {
   onConfirm?: () => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  /** Добавить тег (по имени) в указанную категорию тест-драйва. */
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
   /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
   noteProposals?: Array<{
     payload: NoteProposalPayload;
@@ -53,6 +55,7 @@ export function StepPassport({
   onConfirm,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   noteProposals,
 }: Props) {
   const hideConfirm = step === "legalMaterials" || step === "testDrive";
@@ -69,6 +72,7 @@ export function StepPassport({
           onEdit={onEdit}
           onDocsAllMatch={onDocsAllMatch}
           onTestDriveAllOk={onTestDriveAllOk}
+          onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
         />
       </div>
@@ -100,6 +104,7 @@ function StepBody({
   onEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   noteProposals,
 }: {
   step: StepId;
@@ -107,7 +112,9 @@ function StepBody({
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
   noteProposals?: Props["noteProposals"];
+
 }) {
   switch (step) {
     case "car":
