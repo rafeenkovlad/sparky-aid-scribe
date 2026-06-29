@@ -117,18 +117,41 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   // отображаются одновременно, так что переключатель не нужен.)
 
 
-  // Базовый каталог тегов раздела (кэшируется).
+  const sIds = new Set(finding?.seriousDamageTagIds ?? []);
+  const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
+  const pending = finding?.pendingTagNames ?? [];
+
+  // Ключ выбранных tagId — стабильная строка, используется как зависимость
+  // для перезагрузки списка тегов через Storage.GetUserTags. Сервер вернёт
+  // список, релевантный набору уже выбранных тегов.
+  const sIdsKey = (finding?.seriousDamageTagIds ?? []).slice().sort((a, b) => a - b).join(",");
+  const nsIdsKey = (finding?.noSeriousDamageTagIds ?? []).slice().sort((a, b) => a - b).join(",");
+  const selectedIdsKey = useMemo(
+    () => {
+      const all = [
+        ...(finding?.seriousDamageTagIds ?? []),
+        ...(finding?.noSeriousDamageTagIds ?? []),
+      ].filter((n): n is number => typeof n === "number");
+      return all.sort((a, b) => a - b).join(",");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sIdsKey, nsIdsKey],
+  );
+
+  // Базовый каталог тегов раздела. Перезапрашиваем при изменении набора
+  // выбранных tagId — сервер возвращает более релевантный список.
   const [tags, setTags] = useState<UserTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
-  // Тик, который обновляется при смене токена — заставляет перезапросить теги.
+  // Тик, который обновляется при смене токена / каталога — заставляет перезапросить теги.
   const [tokenTick, setTokenTick] = useState(0);
   useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
   useEffect(() => {
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
-    loadSectionTags(sectionSnake)
+    const ids = selectedIdsKey ? selectedIdsKey.split(",").map(Number) : [];
+    loadSectionTags(sectionSnake, ids)
       .then((list) => {
         if (!alive) return;
         setTags(list);
@@ -144,61 +167,21 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake, tokenTick]);
+  }, [sectionSnake, tokenTick, selectedIdsKey]);
 
-
-
-  const sIds = new Set(finding?.seriousDamageTagIds ?? []);
-  const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
-  const pending = finding?.pendingTagNames ?? [];
-
-  // Релевантная подсказка: запрашиваем с selectedTagIds — сервер вернёт
-  // теги, чаще встречающиеся вместе с выбранными, без самих выбранных.
-  // Используем порядок этого ответа как приоритет сортировки.
-  const selectedIdsKey = useMemo(
-    () =>
-      [...sIds, ...nsIds]
-        .filter((n): n is number => typeof n === "number")
-        .sort((a, b) => a - b)
-        .join(","),
-    [sIds, nsIds],
-  );
-  const [relevanceOrder, setRelevanceOrder] = useState<number[]>([]);
-  useEffect(() => {
-    if (!selectedIdsKey) {
-      setRelevanceOrder([]);
-      return;
-    }
-    let alive = true;
-    const ids = selectedIdsKey.split(",").map((n) => Number(n));
-    void loadSectionTags(sectionSnake, ids).then((list) => {
-      if (alive) setRelevanceOrder(list.map((t) => t.id));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [sectionSnake, selectedIdsKey]);
-
-  // Сортировка: выбранные → релевантные (в порядке сервера) → остальные.
+  // Порядок ответа сервера = приоритет релевантности; выбранные → остальные.
   const sortByRelevance = useCallback(
     (list: UserTag[], selected: Set<number>) => {
       if (list.length === 0) return list;
       const sel: UserTag[] = [];
-      const rel: UserTag[] = [];
       const rest: UserTag[] = [];
-      const relRank = new Map<number, number>();
-      relevanceOrder.forEach((id, i) => relRank.set(id, i));
       for (const t of list) {
         if (selected.has(t.id)) sel.push(t);
-        else if (relRank.has(t.id)) rel.push(t);
         else rest.push(t);
       }
-      rel.sort(
-        (a, b) => (relRank.get(a.id) ?? 0) - (relRank.get(b.id) ?? 0),
-      );
-      return [...sel, ...rel, ...rest];
+      return [...sel, ...rest];
     },
-    [relevanceOrder],
+    [],
   );
 
   const serious = useMemo(
@@ -209,6 +192,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     () => sortByRelevance(tags.filter((t) => t.type !== "serious"), nsIds),
     [tags, nsIds, sortByRelevance],
   );
+
 
   const goPrev = () => {
     if (posInSection > 0) onChangePhotoIdx(siblings[posInSection - 1].idx);
@@ -400,64 +384,67 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       {/* Паспортная сводка по элементу */}
       <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
         <ul className="space-y-0.5 text-[13px] leading-tight">
-          {passportRows.map((it) => (
-            <PassportRow
-              key={it.label}
-              item={it}
-              updating={!!aiUpdating}
-              flashing={flashed.has(it.label)}
-            />
-          ))}
+          {passportRows.map((it) =>
+            it.label === "Элемент" && section ? (
+              <ElementPickerRow
+                key={it.label}
+                elements={section.elements}
+                selectedId={elementId}
+                onChange={onChangeElement}
+                updating={!!aiUpdating}
+                flashing={flashed.has(it.label)}
+              />
+            ) : (
+              <PassportRow
+                key={it.label}
+                item={it}
+                updating={!!aiUpdating}
+                flashing={flashed.has(it.label)}
+              />
+            ),
+          )}
         </ul>
       </div>
 
-      {/* Тело: только чтение — выбор тегов/состояния делает ИИ по диктовке */}
+      {/* Тело: интерактивный выбор тегов вручную */}
       <div className="px-3 pt-3 pb-3 space-y-3">
-        {(() => {
-          const seriousTags = tags.filter((t) => sIds.has(t.id));
-          const seriousPending = pending.filter((p) => p.severity === "serious");
-          const minorTags = tags.filter((t) => nsIds.has(t.id));
-          const minorPending = pending.filter((p) => p.severity !== "serious");
-          const hasSerious = seriousTags.length + seriousPending.length > 0;
-          const hasMinor = minorTags.length + minorPending.length > 0;
-          if (tagsLoading) {
-            return (
-              <div className="flex items-center gap-2 text-[12px] text-white/45">
-                <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-              </div>
-            );
-          }
-          if (tagsError) {
-            return (
-              <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-                {tagsError}
-              </div>
-            );
-          }
-          if (!hasSerious && !hasMinor) return null;
-          return (
-            <>
-              {hasSerious && (
-                <ReadOnlyTagRow
-                  label="Серьёзные"
-                  dotClass="bg-rose-400"
-                  chipClass="border-rose-400/30 bg-rose-500/10 text-rose-100"
-                  tags={seriousTags.map((t) => t.name)}
-                  pending={seriousPending.map((p) => p.name)}
-                />
-              )}
-              {hasMinor && (
-                <ReadOnlyTagRow
-                  label="Мелкие"
-                  dotClass="bg-amber-400"
-                  chipClass="border-amber-400/30 bg-amber-500/10 text-amber-100"
-                  tags={minorTags.map((t) => t.name)}
-                  pending={minorPending.map((p) => p.name)}
-                />
-              )}
-            </>
-          );
-        })()}
+        {tagsLoading && (
+          <div className="flex items-center gap-2 text-[12px] text-white/45">
+            <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+          </div>
+        )}
+        {tagsError && (
+          <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+            {tagsError}
+          </div>
+        )}
+        {!tagsLoading && !tagsError && (
+          <>
+            <TagRow
+              tone="serious"
+              section={sectionSnake}
+              tags={serious}
+              selected={sIds}
+              pending={pending.filter((p) => p.severity === "serious")}
+              onTap={onToggleTag}
+              onTogglePending={(name) => onTogglePendingTag(name, "serious")}
+              onAdd={(name) => onAddPendingTag(name, "serious")}
+              onCatalogChanged={() => setTokenTick((t) => t + 1)}
+            />
+            <TagRow
+              tone="minor"
+              section={sectionSnake}
+              tags={minor}
+              selected={nsIds}
+              pending={pending.filter((p) => p.severity !== "serious")}
+              onTap={onToggleTag}
+              onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
+              onAdd={(name) => onAddPendingTag(name, "non_serious")}
+              onCatalogChanged={() => setTokenTick((t) => t + 1)}
+            />
+          </>
+        )}
+
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
         {finding?.note?.trim() && (
@@ -572,6 +559,51 @@ function PassportRow({
       >
         {item.value ?? "—"}
       </span>
+    </li>
+  );
+}
+
+function ElementPickerRow({
+  elements,
+  selectedId,
+  onChange,
+  updating,
+  flashing,
+}: {
+  elements: { id: string; label: string }[];
+  selectedId: string;
+  onChange: (id: string) => void;
+  updating?: boolean;
+  flashing?: boolean;
+}) {
+  return (
+    <li
+      className={
+        "flex items-baseline gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      {updating ? (
+        <Loader2 className="h-3 w-3 shrink-0 translate-y-0.5 animate-spin text-orange-300/80" />
+      ) : (
+        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+      )}
+      <span className="shrink-0 text-white/55">Элемент</span>
+      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <div className="relative inline-flex items-center min-w-0">
+        <select
+          value={selectedId}
+          onChange={(e) => onChange(e.target.value)}
+          className="appearance-none bg-transparent text-right text-white/85 text-[13px] pr-4 pl-1 py-0 outline-none cursor-pointer hover:text-white focus:text-white max-w-[180px] truncate"
+        >
+          {elements.map((el) => (
+            <option key={el.id} value={el.id} className="bg-zinc-900 text-white">
+              {el.label}
+            </option>
+          ))}
+        </select>
+        <ChevronRight className="h-3 w-3 absolute right-0 rotate-90 pointer-events-none text-white/50" />
+      </div>
     </li>
   );
 }
