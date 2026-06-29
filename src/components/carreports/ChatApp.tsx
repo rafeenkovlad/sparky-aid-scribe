@@ -1379,8 +1379,10 @@ export function ChatApp({ threadId }: Props) {
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
       if (isStepFilled(nextStep, t.draft)) {
-        // Шаг уже заполнен — показываем паспорт вместо intro+ask.
-        pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+        // Шаг уже заполнен — показываем паспорт, но не дублируем подряд.
+        if (!isLastMessagePassport(t)) {
+          pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+        }
       } else {
         // Always greet on step entry — intro message with quick-pick chips.
         pushMsg(t, nextStep, makeIntroMessage(nextStep));
