@@ -38,6 +38,7 @@ import { InspectionDateField } from "./InspectionDateField";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
+import { NoteProposalCard } from "./NoteProposalCard";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
