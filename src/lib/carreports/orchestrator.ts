@@ -1222,13 +1222,13 @@ export async function analyzeInspectionPhoto(
   const nsIds = new Set<number>();
   const pending: PendingTagName[] = [];
   for (const name of sNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) seriousIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "serious");
+    if (id) seriousIds.add(id);
     else pending.push({ name, severity: "serious" });
   }
   for (const name of nsNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) nsIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "non_serious");
+    if (id) nsIds.add(id);
     else pending.push({ name, severity: "non_serious" });
   }
 
