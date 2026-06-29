@@ -3270,6 +3270,16 @@ function MessageBubble({
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
           />
+        ) : msg.kind === "noteProposal" && msg.noteProposal ? (
+          <NoteProposalCard
+            payload={msg.noteProposal}
+            onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
+            onPickAi={() =>
+              msg.noteProposal!.ai &&
+              onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
+            }
+            onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
+          />
         ) : (
           msg.text && (
             <>
