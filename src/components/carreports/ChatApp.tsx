@@ -3416,10 +3416,14 @@ function MessageBubble({
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
           // Если в этом шаге уже есть stepPassport — карточка отрисована inline
           // под исходной заметкой; отдельный пузырь не нужен.
-          hasStepPassport &&
-          (msg.noteProposal.ref.kind === "testDrive" ||
-            msg.noteProposal.ref.kind === "resultSummary" ||
-            msg.noteProposal.ref.kind === "resultVerdict") ? null : (
+          (hasStepPassport &&
+            (msg.noteProposal.ref.kind === "testDrive" ||
+              msg.noteProposal.ref.kind === "resultSummary" ||
+              msg.noteProposal.ref.kind === "resultVerdict" ||
+              msg.noteProposal.ref.kind === "docs")) ||
+          // Inspection: переформулировка показывается inline в карточке
+          // элемента (ElementFocusCard), отдельный пузырь не нужен.
+          msg.noteProposal.ref.kind === "inspection" ? null : (
             <NoteProposalCard
               payload={msg.noteProposal}
               onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
