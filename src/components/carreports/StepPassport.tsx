@@ -465,7 +465,8 @@ function TestDriveTagPicker({
     let alive = true;
     setLoading(true);
     setError(null);
-    loadTagsFor("test_drive", null, selectedTagIds)
+    const ids = selectedKey ? selectedKey.split(",").map(Number) : [];
+    loadTagsFor("test_drive", null, ids)
       .then((list) => {
         if (alive) setTags(list);
       })
@@ -478,7 +479,7 @@ function TestDriveTagPicker({
     return () => {
       alive = false;
     };
-  }, [open, tags, selectedKey, selectedTagIds]);
+  }, [open, tags, selectedKey]);
 
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
   // Только теги, описывающие неполадку: type = serious / non_serious.
