@@ -3186,6 +3186,9 @@ function MessageBubble({
   onElementFocusDismissNoteProposal,
   onDeleteLegalMaterial,
   onAddLegalMaterial,
+  onChatNoteAcceptOriginal,
+  onChatNoteAcceptAi,
+  onChatNoteDismiss,
 }: BubbleProps) {
 
 
