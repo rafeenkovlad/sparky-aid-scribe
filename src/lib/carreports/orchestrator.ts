@@ -59,6 +59,7 @@ import type {
   MessageAttachment,
   NoteRef,
   PendingTagName,
+  ReportDraft,
   StepId,
   TestDriveStep,
   Thread,
