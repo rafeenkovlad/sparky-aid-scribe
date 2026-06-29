@@ -1289,3 +1289,229 @@ export function buildElementEditTemplate(args: {
     `Заметка: ${args.note.trim()}`,
   ].join("\n");
 }
+
+/** Префилл композера для генерации заметки по выбранным замечаниям. */
+export function buildNoteGenerateTemplate(args: {
+  sectionLabel: string;
+  elementLabel: string;
+  serious: string[];
+  seriousPending: string[];
+  minor: string[];
+  minorPending: string[];
+}): string {
+  const join = (xs: string[]) => xs.filter((x) => x && x.trim()).join(", ");
+  const serious = join([...args.serious, ...args.seriousPending]);
+  const minor = join([...args.minor, ...args.minorPending]);
+  return [
+    `Сгенерируй заметку специалиста — ${args.sectionLabel} / ${args.elementLabel}.`,
+    `Серьёзные: ${serious || "—"}`,
+    `Мелкие: ${minor || "—"}`,
+  ].join("\n");
+}
+
+/** Строка паспорта «Замечания»: счётчик + «+» справа и плашки тегов под строкой. */
+function RemarksPassportRow({
+  item,
+  updating,
+  flashing,
+  tags,
+  seriousSelected,
+  minorSelected,
+  pending,
+  onToggleTag,
+  onTogglePending,
+  tagsLoading,
+  tagsError,
+}: {
+  item: { label: string; filled: boolean; value?: string };
+  updating?: boolean;
+  flashing?: boolean;
+  tags: UserTag[];
+  seriousSelected: Set<number>;
+  minorSelected: Set<number>;
+  pending: PendingTagName[];
+  onToggleTag: (t: UserTag) => void;
+  onTogglePending: (name: string, severity: "serious" | "non_serious") => void;
+  tagsLoading: boolean;
+  tagsError: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const chipCls = (type: string | null) =>
+    type === "serious"
+      ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
+      : "border-amber-400/30 bg-amber-500/10 text-amber-100";
+
+  const selectedTags = tags.filter(
+    (t) => seriousSelected.has(t.id) || minorSelected.has(t.id),
+  );
+  const suggestions = tags.filter(
+    (t) => !seriousSelected.has(t.id) && !minorSelected.has(t.id),
+  );
+
+  return (
+    <li
+      className={
+        "min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      <div className="flex items-baseline gap-2 min-w-0">
+        {updating ? (
+          <Loader2 className="h-3 w-3 shrink-0 translate-y-0.5 animate-spin text-orange-300/80" />
+        ) : item.filled ? (
+          <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+        ) : (
+          <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+        )}
+        <span className="shrink-0 text-white/55">{item.label}</span>
+        <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+        <span
+          className={
+            "text-right shrink-0 " +
+            (item.filled ? "text-white/85" : "text-white/30")
+          }
+        >
+          {item.value ?? "—"}
+        </span>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="Добавить замечание"
+              title="Добавить замечание"
+              disabled={tagsLoading || !!tagsError}
+              className="ml-1 inline-flex items-center justify-center rounded-full border border-dashed border-white/25 text-white/60 hover:text-white hover:border-white/40 h-[22px] w-[22px] transition-colors disabled:opacity-40"
+            >
+              {tagsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={4}
+            className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
+          >
+            {suggestions.length === 0 ? (
+              <div className="px-2 py-1.5 text-[12px] text-white/50">Нет подходящих тегов</div>
+            ) : (
+              <ul className="space-y-0.5">
+                {suggestions.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggleTag(t)}
+                      className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
+                    >
+                      <span className="flex-1 truncate">{t.name}</span>
+                      <span
+                        className={
+                          t.type === "serious"
+                            ? "text-[10px] text-rose-300"
+                            : "text-[10px] text-amber-300"
+                        }
+                      >
+                        {t.type === "serious" ? "серьёзный" : "несерьёзный"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {tagsError && (
+        <div className="pl-5 mt-1 text-[11px] text-rose-200/80">{tagsError}</div>
+      )}
+
+      {(selectedTags.length > 0 || pending.length > 0) && (
+        <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
+          {selectedTags.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onToggleTag(t)}
+              className={
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border " +
+                chipCls(t.type)
+              }
+              title="Убрать тег"
+            >
+              {t.name}
+              <X className="h-2.5 w-2.5 opacity-70" />
+            </button>
+          ))}
+          {pending.map((p) => (
+            <button
+              key={`pending:${p.name}`}
+              type="button"
+              onClick={() =>
+                onTogglePending(p.name, p.severity === "serious" ? "serious" : "non_serious")
+              }
+              className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-500/25"
+              title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
+            >
+              ✨ {p.name}
+              <X className="h-2.5 w-2.5 opacity-70" />
+            </button>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Строка паспорта «Заметка»: иконка ИИ справа для генерации (только при наличии замечаний). */
+function NotePassportRow({
+  item,
+  updating,
+  flashing,
+  canGenerate,
+  onGenerate,
+}: {
+  item: { label: string; filled: boolean; value?: string };
+  updating?: boolean;
+  flashing?: boolean;
+  canGenerate: boolean;
+  onGenerate?: () => void;
+}) {
+  return (
+    <li
+      className={
+        "flex items-baseline gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      {updating ? (
+        <Loader2 className="h-3 w-3 shrink-0 translate-y-0.5 animate-spin text-orange-300/80" />
+      ) : item.filled ? (
+        <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+      ) : (
+        <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+      )}
+      <span className="shrink-0 text-white/55">{item.label}</span>
+      <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+      <span
+        className={
+          "text-right shrink-0 " +
+          (item.filled ? "text-white/85" : "text-white/30")
+        }
+        title={item.value ?? ""}
+      >
+        {item.value ?? "—"}
+      </span>
+      {canGenerate && onGenerate && (
+        <button
+          type="button"
+          onClick={onGenerate}
+          aria-label="Сгенерировать заметку ИИ"
+          title="Сгенерировать заметку ИИ"
+          className="ml-1 inline-flex items-center justify-center rounded-full border border-violet-400/40 bg-violet-500/15 hover:bg-violet-500/25 text-violet-100 h-[22px] w-[22px] transition-colors"
+        >
+          <Sparkles className="h-3 w-3" />
+        </button>
+      )}
+    </li>
+  );
+}
+
