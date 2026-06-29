@@ -27,7 +27,29 @@ import {
   type SectionSnake,
 } from "./inspectionSections";
 
-import { loadSectionTags, findTagId } from "./inspectionTags";
+import { loadSectionTags, findTagId, addUserTag, type UserTag } from "./inspectionTags";
+
+/**
+ * Резолвит имя тега в id: сначала ищет в каталоге, при отсутствии —
+ * сразу создаёт пользовательский тег через Storage.AddUserTag и
+ * подмешивает его в локальный каталог, чтобы следующий вызов в той же
+ * сессии нашёл его без обращения к серверу.
+ */
+async function resolveOrCreateTagId(
+  catalogue: UserTag[],
+  section: import("./inspectionSections").SectionSnake,
+  name: string,
+  severity: "serious" | "non_serious",
+): Promise<number | null> {
+  const hit = findTagId(catalogue, name);
+  if (hit) return hit.id;
+  const created = await addUserTag(section, name, severity);
+  if (created?.id) {
+    catalogue.push(created);
+    return created.id;
+  }
+  return null;
+}
 import type {
   CarStep,
   CharacteristicsStep,
@@ -277,13 +299,13 @@ export async function extractForStep(
       const pending: PendingTagName[] = [...(base.pendingTagNames ?? [])];
 
       for (const name of sNames) {
-        const t = findTagId(tagCatalogue, name);
-        if (t) sIds.add(t.id);
+        const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "serious");
+        if (id) sIds.add(id);
         else if (!pending.some((p) => p.name === name)) pending.push({ name, severity: "serious" });
       }
       for (const name of nsNames) {
-        const t = findTagId(tagCatalogue, name);
-        if (t) nsIds.add(t.id);
+        const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "non_serious");
+        if (id) nsIds.add(id);
         else if (!pending.some((p) => p.name === name))
           pending.push({ name, severity: "non_serious" });
       }
@@ -1200,13 +1222,13 @@ export async function analyzeInspectionPhoto(
   const nsIds = new Set<number>();
   const pending: PendingTagName[] = [];
   for (const name of sNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) seriousIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "serious");
+    if (id) seriousIds.add(id);
     else pending.push({ name, severity: "serious" });
   }
   for (const name of nsNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) nsIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "non_serious");
+    if (id) nsIds.add(id);
     else pending.push({ name, severity: "non_serious" });
   }
 
@@ -1277,13 +1299,13 @@ export async function analyzeInspectionNote(
   const nsIds = new Set<number>();
   const pending: PendingTagName[] = [];
   for (const name of sNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) seriousIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "serious");
+    if (id) seriousIds.add(id);
     else pending.push({ name, severity: "serious" });
   }
   for (const name of nsNames) {
-    const t = findTagId(tagCatalogue, name);
-    if (t) nsIds.add(t.id);
+    const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "non_serious");
+    if (id) nsIds.add(id);
     else pending.push({ name, severity: "non_serious" });
   }
   return {
