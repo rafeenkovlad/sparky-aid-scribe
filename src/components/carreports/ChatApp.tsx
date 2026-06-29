@@ -2227,6 +2227,27 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
+            onTestDriveAllOk={() => {
+              updateThread(thread.id, (t) => {
+                t.draft.testDriveStep = {
+                  ...t.draft.testDriveStep,
+                  testDriveIsIncluded: true,
+                  notDone: false,
+                  testDriveEngineIsWorkingProperly: true,
+                  testDriveTransmissionIsWorkingProperly: true,
+                  testDriveSteeringWheelIsWorkingProperly: true,
+                  testDriveSuspensionInDriveIsWorkingProperly: true,
+                  testDriveBrakesInDriveIsWorkingProperly: true,
+                };
+                pushMsg(t, "testDrive", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "✅ Тест-драйв: нареканий нет — двигатель, КПП, руль, подвеска, тормоза работают штатно.",
+                  step: "testDrive",
+                  createdAt: Date.now(),
+                });
+              });
+            }}
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
@@ -2923,6 +2944,7 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
+  onTestDriveAllOk?: () => void;
   onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
@@ -2964,6 +2986,7 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
+  onTestDriveAllOk,
   onAdvance,
   inspectionDraft,
   inspectionCursor,
@@ -3071,6 +3094,7 @@ function MessageBubble({
             onEdit={onFillMissing}
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
+            onTestDriveAllOk={onTestDriveAllOk}
           />
         ) : (
           msg.text && (
