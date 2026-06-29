@@ -417,51 +417,83 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       {/* Паспортная сводка по элементу */}
       <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
         <ul className="space-y-0.5 text-[13px] leading-tight">
-          {passportRows.map((it) =>
-            it.label === "Элемент" && section ? (
-              <ElementPickerRow
-                key={it.label}
-                elements={section.elements}
-                selectedId={elementId}
-                onChange={onChangeElement}
-                updating={!!aiUpdating}
-                flashing={flashed.has(it.label)}
-              />
-            ) : (
+          {passportRows.map((it) => {
+            if (it.label === "Элемент" && section) {
+              return (
+                <ElementPickerRow
+                  key={it.label}
+                  elements={section.elements}
+                  selectedId={elementId}
+                  onChange={onChangeElement}
+                  updating={!!aiUpdating}
+                  flashing={flashed.has(it.label)}
+                />
+              );
+            }
+            if (it.label === "Замечания") {
+              return (
+                <RemarksPassportRow
+                  key={it.label}
+                  item={it}
+                  updating={!!aiUpdating}
+                  flashing={flashed.has(it.label)}
+                  tags={[...serious, ...minor]}
+                  seriousSelected={sIds}
+                  minorSelected={nsIds}
+                  pending={pending}
+                  onToggleTag={onToggleTag}
+                  onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
+                  tagsLoading={tagsLoading}
+                  tagsError={tagsError}
+                />
+              );
+            }
+            if (it.label === "Заметка") {
+              const canGenerate = remarksCount > 0;
+              return (
+                <NotePassportRow
+                  key={it.label}
+                  item={it}
+                  updating={!!aiUpdating}
+                  flashing={flashed.has(it.label)}
+                  canGenerate={canGenerate}
+                  onGenerate={
+                    canGenerate && onEdit
+                      ? () =>
+                          onEdit(
+                            buildNoteGenerateTemplate({
+                              sectionLabel: section?.label ?? sectionSnake,
+                              elementLabel,
+                              serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
+                              seriousPending: pending
+                                .filter((p) => p.severity === "serious")
+                                .map((p) => p.name),
+                              minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
+                              minorPending: pending
+                                .filter((p) => p.severity !== "serious")
+                                .map((p) => p.name),
+                            }),
+                          )
+                      : undefined
+                  }
+                />
+              );
+            }
+            return (
               <PassportRow
                 key={it.label}
                 item={it}
                 updating={!!aiUpdating}
                 flashing={flashed.has(it.label)}
               />
-            ),
-          )}
+            );
+          })}
         </ul>
       </div>
 
-      {/* Тело: интерактивный выбор тегов вручную */}
+      {/* Тело: заметка + действия */}
       <div className="px-3 pt-3 pb-3 space-y-3">
-        {tagsLoading && (
-          <div className="flex items-center gap-2 text-[12px] text-white/45">
-            <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-          </div>
-        )}
-        {tagsError && (
-          <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-            {tagsError}
-          </div>
-        )}
-        {!tagsLoading && !tagsError && (
-          <InspectionTagPickerRow
-            label="Замечания"
-            tags={[...serious, ...minor]}
-            seriousSelected={sIds}
-            minorSelected={nsIds}
-            pending={pending}
-            onToggleTag={onToggleTag}
-            onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
-          />
-        )}
+
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
         {finding?.note?.trim() && (
