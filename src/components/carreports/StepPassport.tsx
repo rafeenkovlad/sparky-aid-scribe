@@ -206,7 +206,7 @@ function StepBody({
               {onEdit && (
                 <button
                   type="button"
-                  onClick={() => onEdit("Тест-драйв: ")}
+                  onClick={() => onEdit(buildTestDriveEditTemplate(td))}
                   aria-label="Редактировать"
                   title="Редактировать"
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
