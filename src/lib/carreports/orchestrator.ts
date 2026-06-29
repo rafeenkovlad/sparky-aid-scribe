@@ -299,13 +299,13 @@ export async function extractForStep(
       const pending: PendingTagName[] = [...(base.pendingTagNames ?? [])];
 
       for (const name of sNames) {
-        const t = findTagId(tagCatalogue, name);
-        if (t) sIds.add(t.id);
+        const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "serious");
+        if (id) sIds.add(id);
         else if (!pending.some((p) => p.name === name)) pending.push({ name, severity: "serious" });
       }
       for (const name of nsNames) {
-        const t = findTagId(tagCatalogue, name);
-        if (t) nsIds.add(t.id);
+        const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, name, "non_serious");
+        if (id) nsIds.add(id);
         else if (!pending.some((p) => p.name === name))
           pending.push({ name, severity: "non_serious" });
       }
