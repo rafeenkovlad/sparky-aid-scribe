@@ -34,7 +34,7 @@ interface Props {
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
   /** Добавить тег (по имени) в указанную категорию тест-драйва. */
-  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
   noteProposals?: Array<{
     payload: NoteProposalPayload;
@@ -112,7 +112,7 @@ function StepBody({
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
-  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   noteProposals?: Props["noteProposals"];
 
 }) {
@@ -179,14 +179,13 @@ function StepBody({
         ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags, "testDriveSuspensionInDriveTags"],
         ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags, "testDriveBrakesInDriveTags"],
       ];
-      const cleanTags = (arr?: string[]) =>
+      // Передаём сырой массив (имена и/или numeric id) — TestDriveCategoryRow
+      // сам подгрузит каталог и развернёт id → имя.
+      const rawTags = (arr?: string[]): string[] =>
         Array.isArray(arr)
-          ? arr
-              .filter((x): x is string => typeof x === "string" && !!x.trim())
-              .map((x) => x.trim())
-              // не показываем «голые» числовые id — только человекочитаемые названия
-              .filter((x) => !/^\d+$/.test(x))
+          ? arr.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim())
           : [];
+      const tagTypes = td.testDriveTagTypes ?? {};
       return (
         <div className="space-y-2 text-[13px] leading-tight">
           <ul className="space-y-1">
@@ -195,12 +194,14 @@ function StepBody({
                 key={label}
                 label={label}
                 val={val}
-                rawTags={cleanTags(tagArr)}
+                rawTags={rawTags(tagArr)}
                 catKey={catKey}
+                tagTypes={tagTypes}
                 onAddTag={onTestDriveAddTag}
               />
             ))}
           </ul>
+
 
 
 
@@ -322,18 +323,58 @@ function TestDriveCategoryRow({
   val,
   rawTags,
   catKey,
+  tagTypes,
   onAddTag,
 }: {
   label: string;
   val: boolean | undefined;
   rawTags: string[];
   catKey: TestDriveTagCatKey;
-  onAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  tagTypes: Record<string, "serious" | "non_serious">;
+  onAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
 }) {
-  // Показываем все уже выставленные теги без фильтрации по каталогу:
-  // каталог может быть неполным/устаревшим, а сохранённые теги — это факт.
-  const visibleTags = rawTags;
+  const [catalogue, setCatalogue] = useState<UserTag[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadTagsFor("test_drive", null)
+      .then((list) => alive && setCatalogue(list))
+      .catch(() => alive && setCatalogue([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
+  const byId = new Map<number, UserTag>();
+  const byName = new Map<string, UserTag>();
+  for (const t of catalogue ?? []) {
+    byId.set(t.id, t);
+    byName.set(t.name.trim().toLowerCase(), t);
+  }
+
+  // Раскрываем numeric id → name из каталога; оставляем только issue-теги.
+  const visibleTags: string[] = [];
+  for (const raw of rawTags) {
+    const asNum = Number(raw);
+    if (Number.isInteger(asNum) && asNum > 0) {
+      const t = byId.get(asNum);
+      if (t && (t.type === "serious" || t.type === "non_serious")) {
+        visibleTags.push(t.name);
+      }
+      // если каталог ещё не загрузился — пропускаем id, имя появится после
+      continue;
+    }
+    const key = raw.trim().toLowerCase();
+    const inCat = byName.get(key);
+    const typed = tagTypes[key];
+    if (inCat && (inCat.type === "serious" || inCat.type === "non_serious")) {
+      visibleTags.push(raw);
+    } else if (typed === "serious" || typed === "non_serious") {
+      visibleTags.push(raw);
+    } else if (catalogue === null) {
+      // каталог ещё грузится — показываем, чтобы не «мигало» пусто
+      visibleTags.push(raw);
+    }
+  }
 
   return (
     <li className="min-w-0">
@@ -366,7 +407,7 @@ function TestDriveCategoryRow({
             <TestDriveTagPicker
               catKey={catKey}
               selectedNames={visibleTags}
-              onAdd={(name) => onAddTag(catKey, name)}
+              onAdd={(tag) => onAddTag(catKey, tag)}
             />
           )}
         </div>
@@ -374,6 +415,7 @@ function TestDriveCategoryRow({
     </li>
   );
 }
+
 
 
 /** Дропдаун-подсказка из GetUserTags: только теги с типом serious/non_serious. */
@@ -384,7 +426,7 @@ function TestDriveTagPicker({
 }: {
   catKey: TestDriveTagCatKey;
   selectedNames: string[];
-  onAdd: (name: string) => void;
+  onAdd: (tag: UserTag) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<UserTag[] | null>(null);
@@ -452,7 +494,7 @@ function TestDriveTagPicker({
                 <button
                   type="button"
                   onClick={() => {
-                    onAdd(t.name);
+                    onAdd(t);
                     setOpen(false);
                   }}
                   className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"

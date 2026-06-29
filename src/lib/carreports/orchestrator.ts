@@ -83,19 +83,20 @@ export interface NotePatched {
 }
 
 /** Карты «русская подпись категории → ключ в testDriveStep». */
-const TD_TAG_CATEGORIES: Array<{ label: string; key:
+type TdTagKey =
   | "testDriveEngineTags"
   | "testDriveTransmissionTags"
   | "testDriveSteeringWheelTags"
   | "testDriveSuspensionInDriveTags"
   | "testDriveBrakesInDriveTags";
-}> = [
-  { label: "Двигатель", key: "testDriveEngineTags" },
-  { label: "КПП", key: "testDriveTransmissionTags" },
-  { label: "Руль", key: "testDriveSteeringWheelTags" },
-  { label: "Подвеска", key: "testDriveSuspensionInDriveTags" },
-  { label: "Тормоза", key: "testDriveBrakesInDriveTags" },
+const TD_TAG_CATEGORIES: Array<{ label: string; key: TdTagKey; section: string }> = [
+  { label: "Двигатель", key: "testDriveEngineTags", section: "engine" },
+  { label: "КПП", key: "testDriveTransmissionTags", section: "transmission" },
+  { label: "Руль", key: "testDriveSteeringWheelTags", section: "steering_wheel" },
+  { label: "Подвеска", key: "testDriveSuspensionInDriveTags", section: "suspension_in_drive" },
+  { label: "Тормоза", key: "testDriveBrakesInDriveTags", section: "brakes_in_drive" },
 ];
+
 
 /** Парсит шаблон правки тест-драйва и применяет diff: удалённые теги
  *  пытается снести через Storage.RemoveUserTag, добавленные оставляет в
@@ -175,14 +176,21 @@ async function handleTestDriveEdit(
     newByCat.set(key, { list: newList, newIdx });
   }
 
-  // AI-нормализация новых тегов по каждой категории (best-effort, при
-  // ошибке оставляем исходный текст).
+  // AI-нормализация новых тегов + классификация типа (serious/non_serious).
+  // После классификации сразу создаём тег через Storage.AddUserTag c
+  // ненулевым type и заменяем имя на numeric id. Если что-то пошло не так —
+  // оставляем нормализованное имя (но НЕ отправляем AddUserTag без type).
+  const tagTypes: Record<string, "serious" | "non_serious"> = {
+    ...((prev as { testDriveTagTypes?: Record<string, "serious" | "non_serious"> })
+      .testDriveTagTypes ?? {}),
+  };
   await Promise.all(
-    TD_TAG_CATEGORIES.map(async ({ key, label }) => {
+    TD_TAG_CATEGORIES.map(async ({ key, label, section }) => {
       const entry = newByCat.get(key);
       if (!entry || !entry.newIdx.length) return;
+      const raws = entry.newIdx.map((i) => entry.list[i]);
+      let normalized: Array<{ name: string; type: "serious" | "non_serious" }> = [];
       try {
-        const raws = entry.newIdx.map((i) => entry.list[i]);
         const { CLICHE_NORMALIZE_TAGS } = await import("./cliche");
         const id = aiChatIdFor(thread, `normalize-tags:${key}:${Date.now().toString(36)}`);
         const res = await chatCompletions({
@@ -191,16 +199,44 @@ async function handleTestDriveEdit(
           cliche: CLICHE_NORMALIZE_TAGS(label, raws),
         });
         const parsed = parseJsonResponse<{ tags?: unknown }>(res.content) ?? {};
-        const out = Array.isArray(parsed.tags)
-          ? (parsed.tags as unknown[]).map((x) => (typeof x === "string" ? x.trim() : ""))
-          : [];
-        entry.newIdx.forEach((origIdx, k) => {
-          const v = out[k];
-          if (v) entry.list[origIdx] = v;
+        const arr = Array.isArray(parsed.tags) ? (parsed.tags as unknown[]) : [];
+        normalized = arr.map((x, i) => {
+          if (x && typeof x === "object") {
+            const obj = x as { name?: unknown; type?: unknown };
+            const name = typeof obj.name === "string" ? obj.name.trim() : "";
+            const type =
+              obj.type === "serious" || obj.type === "non_serious"
+                ? obj.type
+                : "non_serious";
+            return { name: name || raws[i] || "", type };
+          }
+          // Совместимость со старым форматом ["name", ...].
+          if (typeof x === "string") return { name: x.trim() || raws[i] || "", type: "non_serious" };
+          return { name: raws[i] || "", type: "non_serious" };
         });
       } catch {
-        /* keep raw on failure */
+        normalized = raws.map((n) => ({ name: n, type: "non_serious" as const }));
       }
+
+      // Создаём теги на сервере; type гарантированно не null.
+      const { addUserTag } = await import("./inspectionTags");
+      await Promise.all(
+        entry.newIdx.map(async (origIdx, k) => {
+          const n = normalized[k];
+          if (!n || !n.name) return;
+          entry.list[origIdx] = n.name; // визуальное имя (fallback)
+          tagTypes[n.name.trim().toLowerCase()] = n.type;
+          try {
+            const created = await addUserTag(section, n.name, n.type, "test_drive");
+            if (created?.id) {
+              entry.list[origIdx] = String(created.id);
+              tagTypes[n.name.trim().toLowerCase()] = n.type;
+            }
+          } catch {
+            /* оставляем имя — id создадим позже */
+          }
+        }),
+      );
     }),
   );
 
@@ -208,6 +244,9 @@ async function handleTestDriveEdit(
     const entry = newByCat.get(key);
     merged[key] = entry ? entry.list : [];
   }
+  (merged as { testDriveTagTypes?: Record<string, "serious" | "non_serious"> })
+    .testDriveTagTypes = tagTypes;
+
 
   // Снимаем удалённые теги на сервере (best-effort, не блокируем UI).
   if (removals.length) {
