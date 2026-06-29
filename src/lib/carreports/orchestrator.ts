@@ -507,9 +507,11 @@ export async function extractForStep(
     const touchedElements: string[] = [];
 
     for (const f of aiFindings) {
-      const eid = typeof f.elementId === "string" && elementIds.has(f.elementId)
-        ? f.elementId
-        : elementId; // fallback to active element
+      const eid = ins.manualCursor
+        ? elementId
+        : typeof f.elementId === "string" && elementIds.has(f.elementId)
+          ? f.elementId
+          : elementId; // fallback to active element
       const key = findingKey(sectionSnake, eid);
       const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
 
