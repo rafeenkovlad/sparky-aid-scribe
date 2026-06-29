@@ -2876,6 +2876,7 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
+  onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
   inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
@@ -2916,6 +2917,7 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
+  onAdvance,
   inspectionDraft,
   inspectionCursor,
   onSelectSection,
