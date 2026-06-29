@@ -3378,6 +3378,7 @@ function MessageBubble({
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
+            onTestDriveAddTag={onTestDriveAddTag}
             noteProposals={stepNoteProposals?.filter(
               (p) => stepForNoteRef(p.payload.ref) === msg.step,
             )}
