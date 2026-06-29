@@ -145,12 +145,16 @@ async function handleTestDriveEdit(
   // Diff + side-effects (removeUserTag для удалённых числовых id).
   const merged: Record<string, unknown> = { ...prev };
   const removals: number[] = [];
+  // Сначала собираем «новые» теги по категориям — те, которых не было в old
+  // и которые не являются числовыми id. Их прогоняем через AI: правка
+  // опечаток + сокращение длинных формулировок.
+  const newByCat = new Map<string, { list: string[]; newIdx: number[] }>();
   for (const { key } of TD_TAG_CATEGORIES) {
     const oldList = Array.isArray((prev as Record<string, unknown>)[key])
       ? ((prev as Record<string, unknown>)[key] as unknown[])
           .filter((x): x is string => typeof x === "string")
       : [];
-    const newList = categoryLists.get(key) ?? oldList;
+    const newList = (categoryLists.get(key) ?? oldList).slice();
     const oldSet = new Set(oldList.map((x) => x.trim()));
     const newSet = new Set(newList.map((x) => x.trim()));
     for (const removed of oldSet) {
@@ -159,8 +163,52 @@ async function handleTestDriveEdit(
         if (Number.isInteger(asNum) && asNum > 0) removals.push(asNum);
       }
     }
-    merged[key] = newList;
+    const newIdx: number[] = [];
+    newList.forEach((v, i) => {
+      const t = v.trim();
+      if (!t) return;
+      const asNum = Number(t);
+      if (Number.isInteger(asNum) && asNum > 0) return; // существующий id
+      if (oldSet.has(t)) return; // не новый
+      newIdx.push(i);
+    });
+    newByCat.set(key, { list: newList, newIdx });
   }
+
+  // AI-нормализация новых тегов по каждой категории (best-effort, при
+  // ошибке оставляем исходный текст).
+  await Promise.all(
+    TD_TAG_CATEGORIES.map(async ({ key, label }) => {
+      const entry = newByCat.get(key);
+      if (!entry || !entry.newIdx.length) return;
+      try {
+        const raws = entry.newIdx.map((i) => entry.list[i]);
+        const { CLICHE_NORMALIZE_TAGS } = await import("./cliche");
+        const id = aiChatIdFor(thread, `normalize-tags:${key}:${Date.now().toString(36)}`);
+        const res = await chatCompletions({
+          id,
+          text: raws.join("\n"),
+          cliche: CLICHE_NORMALIZE_TAGS(label, raws),
+        });
+        const parsed = parseJsonResponse<{ tags?: unknown }>(res.content) ?? {};
+        const out = Array.isArray(parsed.tags)
+          ? (parsed.tags as unknown[]).map((x) => (typeof x === "string" ? x.trim() : ""))
+          : [];
+        entry.newIdx.forEach((origIdx, k) => {
+          const v = out[k];
+          if (v) entry.list[origIdx] = v;
+        });
+      } catch {
+        /* keep raw on failure */
+      }
+    }),
+  );
+
+  for (const { key } of TD_TAG_CATEGORIES) {
+    const entry = newByCat.get(key);
+    merged[key] = entry ? entry.list : [];
+  }
+
   // Снимаем удалённые теги на сервере (best-effort, не блокируем UI).
   if (removals.length) {
     void (async () => {
