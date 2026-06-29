@@ -30,6 +30,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import logo from "@/assets/cr-logo.png";
 import assistantAvatar from "@/assets/cr-assistant-vindiesel.jpg";
 import { TokenDialog } from "./TokenDialog";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
@@ -2073,6 +2074,7 @@ export function ChatApp({ threadId }: Props) {
               >
                 <Settings2 className="h-4 w-4 mr-2" /> Токен carreports
               </Button>
+              <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
             <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wider text-white/40">История</div>
             <div className="px-2 pb-4 space-y-1 overflow-y-auto" style={{ maxHeight: "60dvh" }}>
