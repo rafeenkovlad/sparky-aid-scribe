@@ -1326,6 +1326,7 @@ export function ChatApp({ threadId }: Props) {
             original: np.originalText,
             ai: null,
             loading: true,
+            tagNames: np.tagNames,
           },
           createdAt: Date.now(),
         });
@@ -1380,6 +1381,67 @@ export function ChatApp({ threadId }: Props) {
     [thread, writeNoteToDraft, patchNoteProposalMsg],
   );
 
+  /** Прочитать текущий текст заметки из draft по NoteRef. */
+  const readNoteFromDraft = useCallback((threadIdLocal: string, ref: NoteRef): string => {
+    const t = getThread(threadIdLocal);
+    if (!t) return "";
+    const d = t.draft;
+    if (ref.kind === "inspection") {
+      const key = findingKey(ref.section as SectionSnake, ref.elementId);
+      return d.inspectionStep.findings?.[key]?.note ?? "";
+    }
+    if (ref.kind === "testDrive") return d.testDriveStep?.testDriveNote ?? d.testDriveStep?.notes ?? "";
+    if (ref.kind === "docs") return d.documentReconciliationStep?.note ?? "";
+    if (ref.kind === "resultSummary") return d.resultStep?.summaryInspectionNote ?? "";
+    if (ref.kind === "resultVerdict") return d.resultStep?.resultSpecialistNote ?? "";
+    return "";
+  }, []);
+
+  /** Регенерация AI-версии заметки: всегда на основе текущего текста + тегов. */
+  const regenerateChatNoteAi = useCallback(
+    (ref: NoteRef) => {
+      if (!thread) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      const fresh = getThread(thread.id);
+      const msg = fresh?.messages[step].find((m) => m.id === stableId);
+      const np = msg?.noteProposal;
+      if (!np) return;
+      const baseText = readNoteFromDraft(thread.id, ref) || np.original;
+      const tagNames = np.tagNames ?? [];
+      // показываем загрузку, снимаем флаг применённой версии
+      patchNoteProposalMsg(thread.id, step, stableId, { loading: true, picked: undefined });
+      void (async () => {
+        try {
+          const t = getThread(thread.id);
+          if (!t) return;
+          const stepLabel = stepById(step).label;
+          const aiText = await reformulateNote(
+            t,
+            ref,
+            stepLabel,
+            np.scopeLabel,
+            tagNames,
+            baseText,
+          );
+          if (aiText) {
+            writeNoteToDraft(thread.id, ref, aiText);
+            patchNoteProposalMsg(thread.id, step, stableId, {
+              ai: aiText,
+              loading: false,
+              picked: "ai",
+            });
+          } else {
+            patchNoteProposalMsg(thread.id, step, stableId, { loading: false });
+          }
+        } catch {
+          patchNoteProposalMsg(thread.id, step, stableId, { loading: false });
+        }
+      })();
+    },
+    [thread, readNoteFromDraft, patchNoteProposalMsg, writeNoteToDraft],
+  );
+
 
   const dismissChatNoteProposal = useCallback(
     (ref: NoteRef) => {
@@ -1407,12 +1469,12 @@ export function ChatApp({ threadId }: Props) {
       out.push({
         payload: p,
         onPickOriginal: () => acceptChatNoteOriginal(p.ref, p.original),
-        onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
+        onPickAi: () => regenerateChatNoteAi(p.ref),
         onDismiss: () => dismissChatNoteProposal(p.ref),
       });
     }
     return out;
-  }, [currentStepMessages, acceptChatNoteOriginal, acceptChatNoteAi, dismissChatNoteProposal]);
+  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal]);
 
   /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
    *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */

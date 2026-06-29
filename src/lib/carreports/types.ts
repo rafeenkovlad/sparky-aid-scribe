@@ -232,6 +232,8 @@ export interface NoteProposalPayload {
   ai: string | null;
   loading: boolean;
   picked?: "original" | "ai";
+  /** Имена тегов на момент создания proposal — используются для регенерации. */
+  tagNames?: string[];
 }
 
 export interface ChatMessage {
