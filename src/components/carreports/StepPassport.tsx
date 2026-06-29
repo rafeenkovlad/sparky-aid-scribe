@@ -344,3 +344,101 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
   ].join("\n");
 
 }
+
+/** Дропдаун-подсказка из GetUserTags: только теги с типом serious/non_serious. */
+function TestDriveTagPicker({
+  catKey,
+  selectedNames,
+  onAdd,
+}: {
+  catKey: TestDriveTagCatKey;
+  selectedNames: string[];
+  onAdd: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tags, setTags] = useState<UserTag[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || tags !== null) return;
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    loadTagsFor("test_drive", TD_CAT_SECTION[catKey])
+      .then((list) => {
+        if (alive) setTags(list);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(e instanceof Error ? e.message : "Не удалось загрузить теги");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, tags, catKey]);
+
+  const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
+  // Только теги, описывающие неполадку: type = serious / non_serious.
+  const suggestions = (tags ?? []).filter(
+    (t) =>
+      (t.type === "serious" || t.type === "non_serious") &&
+      !selectedSet.has(t.name.trim().toLowerCase()),
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Добавить тег"
+          title="Добавить тег"
+          className="inline-flex items-center justify-center rounded-md border border-dashed border-white/15 text-white/60 hover:text-white hover:border-white/30 h-[22px] w-[22px]"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
+      >
+        {loading && <div className="px-2 py-1.5 text-[12px] text-white/60">Загрузка…</div>}
+        {error && <div className="px-2 py-1.5 text-[12px] text-rose-300">{error}</div>}
+        {!loading && !error && suggestions.length === 0 && (
+          <div className="px-2 py-1.5 text-[12px] text-white/50">Нет подходящих тегов</div>
+        )}
+        {!loading && !error && suggestions.length > 0 && (
+          <ul className="space-y-0.5">
+            {suggestions.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAdd(t.name);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
+                >
+                  <span className="flex-1 truncate">{t.name}</span>
+                  <span
+                    className={
+                      t.type === "serious"
+                        ? "text-[10px] text-rose-300"
+                        : "text-[10px] text-amber-300"
+                    }
+                  >
+                    {t.type === "serious" ? "серьёзный" : "несерьёзный"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
