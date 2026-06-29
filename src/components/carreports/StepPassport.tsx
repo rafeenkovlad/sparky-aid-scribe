@@ -19,14 +19,12 @@ interface Props {
  * Показывается при входе в шаг, который уже был заполнен ранее.
  */
 export function StepPassport({ step, draft, onEdit, onConfirm, onDocsAllMatch }: Props) {
+  const hideConfirm = step === "legalMaterials";
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="mb-2">
         <span className="text-white/70 font-medium">
           {stepById(step).label} · уже заполнено
-        </span>
-        <span className="text-[10px] uppercase tracking-wide text-emerald-400/80">
-          готово
         </span>
       </div>
 
@@ -34,7 +32,7 @@ export function StepPassport({ step, draft, onEdit, onConfirm, onDocsAllMatch }:
         <StepBody step={step} draft={draft} onEdit={onEdit} onDocsAllMatch={onDocsAllMatch} />
       </div>
 
-      {onConfirm && (
+      {onConfirm && !hideConfirm && (
         <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-end gap-2">
           <button
             onClick={onConfirm}
