@@ -384,64 +384,67 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       {/* Паспортная сводка по элементу */}
       <div className="px-3 pt-3 pb-2 border-b border-white/[0.06]">
         <ul className="space-y-0.5 text-[13px] leading-tight">
-          {passportRows.map((it) => (
-            <PassportRow
-              key={it.label}
-              item={it}
-              updating={!!aiUpdating}
-              flashing={flashed.has(it.label)}
-            />
-          ))}
+          {passportRows.map((it) =>
+            it.label === "Элемент" && section ? (
+              <ElementPickerRow
+                key={it.label}
+                elements={section.elements}
+                selectedId={elementId}
+                onChange={onChangeElement}
+                updating={!!aiUpdating}
+                flashing={flashed.has(it.label)}
+              />
+            ) : (
+              <PassportRow
+                key={it.label}
+                item={it}
+                updating={!!aiUpdating}
+                flashing={flashed.has(it.label)}
+              />
+            ),
+          )}
         </ul>
       </div>
 
-      {/* Тело: только чтение — выбор тегов/состояния делает ИИ по диктовке */}
+      {/* Тело: интерактивный выбор тегов вручную */}
       <div className="px-3 pt-3 pb-3 space-y-3">
-        {(() => {
-          const seriousTags = tags.filter((t) => sIds.has(t.id));
-          const seriousPending = pending.filter((p) => p.severity === "serious");
-          const minorTags = tags.filter((t) => nsIds.has(t.id));
-          const minorPending = pending.filter((p) => p.severity !== "serious");
-          const hasSerious = seriousTags.length + seriousPending.length > 0;
-          const hasMinor = minorTags.length + minorPending.length > 0;
-          if (tagsLoading) {
-            return (
-              <div className="flex items-center gap-2 text-[12px] text-white/45">
-                <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
-              </div>
-            );
-          }
-          if (tagsError) {
-            return (
-              <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
-                {tagsError}
-              </div>
-            );
-          }
-          if (!hasSerious && !hasMinor) return null;
-          return (
-            <>
-              {hasSerious && (
-                <ReadOnlyTagRow
-                  label="Серьёзные"
-                  dotClass="bg-rose-400"
-                  chipClass="border-rose-400/30 bg-rose-500/10 text-rose-100"
-                  tags={seriousTags.map((t) => t.name)}
-                  pending={seriousPending.map((p) => p.name)}
-                />
-              )}
-              {hasMinor && (
-                <ReadOnlyTagRow
-                  label="Мелкие"
-                  dotClass="bg-amber-400"
-                  chipClass="border-amber-400/30 bg-amber-500/10 text-amber-100"
-                  tags={minorTags.map((t) => t.name)}
-                  pending={minorPending.map((p) => p.name)}
-                />
-              )}
-            </>
-          );
-        })()}
+        {tagsLoading && (
+          <div className="flex items-center gap-2 text-[12px] text-white/45">
+            <Loader2 className="h-3 w-3 animate-spin" /> Загружаем теги…
+          </div>
+        )}
+        {tagsError && (
+          <div className="rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-200">
+            {tagsError}
+          </div>
+        )}
+        {!tagsLoading && !tagsError && (
+          <>
+            <TagRow
+              tone="serious"
+              section={sectionSnake}
+              tags={serious}
+              selected={sIds}
+              pending={pending.filter((p) => p.severity === "serious")}
+              onTap={onToggleTag}
+              onTogglePending={(name) => onTogglePendingTag(name, "serious")}
+              onAdd={(name) => onAddPendingTag(name, "serious")}
+              onCatalogChanged={() => setTokenTick((t) => t + 1)}
+            />
+            <TagRow
+              tone="minor"
+              section={sectionSnake}
+              tags={minor}
+              selected={nsIds}
+              pending={pending.filter((p) => p.severity !== "serious")}
+              onTap={onToggleTag}
+              onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
+              onAdd={(name) => onAddPendingTag(name, "non_serious")}
+              onCatalogChanged={() => setTokenTick((t) => t + 1)}
+            />
+          </>
+        )}
+
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
         {finding?.note?.trim() && (
