@@ -159,6 +159,32 @@ function StepBody({
               {td.notes ?? td.testDriveNote}
             </div>
           )}
+          {(onTestDriveAllOk || onEdit) && (
+            <div className="pt-2 flex items-center gap-1.5">
+              {onTestDriveAllOk && (
+                <button
+                  type="button"
+                  onClick={onTestDriveAllOk}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-400/10 hover:bg-emerald-400/15 text-emerald-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Нареканий нет
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit("Тест-драйв: ")}
+                  aria-label="Редактировать"
+                  title="Редактировать"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Редактировать
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
     }
