@@ -238,6 +238,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   const minorCount = nsIds.size + pending.filter((p) => p.severity !== "serious").length;
   const hasNote = !!finding?.note?.trim();
 
+  const remarksCount = seriousCount + minorCount;
   const passportRows: { label: string; filled: boolean; value?: string }[] = [
     { label: "Элемент", filled: true, value: elementLabel },
     {
@@ -246,14 +247,14 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       value: derivedVerdict !== null ? verdictLabel : undefined,
     },
     {
-      label: "Серьёзные",
-      filled: seriousCount > 0,
-      value: seriousCount > 0 ? String(seriousCount) : undefined,
-    },
-    {
-      label: "Мелкие",
-      filled: minorCount > 0,
-      value: minorCount > 0 ? String(minorCount) : undefined,
+      label: "Замечания",
+      filled: remarksCount > 0 || derivedVerdict === "ok",
+      value:
+        remarksCount > 0
+          ? String(remarksCount)
+          : derivedVerdict === "ok"
+            ? "нет"
+            : undefined,
     },
     {
       label: "Заметка",
@@ -261,6 +262,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       value: hasNote ? "есть" : undefined,
     },
   ];
+
   const filledCount = passportRows.filter((r) => r.filled).length;
   const allFilled = filledCount === passportRows.length;
 
@@ -455,29 +457,16 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           </div>
         )}
         {!tagsLoading && !tagsError && (
-          <>
-            <InspectionTagPickerRow
-              tone="serious"
-              label="Серьёзные"
-              tags={serious}
-              selected={sIds}
-              pending={pending.filter((p) => p.severity === "serious")}
-              onToggleTag={onToggleTag}
-              onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-            />
-            <InspectionTagPickerRow
-              tone="minor"
-              label="Мелкие"
-              tags={minor}
-              selected={nsIds}
-              pending={pending.filter((p) => p.severity !== "serious")}
-              onToggleTag={onToggleTag}
-              onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-            />
-          </>
+          <InspectionTagPickerRow
+            label="Замечания"
+            tags={[...serious, ...minor]}
+            seriousSelected={sIds}
+            minorSelected={nsIds}
+            pending={pending}
+            onToggleTag={onToggleTag}
+            onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
+          />
         )}
-
-
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
         {finding?.note?.trim() && (
@@ -501,10 +490,52 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               )}
           </div>
         )}
+
+        {/* Нижние кнопки — как в тест-драйве */}
+        <div className="pt-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onSetVerdict("ok")}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-400/10 hover:bg-emerald-400/15 text-emerald-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
+          >
+            <Check className="h-3.5 w-3.5" />
+            Нареканий нет
+          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() =>
+                onEdit(
+                  buildElementEditTemplate({
+                    sectionLabel: section?.label ?? sectionSnake,
+                    elementLabel,
+                    verdictLabel: derivedVerdict !== null ? verdictLabel : null,
+                    serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
+                    seriousPending: pending
+                      .filter((p) => p.severity === "serious")
+                      .map((p) => p.name),
+                    minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
+                    minorPending: pending
+                      .filter((p) => p.severity !== "serious")
+                      .map((p) => p.name),
+                    note: finding?.note ?? "",
+                  }),
+                )
+              }
+              aria-label="Редактировать"
+              title="Редактировать"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Редактировать
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
 
 function ReadOnlyTagRow(props: {
   label: string;
@@ -1092,36 +1123,38 @@ function ProposalRow(props: {
  * selectedTagIds) минус уже выбранные.
  */
 function InspectionTagPickerRow({
-  tone,
   label,
   tags,
-  selected,
+  seriousSelected,
+  minorSelected,
   pending,
   onToggleTag,
   onTogglePending,
 }: {
-  tone: "serious" | "minor";
   label: string;
   tags: UserTag[];
-  selected: Set<number>;
+  seriousSelected: Set<number>;
+  minorSelected: Set<number>;
   pending: PendingTagName[];
   onToggleTag: (t: UserTag) => void;
-  onTogglePending: (name: string) => void;
+  onTogglePending: (name: string, severity: "serious" | "non_serious") => void;
 }) {
   const [open, setOpen] = useState(false);
-  const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
-  const chipCls =
-    tone === "serious"
+  const chipCls = (type: string | null) =>
+    type === "serious"
       ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
       : "border-amber-400/30 bg-amber-500/10 text-amber-100";
 
-  const selectedTags = tags.filter((t) => selected.has(t.id));
-  const suggestions = tags.filter((t) => !selected.has(t.id));
+  const selectedTags = tags.filter(
+    (t) => seriousSelected.has(t.id) || minorSelected.has(t.id),
+  );
+  const suggestions = tags.filter(
+    (t) => !seriousSelected.has(t.id) && !minorSelected.has(t.id),
+  );
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
-        <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
+      <div className="text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
         {label}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -1130,7 +1163,10 @@ function InspectionTagPickerRow({
             key={t.id}
             type="button"
             onClick={() => onToggleTag(t)}
-            className={"inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] border " + chipCls}
+            className={
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] border " +
+              chipCls(t.type)
+            }
             title="Убрать тег"
           >
             <Check className="h-3 w-3 -ml-0.5" />
@@ -1141,7 +1177,9 @@ function InspectionTagPickerRow({
           <button
             key={`pending:${p.name}`}
             type="button"
-            onClick={() => onTogglePending(p.name)}
+            onClick={() =>
+              onTogglePending(p.name, p.severity === "serious" ? "serious" : "non_serious")
+            }
             className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-[12px] text-violet-100 hover:bg-violet-500/25"
             title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
           >
@@ -1155,12 +1193,7 @@ function InspectionTagPickerRow({
               type="button"
               aria-label="Добавить тег"
               title="Добавить тег"
-              className={
-                "inline-flex items-center justify-center rounded-full border border-dashed h-[26px] w-[26px] transition-colors " +
-                (tone === "serious"
-                  ? "border-rose-400/40 text-rose-100/70 hover:bg-rose-500/10"
-                  : "border-amber-400/40 text-amber-100/70 hover:bg-amber-500/10")
-              }
+              className="inline-flex items-center justify-center rounded-full border border-dashed border-white/25 text-white/60 hover:text-white hover:border-white/40 h-[26px] w-[26px] transition-colors"
             >
               <Plus className="h-3 w-3" />
             </button>
@@ -1180,7 +1213,6 @@ function InspectionTagPickerRow({
                       type="button"
                       onClick={() => {
                         onToggleTag(t);
-                        // не закрываем — даём добавить несколько подряд
                       }}
                       className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
                     >
@@ -1205,6 +1237,7 @@ function InspectionTagPickerRow({
     </div>
   );
 }
+
 
 /** Префилл композера для правки одного элемента осмотра. */
 export function buildElementEditTemplate(args: {
