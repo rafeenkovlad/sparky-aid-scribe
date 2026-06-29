@@ -1359,13 +1359,14 @@ export function ChatApp({ threadId }: Props) {
   );
 
   const acceptChatNoteOriginal = useCallback(
-    (ref: NoteRef) => {
+    (ref: NoteRef, originalText?: string) => {
       if (!thread) return;
       const step = stepForNoteRef(ref);
       const stableId = `note-proposal:${noteRefKey(ref)}`;
+      if (originalText) writeNoteToDraft(thread.id, ref, originalText);
       patchNoteProposalMsg(thread.id, step, stableId, { picked: "original" });
     },
-    [thread, patchNoteProposalMsg],
+    [thread, writeNoteToDraft, patchNoteProposalMsg],
   );
 
   const acceptChatNoteAi = useCallback(
@@ -1375,18 +1376,10 @@ export function ChatApp({ threadId }: Props) {
       const stableId = `note-proposal:${noteRefKey(ref)}`;
       writeNoteToDraft(thread.id, ref, aiText);
       patchNoteProposalMsg(thread.id, step, stableId, { picked: "ai" });
-      updateThread(thread.id, (t) => {
-        pushMsg(t, step, {
-          id: msgId(),
-          role: "assistant",
-          text: "✏️ Заметка обновлена переформулированным вариантом.",
-          step,
-          createdAt: Date.now(),
-        });
-      });
     },
     [thread, writeNoteToDraft, patchNoteProposalMsg],
   );
+
 
   const dismissChatNoteProposal = useCallback(
     (ref: NoteRef) => {
