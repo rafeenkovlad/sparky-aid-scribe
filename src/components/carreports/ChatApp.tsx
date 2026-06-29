@@ -3511,6 +3511,21 @@ function MessageBubble({
               onPickNoteAi={onElementFocusPickNoteAi}
               onDismissNoteProposal={onElementFocusDismissNoteProposal}
               aiUpdating={!!elementFocusNoteProposal?.loading}
+              chatNoteProposal={(() => {
+                const photo = inspectionDraft.photos[msg.photoIdx];
+                if (!photo) return undefined;
+                const sec = photo.section;
+                const elId =
+                  photo.elementId ??
+                  getSection(sec as SectionSnake)?.elements[0]?.id;
+                const found = stepNoteProposals?.find(
+                  (p) =>
+                    p.payload.ref.kind === "inspection" &&
+                    p.payload.ref.section === sec &&
+                    p.payload.ref.elementId === elId,
+                );
+                return found;
+              })()}
             />
           )}
         {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
