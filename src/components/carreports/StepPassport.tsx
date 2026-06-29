@@ -265,3 +265,20 @@ function StepBody({
       return null;
   }
 }
+
+/** Префилл композера для правки тест‑драйва: заметка + теги по 5 категориям. */
+export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): string {
+  const t = td ?? {};
+  const note = (t.testDriveNote ?? t.notes ?? "").trim();
+  const join = (arr?: string[]) =>
+    Array.isArray(arr) ? arr.filter((x) => typeof x === "string" && x.trim()).join(", ") : "";
+  return [
+    "Тест-драйв (правка):",
+    `Заметка: ${note}`,
+    `Двигатель: ${join(t.testDriveEngineTags)}`,
+    `КПП: ${join(t.testDriveTransmissionTags)}`,
+    `Руль: ${join(t.testDriveSteeringWheelTags)}`,
+    `Подвеска: ${join(t.testDriveSuspensionInDriveTags)}`,
+    `Тормоза: ${join(t.testDriveBrakesInDriveTags)}`,
+  ].join("\n");
+}
