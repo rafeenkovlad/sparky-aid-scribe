@@ -117,18 +117,41 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   // отображаются одновременно, так что переключатель не нужен.)
 
 
-  // Базовый каталог тегов раздела (кэшируется).
+  const sIds = new Set(finding?.seriousDamageTagIds ?? []);
+  const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
+  const pending = finding?.pendingTagNames ?? [];
+
+  // Ключ выбранных tagId — стабильная строка, используется как зависимость
+  // для перезагрузки списка тегов через Storage.GetUserTags. Сервер вернёт
+  // список, релевантный набору уже выбранных тегов.
+  const sIdsKey = (finding?.seriousDamageTagIds ?? []).slice().sort((a, b) => a - b).join(",");
+  const nsIdsKey = (finding?.noSeriousDamageTagIds ?? []).slice().sort((a, b) => a - b).join(",");
+  const selectedIdsKey = useMemo(
+    () => {
+      const all = [
+        ...(finding?.seriousDamageTagIds ?? []),
+        ...(finding?.noSeriousDamageTagIds ?? []),
+      ].filter((n): n is number => typeof n === "number");
+      return all.sort((a, b) => a - b).join(",");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sIdsKey, nsIdsKey],
+  );
+
+  // Базовый каталог тегов раздела. Перезапрашиваем при изменении набора
+  // выбранных tagId — сервер возвращает более релевантный список.
   const [tags, setTags] = useState<UserTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
-  // Тик, который обновляется при смене токена — заставляет перезапросить теги.
+  // Тик, который обновляется при смене токена / каталога — заставляет перезапросить теги.
   const [tokenTick, setTokenTick] = useState(0);
   useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
   useEffect(() => {
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
-    loadSectionTags(sectionSnake)
+    const ids = selectedIdsKey ? selectedIdsKey.split(",").map(Number) : [];
+    loadSectionTags(sectionSnake, ids)
       .then((list) => {
         if (!alive) return;
         setTags(list);
@@ -144,61 +167,21 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake, tokenTick]);
+  }, [sectionSnake, tokenTick, selectedIdsKey]);
 
-
-
-  const sIds = new Set(finding?.seriousDamageTagIds ?? []);
-  const nsIds = new Set(finding?.noSeriousDamageTagIds ?? []);
-  const pending = finding?.pendingTagNames ?? [];
-
-  // Релевантная подсказка: запрашиваем с selectedTagIds — сервер вернёт
-  // теги, чаще встречающиеся вместе с выбранными, без самих выбранных.
-  // Используем порядок этого ответа как приоритет сортировки.
-  const selectedIdsKey = useMemo(
-    () =>
-      [...sIds, ...nsIds]
-        .filter((n): n is number => typeof n === "number")
-        .sort((a, b) => a - b)
-        .join(","),
-    [sIds, nsIds],
-  );
-  const [relevanceOrder, setRelevanceOrder] = useState<number[]>([]);
-  useEffect(() => {
-    if (!selectedIdsKey) {
-      setRelevanceOrder([]);
-      return;
-    }
-    let alive = true;
-    const ids = selectedIdsKey.split(",").map((n) => Number(n));
-    void loadSectionTags(sectionSnake, ids).then((list) => {
-      if (alive) setRelevanceOrder(list.map((t) => t.id));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [sectionSnake, selectedIdsKey]);
-
-  // Сортировка: выбранные → релевантные (в порядке сервера) → остальные.
+  // Порядок ответа сервера = приоритет релевантности; выбранные → остальные.
   const sortByRelevance = useCallback(
     (list: UserTag[], selected: Set<number>) => {
       if (list.length === 0) return list;
       const sel: UserTag[] = [];
-      const rel: UserTag[] = [];
       const rest: UserTag[] = [];
-      const relRank = new Map<number, number>();
-      relevanceOrder.forEach((id, i) => relRank.set(id, i));
       for (const t of list) {
         if (selected.has(t.id)) sel.push(t);
-        else if (relRank.has(t.id)) rel.push(t);
         else rest.push(t);
       }
-      rel.sort(
-        (a, b) => (relRank.get(a.id) ?? 0) - (relRank.get(b.id) ?? 0),
-      );
-      return [...sel, ...rel, ...rest];
+      return [...sel, ...rest];
     },
-    [relevanceOrder],
+    [],
   );
 
   const serious = useMemo(
@@ -209,6 +192,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     () => sortByRelevance(tags.filter((t) => t.type !== "serious"), nsIds),
     [tags, nsIds, sortByRelevance],
   );
+
 
   const goPrev = () => {
     if (posInSection > 0) onChangePhotoIdx(siblings[posInSection - 1].idx);
