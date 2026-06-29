@@ -242,6 +242,16 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   const passportRows: { label: string; filled: boolean; value?: string }[] = [
     { label: "Элемент", filled: true, value: elementLabel },
     {
+      label: "Замечания",
+      filled: remarksCount > 0 || derivedVerdict === "ok",
+      value:
+        remarksCount > 0
+          ? String(remarksCount)
+          : derivedVerdict === "ok"
+            ? "нет"
+            : undefined,
+    },
+    {
       label: "Заметка",
       filled: hasNote,
       value: hasNote ? "есть" : undefined,
