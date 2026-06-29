@@ -41,7 +41,17 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
     }
     case "testDrive": {
       const c = d.testDriveStep ?? {};
-      return !!c.notDone || !!c.notes;
+      return (
+        !!c.notDone ||
+        !!c.notes ||
+        !!c.testDriveNote ||
+        c.testDriveIsIncluded !== undefined ||
+        c.testDriveEngineIsWorkingProperly !== undefined ||
+        c.testDriveTransmissionIsWorkingProperly !== undefined ||
+        c.testDriveSteeringWheelIsWorkingProperly !== undefined ||
+        c.testDriveSuspensionInDriveIsWorkingProperly !== undefined ||
+        c.testDriveBrakesInDriveIsWorkingProperly !== undefined
+      );
     }
     case "result": {
       const c = d.resultStep ?? {};
