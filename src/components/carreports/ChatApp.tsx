@@ -3526,7 +3526,9 @@ function MessageBubble({
                 );
                 return found;
               })()}
+              onEdit={onFillMissing}
             />
+
           )}
         {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-3 py-2.5 space-y-2">
