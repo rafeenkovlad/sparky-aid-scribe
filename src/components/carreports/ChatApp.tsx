@@ -37,6 +37,7 @@ import { InspectionDateField } from "./InspectionDateField";
 
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
+import { StepPassport } from "./StepPassport";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
@@ -50,7 +51,7 @@ import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
 import type { ChatChip, ChatMessage, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
 import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote } from "@/lib/carreports/orchestrator";
-import { filledCount, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
+import { filledCount, isStepFilled, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
   INSPECTION_SECTIONS,
@@ -130,6 +131,18 @@ function makeIntroMessage(step: StepId): ChatMessage {
     optionsStep: step,
     selectedChipValues: [],
     ...(step === "inspection" ? { kind: "inspectionSectionPicker" as const } : {}),
+    createdAt: Date.now(),
+  };
+}
+
+/** Сообщение-«паспорт заполненности» уже заполненного шага. */
+function makeStepPassportMessage(step: StepId): ChatMessage {
+  return {
+    id: msgId(),
+    role: "assistant",
+    text: "",
+    step,
+    kind: "stepPassport",
     createdAt: Date.now(),
   };
 }
@@ -1365,17 +1378,22 @@ export function ChatApp({ threadId }: Props) {
     const nextStep = FLOW_STEPS[nextIdx].id;
     updateThread(thread.id, (t) => {
       t.stepIndex = nextIdx;
-      // Always greet on step entry — intro message with quick-pick chips.
-      pushMsg(t, nextStep, makeIntroMessage(nextStep));
-      const ask = nextMissingPrompt(nextStep, t.draft);
-      if (ask) {
-        pushMsg(t, nextStep, {
-          id: msgId(),
-          role: "assistant",
-          text: `➡️ ${ask}`,
-          step: nextStep,
-          createdAt: Date.now(),
-        });
+      if (isStepFilled(nextStep, t.draft)) {
+        // Шаг уже заполнен — показываем паспорт вместо intro+ask.
+        pushMsg(t, nextStep, makeStepPassportMessage(nextStep));
+      } else {
+        // Always greet on step entry — intro message with quick-pick chips.
+        pushMsg(t, nextStep, makeIntroMessage(nextStep));
+        const ask = nextMissingPrompt(nextStep, t.draft);
+        if (ask) {
+          pushMsg(t, nextStep, {
+            id: msgId(),
+            role: "assistant",
+            text: `➡️ ${ask}`,
+            step: nextStep,
+            createdAt: Date.now(),
+          });
+        }
       }
     });
   }, [thread]);
@@ -2000,7 +2018,10 @@ export function ChatApp({ threadId }: Props) {
     updateThread(thread.id, (t) => {
       const changed = t.stepIndex !== idx;
       t.stepIndex = idx;
-      if (changed) {
+      if (!changed) return;
+      if (isStepFilled(step, t.draft)) {
+        pushMsg(t, step, makeStepPassportMessage(step));
+      } else {
         pushMsg(t, step, makeIntroMessage(step));
         const ask = nextMissingPrompt(step, t.draft);
         if (ask) {
@@ -2172,6 +2193,7 @@ export function ChatApp({ threadId }: Props) {
                 }
               });
             }}
+            onAdvance={advanceStep}
             onDocsAllMatch={() => {
               updateThread(thread.id, (t) => {
                 t.draft.documentReconciliationStep = {
@@ -2855,6 +2877,7 @@ interface BubbleProps {
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
+  onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
   inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
@@ -2895,6 +2918,7 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
+  onAdvance,
   inspectionDraft,
   inspectionCursor,
   onSelectSection,
@@ -2994,6 +3018,14 @@ function MessageBubble({
               </div>
             )}
           </div>
+        ) : msg.kind === "stepPassport" && draft && msg.step ? (
+          <StepPassport
+            step={msg.step}
+            draft={draft}
+            onEdit={onFillMissing}
+            onConfirm={onAdvance}
+            onDocsAllMatch={onDocsAllMatch}
+          />
         ) : (
           msg.text && (
             <>

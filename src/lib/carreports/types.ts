@@ -231,6 +231,7 @@ export interface ChatMessage {
   kind?:
     | "passport"
     | "docsPassport"
+    | "stepPassport"
     | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
