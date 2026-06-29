@@ -1,10 +1,11 @@
 import { Check, ChevronRight, Pencil, ShieldCheck } from "lucide-react";
-import type { ReportDraft, StepId } from "@/lib/carreports/types";
+import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import { sectionProgress } from "@/lib/carreports/inspectionState";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist } from "./DocsChecklist";
+import { NoteProposalInline } from "./NoteProposalInline";
 
 interface Props {
   step: StepId;
@@ -13,6 +14,13 @@ interface Props {
   onConfirm?: () => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
+  noteProposals?: Array<{
+    payload: NoteProposalPayload;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  }>;
 }
 
 /**
@@ -26,6 +34,7 @@ export function StepPassport({
   onConfirm,
   onDocsAllMatch,
   onTestDriveAllOk,
+  noteProposals,
 }: Props) {
   const hideConfirm = step === "legalMaterials" || step === "testDrive";
   return (
@@ -41,6 +50,7 @@ export function StepPassport({
           onEdit={onEdit}
           onDocsAllMatch={onDocsAllMatch}
           onTestDriveAllOk={onTestDriveAllOk}
+          noteProposals={noteProposals}
         />
       </div>
 
@@ -58,18 +68,27 @@ export function StepPassport({
   );
 }
 
+function findProposal(
+  noteProposals: Props["noteProposals"],
+  match: (ref: NoteRef) => boolean,
+) {
+  return noteProposals?.find((p) => match(p.payload.ref));
+}
+
 function StepBody({
   step,
   draft,
   onEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
+  noteProposals,
 }: {
   step: StepId;
   draft: ReportDraft;
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  noteProposals?: Props["noteProposals"];
 }) {
   switch (step) {
     case "car":
@@ -155,8 +174,21 @@ function StepBody({
             ))}
           </ul>
           {(td.notes || td.testDriveNote) && (
-            <div className="pt-2 border-t border-white/5 text-white/70 whitespace-pre-wrap">
-              {td.notes ?? td.testDriveNote}
+            <div className="pt-2 border-t border-white/5">
+              <div className="text-white/70 whitespace-pre-wrap">
+                {td.notes ?? td.testDriveNote}
+              </div>
+              {(() => {
+                const p = findProposal(noteProposals, (r) => r.kind === "testDrive");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
           {(onTestDriveAllOk || onEdit) && (
@@ -196,12 +228,34 @@ function StepBody({
             <div>
               <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Резюме</div>
               <div className="text-white/85 whitespace-pre-wrap">{r.summaryInspectionNote}</div>
+              {(() => {
+                const p = findProposal(noteProposals, (r2) => r2.kind === "resultSummary");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
           {r.resultSpecialistNote && (
             <div className="pt-2 border-t border-white/5">
               <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Вердикт</div>
               <div className="text-white/85 whitespace-pre-wrap">{r.resultSpecialistNote}</div>
+              {(() => {
+                const p = findProposal(noteProposals, (r2) => r2.kind === "resultVerdict");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
         </div>

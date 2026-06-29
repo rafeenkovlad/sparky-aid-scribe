@@ -1400,6 +1400,36 @@ export function ChatApp({ threadId }: Props) {
     [thread],
   );
 
+  /** Активные предложения переформулировать заметку в текущем шаге. */
+  const stepNoteProposals = useMemo(() => {
+    const out: Array<{
+      payload: NonNullable<ChatMessage["noteProposal"]>;
+      onPickOriginal: () => void;
+      onPickAi: () => void;
+      onDismiss: () => void;
+    }> = [];
+    for (const m of currentStepMessages) {
+      if (m.kind !== "noteProposal" || !m.noteProposal) continue;
+      const p = m.noteProposal;
+      out.push({
+        payload: p,
+        onPickOriginal: () => acceptChatNoteOriginal(p.ref),
+        onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
+        onDismiss: () => dismissChatNoteProposal(p.ref),
+      });
+    }
+    return out;
+  }, [currentStepMessages, acceptChatNoteOriginal, acceptChatNoteAi, dismissChatNoteProposal]);
+
+  /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
+   *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */
+  const hasStepPassport = useMemo(
+    () => currentStepMessages.some((m) => m.kind === "stepPassport"),
+    [currentStepMessages],
+  );
+
+
+
 
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
@@ -2471,6 +2501,8 @@ export function ChatApp({ threadId }: Props) {
             onChatNoteAcceptOriginal={acceptChatNoteOriginal}
             onChatNoteAcceptAi={acceptChatNoteAi}
             onChatNoteDismiss={dismissChatNoteProposal}
+            stepNoteProposals={stepNoteProposals}
+            hasStepPassport={hasStepPassport}
           />
 
         ))}
@@ -3149,6 +3181,13 @@ interface BubbleProps {
   onChatNoteAcceptOriginal?: (ref: NoteRef) => void;
   onChatNoteAcceptAi?: (ref: NoteRef, ai: string) => void;
   onChatNoteDismiss?: (ref: NoteRef) => void;
+  stepNoteProposals?: Array<{
+    payload: NonNullable<ChatMessage["noteProposal"]>;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  }>;
+  hasStepPassport?: boolean;
 }
 
 function MessageBubble({
@@ -3192,6 +3231,8 @@ function MessageBubble({
   onChatNoteAcceptOriginal,
   onChatNoteAcceptAi,
   onChatNoteDismiss,
+  stepNoteProposals,
+  hasStepPassport,
 }: BubbleProps) {
 
 
@@ -3272,17 +3313,27 @@ function MessageBubble({
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
+            noteProposals={stepNoteProposals?.filter(
+              (p) => stepForNoteRef(p.payload.ref) === msg.step,
+            )}
           />
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
-          <NoteProposalCard
-            payload={msg.noteProposal}
-            onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
-            onPickAi={() =>
-              msg.noteProposal!.ai &&
-              onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
-            }
-            onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
-          />
+          // Если в этом шаге уже есть stepPassport — карточка отрисована inline
+          // под исходной заметкой; отдельный пузырь не нужен.
+          hasStepPassport &&
+          (msg.noteProposal.ref.kind === "testDrive" ||
+            msg.noteProposal.ref.kind === "resultSummary" ||
+            msg.noteProposal.ref.kind === "resultVerdict") ? null : (
+            <NoteProposalCard
+              payload={msg.noteProposal}
+              onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
+              onPickAi={() =>
+                msg.noteProposal!.ai &&
+                onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
+              }
+              onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
+            />
+          )
         ) : (
           msg.text && (
             <>
