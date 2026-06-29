@@ -334,7 +334,7 @@ function TestDriveCategoryRow({
 
   useEffect(() => {
     let alive = true;
-    loadTagsFor("test_drive", TD_CAT_SECTION[catKey])
+    loadTagsFor("test_drive", null)
       .then((list) => {
         if (alive) setCatalogue(list);
       })
@@ -344,11 +344,13 @@ function TestDriveCategoryRow({
     return () => {
       alive = false;
     };
-  }, [catKey]);
+  }, []);
 
+  const section = TD_CAT_SECTION[catKey];
   const issueNames = new Set(
     (catalogue ?? [])
       .filter((t) => t.type === "serious" || t.type === "non_serious")
+      .filter((t) => !t.section || t.section === section)
       .map((t) => t.name.trim().toLowerCase()),
   );
   // Пока каталог не загружен — показываем все теги, чтобы не «мигало» пусто.
@@ -356,6 +358,7 @@ function TestDriveCategoryRow({
     catalogue === null
       ? rawTags
       : rawTags.filter((n) => issueNames.has(n.trim().toLowerCase()));
+
 
   return (
     <li className="min-w-0">
