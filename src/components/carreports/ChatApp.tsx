@@ -3416,10 +3416,14 @@ function MessageBubble({
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
           // Если в этом шаге уже есть stepPassport — карточка отрисована inline
           // под исходной заметкой; отдельный пузырь не нужен.
-          hasStepPassport &&
-          (msg.noteProposal.ref.kind === "testDrive" ||
-            msg.noteProposal.ref.kind === "resultSummary" ||
-            msg.noteProposal.ref.kind === "resultVerdict") ? null : (
+          (hasStepPassport &&
+            (msg.noteProposal.ref.kind === "testDrive" ||
+              msg.noteProposal.ref.kind === "resultSummary" ||
+              msg.noteProposal.ref.kind === "resultVerdict" ||
+              msg.noteProposal.ref.kind === "docs")) ||
+          // Inspection: переформулировка показывается inline в карточке
+          // элемента (ElementFocusCard), отдельный пузырь не нужен.
+          msg.noteProposal.ref.kind === "inspection" ? null : (
             <NoteProposalCard
               payload={msg.noteProposal}
               onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
@@ -3507,6 +3511,21 @@ function MessageBubble({
               onPickNoteAi={onElementFocusPickNoteAi}
               onDismissNoteProposal={onElementFocusDismissNoteProposal}
               aiUpdating={!!elementFocusNoteProposal?.loading}
+              chatNoteProposal={(() => {
+                const photo = inspectionDraft.photos[msg.photoIdx];
+                if (!photo) return undefined;
+                const sec = photo.section;
+                const elId =
+                  photo.elementId ??
+                  getSection(sec as SectionSnake)?.elements[0]?.id;
+                const found = stepNoteProposals?.find(
+                  (p) =>
+                    p.payload.ref.kind === "inspection" &&
+                    p.payload.ref.section === sec &&
+                    p.payload.ref.elementId === elId,
+                );
+                return found;
+              })()}
             />
           )}
         {msg.kind === "inspectionAttachAssign" && msg.pendingPhoto && (

@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSections";
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
-import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
+import type { InspectionStep, NoteProposalPayload, PendingTagName } from "@/lib/carreports/types";
 import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
+import { NoteProposalInline } from "./NoteProposalInline";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
@@ -58,6 +59,13 @@ export interface ElementFocusCardProps {
   onDismissNoteProposal?: () => void;
   /** ИИ сейчас анализирует заметку — подсвечиваем поля паспорта. */
   aiUpdating?: boolean;
+  /** Inline-предложение переформулировать заметку из чат-пайплайна. */
+  chatNoteProposal?: {
+    payload: NoteProposalPayload;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  };
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
@@ -76,6 +84,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onPickNoteAi,
     onDismissNoteProposal,
     aiUpdating,
+    chatNoteProposal,
   } = props;
 
   const photo = ins.photos[photoIdx];
@@ -459,6 +468,17 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
             <div className="text-[13.5px] leading-relaxed text-white/85 whitespace-pre-wrap">
               {finding.note}
             </div>
+            {chatNoteProposal &&
+              chatNoteProposal.payload.ref.kind === "inspection" &&
+              chatNoteProposal.payload.ref.section === sectionSnake &&
+              chatNoteProposal.payload.ref.elementId === elementId && (
+                <NoteProposalInline
+                  payload={chatNoteProposal.payload}
+                  onPickOriginal={chatNoteProposal.onPickOriginal}
+                  onPickAi={chatNoteProposal.onPickAi}
+                  onDismiss={chatNoteProposal.onDismiss}
+                />
+              )}
           </div>
         )}
       </div>
