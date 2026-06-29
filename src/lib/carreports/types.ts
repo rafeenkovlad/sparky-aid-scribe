@@ -232,6 +232,7 @@ export interface ChatMessage {
     | "passport"
     | "docsPassport"
     | "stepPassport"
+    | "noteProposal"
     | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
