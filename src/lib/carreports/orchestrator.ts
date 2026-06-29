@@ -81,6 +81,131 @@ export interface NotePatched {
   tagNames: string[];
 }
 
+/** Карты «русская подпись категории → ключ в testDriveStep». */
+const TD_TAG_CATEGORIES: Array<{ label: string; key:
+  | "testDriveEngineTags"
+  | "testDriveTransmissionTags"
+  | "testDriveSteeringWheelTags"
+  | "testDriveSuspensionInDriveTags"
+  | "testDriveBrakesInDriveTags";
+}> = [
+  { label: "Двигатель", key: "testDriveEngineTags" },
+  { label: "КПП", key: "testDriveTransmissionTags" },
+  { label: "Руль", key: "testDriveSteeringWheelTags" },
+  { label: "Подвеска", key: "testDriveSuspensionInDriveTags" },
+  { label: "Тормоза", key: "testDriveBrakesInDriveTags" },
+];
+
+/** Парсит шаблон правки тест-драйва и применяет diff: удалённые теги
+ *  пытается снести через Storage.RemoveUserTag, добавленные оставляет в
+ *  списке как строковые имена. Заметка заменяется целиком. */
+async function handleTestDriveEdit(
+  thread: Thread,
+  text: string,
+): Promise<{
+  patch: Partial<ReportDraft>;
+  reply: string;
+  chips?: ChatChip[];
+  notePatched?: NotePatched;
+}> {
+  const prev = thread.draft.testDriveStep ?? {};
+  const lines = text.split(/\r?\n/);
+
+  // Парсим заметку и категории. «Заметка:» может занимать несколько строк
+  // до первой категории.
+  let note = "";
+  const categoryLists = new Map<string, string[]>();
+  let mode: "none" | "note" = "none";
+  for (const ln of lines) {
+    const noteMatch = ln.match(/^\s*Заметка\s*:\s*(.*)$/i);
+    if (noteMatch) {
+      note = noteMatch[1] ?? "";
+      mode = "note";
+      continue;
+    }
+    const cat = TD_TAG_CATEGORIES.find((c) =>
+      new RegExp(`^\\s*${c.label}\\s*:\\s*(.*)$`, "i").test(ln),
+    );
+    if (cat) {
+      const m = ln.match(new RegExp(`^\\s*${cat.label}\\s*:\\s*(.*)$`, "i"));
+      const list = (m?.[1] ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      categoryLists.set(cat.key, list);
+      mode = "none";
+      continue;
+    }
+    if (mode === "note" && ln.trim()) {
+      note += (note ? "\n" : "") + ln.trim();
+    }
+  }
+
+  // Diff + side-effects (removeUserTag для удалённых числовых id).
+  const merged: Record<string, unknown> = { ...prev };
+  const removals: number[] = [];
+  for (const { key } of TD_TAG_CATEGORIES) {
+    const oldList = Array.isArray((prev as Record<string, unknown>)[key])
+      ? ((prev as Record<string, unknown>)[key] as unknown[])
+          .filter((x): x is string => typeof x === "string")
+      : [];
+    const newList = categoryLists.get(key) ?? oldList;
+    const oldSet = new Set(oldList.map((x) => x.trim()));
+    const newSet = new Set(newList.map((x) => x.trim()));
+    for (const removed of oldSet) {
+      if (!newSet.has(removed)) {
+        const asNum = Number(removed);
+        if (Number.isInteger(asNum) && asNum > 0) removals.push(asNum);
+      }
+    }
+    merged[key] = newList;
+  }
+  // Снимаем удалённые теги на сервере (best-effort, не блокируем UI).
+  if (removals.length) {
+    void (async () => {
+      const { removeUserTag } = await import("./inspectionTags");
+      for (const id of removals) {
+        try {
+          await removeUserTag(id);
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+  }
+
+  // Заметку заменяем целиком (это явная правка пользователем).
+  merged.testDriveNote = note;
+  merged.notes = note;
+  merged.testDriveIsIncluded =
+    typeof prev.testDriveIsIncluded === "boolean" ? prev.testDriveIsIncluded : true;
+  merged.notDone = merged.testDriveIsIncluded === false ? true : false;
+
+  const tdTagNames: string[] = [];
+  for (const { key } of TD_TAG_CATEGORIES) {
+    const v = merged[key];
+    if (Array.isArray(v)) for (const x of v) if (typeof x === "string") tdTagNames.push(x);
+  }
+  const prevNote = typeof prev.testDriveNote === "string" ? prev.testDriveNote : "";
+  const notePatched: NotePatched | undefined =
+    note && note.trim() && note !== prevNote
+      ? {
+          ref: { kind: "testDrive" },
+          scopeLabel: "Тест‑драйв",
+          originalText: note,
+          tagNames: tdTagNames,
+        }
+      : undefined;
+
+  const removedNote = removals.length ? ` Удалено тегов: ${removals.length}.` : "";
+  return {
+    patch: { testDriveStep: merged },
+    reply: `Правка тест‑драйва применена.${removedNote}`,
+    chips: testDriveChips(),
+    ...(notePatched ? { notePatched } : {}),
+  };
+}
+
 /** Run extraction for a step and return the patch + a short assistant reply. */
 export async function extractForStep(
   step: StepId,
