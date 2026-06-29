@@ -121,7 +121,14 @@ function StepBody({
     case "characteristics":
       return <CarChecklist draft={draft} onFillMissing={onEdit} />;
     case "docs":
-      return <DocsChecklist draft={draft} onEdit={onEdit} onAllMatch={onDocsAllMatch} />;
+      return (
+        <DocsChecklist
+          draft={draft}
+          onEdit={onEdit}
+          onAllMatch={onDocsAllMatch}
+          noteProposal={findProposal(noteProposals, (r) => r.kind === "docs")}
+        />
+      );
     case "inspection": {
       const ins = draft.inspectionStep;
       return (
