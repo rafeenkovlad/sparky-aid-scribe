@@ -15,8 +15,8 @@ export interface UserTag {
   type: string | null;
 }
 
-const cache = new Map<SectionSnake, UserTag[]>();
-const inflight = new Map<SectionSnake, Promise<UserTag[]>>();
+const cache = new Map<string, UserTag[]>();
+const inflight = new Map<string, Promise<UserTag[]>>();
 
 // При смене токена сбрасываем кэш и in-flight, иначе старый пустой список
 // (или список чужого пользователя) останется висеть до перезагрузки.
@@ -29,7 +29,7 @@ if (typeof window !== "undefined") {
 
 
 /**
- * Загрузить теги раздела.
+ * Загрузить теги раздела (по умолчанию шаг — inspection).
  * Если переданы `selectedTagIds`, сервер вернёт релевантно отсортированный
  * список (по co-occurrence), исключив уже выбранные. Такой запрос идёт
  * мимо кэша — каждый набор выбранных тегов даёт свою сортировку, и
@@ -39,20 +39,27 @@ export async function loadSectionTags(
   section: SectionSnake,
   selectedTagIds?: number[],
 ): Promise<UserTag[]> {
+  return loadTagsFor("inspection", section, selectedTagIds);
+}
+
+/** Универсальная загрузка тегов для произвольного step/section. */
+export async function loadTagsFor(
+  step: string,
+  section: string,
+  selectedTagIds?: number[],
+): Promise<UserTag[]> {
   const useSelected = !!(selectedTagIds && selectedTagIds.length > 0);
+  const cacheKey = `${step}:${section}`;
   if (!useSelected) {
-    const hit = cache.get(section);
+    const hit = cache.get(cacheKey);
     if (hit) return hit;
-    const running = inflight.get(section);
+    const running = inflight.get(cacheKey);
     if (running) return running;
   }
 
   const fetcher = (async () => {
     try {
-      const params: Record<string, unknown> = {
-        step: "inspection",
-        section,
-      };
+      const params: Record<string, unknown> = { step, section };
       if (useSelected) params.selectedTagIds = selectedTagIds;
       const r = await rpc<{ result?: UserTag[] } | UserTag[]>(
         "Storage.GetUserTags",
@@ -60,15 +67,16 @@ export async function loadSectionTags(
       );
       const list =
         ((r as { result?: UserTag[] }).result ?? (r as UserTag[])) || [];
-      if (!useSelected) cache.set(section, list);
+      if (!useSelected) cache.set(cacheKey, list);
       return list;
     } finally {
-      if (!useSelected) inflight.delete(section);
+      if (!useSelected) inflight.delete(cacheKey);
     }
   })();
-  if (!useSelected) inflight.set(section, fetcher);
+  if (!useSelected) inflight.set(cacheKey, fetcher);
   return fetcher;
 }
+
 
 function norm(s: string): string {
   return s
