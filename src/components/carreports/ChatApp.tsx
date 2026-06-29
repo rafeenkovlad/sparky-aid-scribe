@@ -1406,7 +1406,7 @@ export function ChatApp({ threadId }: Props) {
       const p = m.noteProposal;
       out.push({
         payload: p,
-        onPickOriginal: () => acceptChatNoteOriginal(p.ref),
+        onPickOriginal: () => acceptChatNoteOriginal(p.ref, p.original),
         onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
         onDismiss: () => dismissChatNoteProposal(p.ref),
       });
