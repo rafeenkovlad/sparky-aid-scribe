@@ -431,6 +431,14 @@ export async function extractForStep(
 
   // Test-drive: AI extracts per-system flags + tags + note.
   if (step === "testDrive") {
+    // Структурированный режим правки: пользователь нажал «Редактировать» в
+    // паспорте, в композере уже подставлены заметка и теги по 5 категориям.
+    // Парсим детерминированно, считаем diff, удалённые теги пытаемся снести
+    // через Storage.RemoveUserTag (если это id), новые — оставляем строками.
+    if (/^\s*Тест-драйв\s*\(правка\)\s*:/i.test(text)) {
+      return handleTestDriveEdit(thread, text);
+    }
+
     const prev = thread.draft.testDriveStep ?? {};
     try {
       const id = aiChatIdFor(thread, "extract:testDrive");
