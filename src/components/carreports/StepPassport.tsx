@@ -206,7 +206,7 @@ function StepBody({
               {onEdit && (
                 <button
                   type="button"
-                  onClick={() => onEdit("Тест-драйв: ")}
+                  onClick={() => onEdit(buildTestDriveEditTemplate(td))}
                   aria-label="Редактировать"
                   title="Редактировать"
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
@@ -264,4 +264,21 @@ function StepBody({
     default:
       return null;
   }
+}
+
+/** Префилл композера для правки тест‑драйва: заметка + теги по 5 категориям. */
+export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): string {
+  const t = td ?? {};
+  const note = (t.testDriveNote ?? t.notes ?? "").trim();
+  const join = (arr?: string[]) =>
+    Array.isArray(arr) ? arr.filter((x) => typeof x === "string" && x.trim()).join(", ") : "";
+  return [
+    "Тест-драйв (правка):",
+    `Заметка: ${note}`,
+    `Двигатель: ${join(t.testDriveEngineTags)}`,
+    `КПП: ${join(t.testDriveTransmissionTags)}`,
+    `Руль: ${join(t.testDriveSteeringWheelTags)}`,
+    `Подвеска: ${join(t.testDriveSuspensionInDriveTags)}`,
+    `Тормоза: ${join(t.testDriveBrakesInDriveTags)}`,
+  ].join("\n");
 }

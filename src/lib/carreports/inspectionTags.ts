@@ -144,3 +144,13 @@ export async function deleteUserTag(
     return false;
   }
 }
+
+/** Remove a user tag (Storage.RemoveUserTag). Returns true on success. */
+export async function removeUserTag(id: number): Promise<boolean> {
+  try {
+    await rpc("Storage.RemoveUserTag", { id });
+    return true;
+  } catch {
+    return false;
+  }
+}
