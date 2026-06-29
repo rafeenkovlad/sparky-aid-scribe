@@ -328,6 +328,9 @@ export async function extractForStep(
     // По свободному тексту эксперта пытаемся понять, к какому разделу/
     // элементу относится сообщение. Если смысла нет — отвечаем «не поняла»
     // и НЕ трогаем findings.
+    // Если пользователь вручную выбрал раздел/элемент (manualCursor=true) —
+    // роутер пропускаем, доверяем выбору пользователя.
+    if (!ins.manualCursor) {
     try {
       const routeId = aiChatIdFor(thread, "route:inspection");
       const routeRes = await chatCompletions({
