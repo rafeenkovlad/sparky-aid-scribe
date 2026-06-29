@@ -238,6 +238,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   const minorCount = nsIds.size + pending.filter((p) => p.severity !== "serious").length;
   const hasNote = !!finding?.note?.trim();
 
+  const remarksCount = seriousCount + minorCount;
   const passportRows: { label: string; filled: boolean; value?: string }[] = [
     { label: "Элемент", filled: true, value: elementLabel },
     {
@@ -246,14 +247,14 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       value: derivedVerdict !== null ? verdictLabel : undefined,
     },
     {
-      label: "Серьёзные",
-      filled: seriousCount > 0,
-      value: seriousCount > 0 ? String(seriousCount) : undefined,
-    },
-    {
-      label: "Мелкие",
-      filled: minorCount > 0,
-      value: minorCount > 0 ? String(minorCount) : undefined,
+      label: "Замечания",
+      filled: remarksCount > 0 || derivedVerdict === "ok",
+      value:
+        remarksCount > 0
+          ? String(remarksCount)
+          : derivedVerdict === "ok"
+            ? "нет"
+            : undefined,
     },
     {
       label: "Заметка",
@@ -261,6 +262,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       value: hasNote ? "есть" : undefined,
     },
   ];
+
   const filledCount = passportRows.filter((r) => r.filled).length;
   const allFilled = filledCount === passportRows.length;
 
