@@ -50,8 +50,8 @@ import {
 } from "@/lib/carreports/threadStore";
 import { FLOW_STEPS, isConfirmAdvance, stepById } from "@/lib/carreports/flow";
 import { STEP_INTROS } from "@/lib/carreports/stepChips";
-import type { ChatChip, ChatMessage, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
-import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote } from "@/lib/carreports/orchestrator";
+import type { ChatChip, ChatMessage, NotePatched, NoteRef, PendingTagName, StepId, Thread } from "@/lib/carreports/types";
+import { extractForStep, applyVinDecode, askQuestion, summarizeStepDraft, analyzeInspectionPhoto, analyzeInspectionNote, reformulateNote } from "@/lib/carreports/orchestrator";
 import { filledCount, isStepFilled, nextMissingPrompt, optionalHintSentence, remainingFieldLabels } from "@/lib/carreports/progress";
 
 import {
