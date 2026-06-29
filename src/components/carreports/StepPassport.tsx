@@ -426,7 +426,7 @@ function TestDriveTagPicker({
 }: {
   catKey: TestDriveTagCatKey;
   selectedNames: string[];
-  onAdd: (name: string) => void;
+  onAdd: (tag: UserTag) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState<UserTag[] | null>(null);
