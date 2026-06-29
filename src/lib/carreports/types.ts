@@ -115,6 +115,8 @@ export interface InspectionStep {
   currentSection?: string;
   /** id элемента активного раздела (например, "hood"). */
   currentElementId?: string;
+  /** true → пользователь сам выбрал раздел/элемент: AI-роутер не переопределяет цель. */
+  manualCursor?: boolean;
   /** legacy: id локальной «зоны». Сохраняем для миграции старых тредов. */
   currentZone?: string;
   /** structured findings, keyed by `${section}.${elementId}` */

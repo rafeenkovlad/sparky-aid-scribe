@@ -328,6 +328,9 @@ export async function extractForStep(
     // По свободному тексту эксперта пытаемся понять, к какому разделу/
     // элементу относится сообщение. Если смысла нет — отвечаем «не поняла»
     // и НЕ трогаем findings.
+    // Если пользователь вручную выбрал раздел/элемент (manualCursor=true) —
+    // роутер пропускаем, доверяем выбору пользователя.
+    if (!ins.manualCursor) {
     try {
       const routeId = aiChatIdFor(thread, "route:inspection");
       const routeRes = await chatCompletions({
@@ -451,6 +454,7 @@ export async function extractForStep(
     } catch {
       // если роутер упал — используем текущий раздел/элемент как раньше.
     }
+    }
 
     // Fetch tags catalogue for this section (cached); never throws.
     const tagCatalogue = await loadSectionTags(sectionSnake);
@@ -503,9 +507,11 @@ export async function extractForStep(
     const touchedElements: string[] = [];
 
     for (const f of aiFindings) {
-      const eid = typeof f.elementId === "string" && elementIds.has(f.elementId)
-        ? f.elementId
-        : elementId; // fallback to active element
+      const eid = ins.manualCursor
+        ? elementId
+        : typeof f.elementId === "string" && elementIds.has(f.elementId)
+          ? f.elementId
+          : elementId; // fallback to active element
       const key = findingKey(sectionSnake, eid);
       const base = nextFindings[key] ?? { section: sectionSnake, elementId: eid };
 
