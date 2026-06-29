@@ -1205,3 +1205,27 @@ function InspectionTagPickerRow({
     </div>
   );
 }
+
+/** Префилл композера для правки одного элемента осмотра. */
+export function buildElementEditTemplate(args: {
+  sectionLabel: string;
+  elementLabel: string;
+  verdictLabel: string | null;
+  serious: string[];
+  seriousPending: string[];
+  minor: string[];
+  minorPending: string[];
+  note: string;
+}): string {
+  const join = (xs: string[]) => xs.filter((x) => x && x.trim()).join(", ");
+  const serious = join([...args.serious, ...args.seriousPending]);
+  const minor = join([...args.minor, ...args.minorPending]);
+  return [
+    `Осмотр (правка) — ${args.sectionLabel} / ${args.elementLabel}:`,
+    `Состояние: ${args.verdictLabel ?? "—"}`,
+    `Серьёзные: ${serious || "—"}`,
+    `Мелкие: ${minor || "—"}`,
+    "",
+    `Заметка: ${args.note.trim()}`,
+  ].join("\n");
+}
