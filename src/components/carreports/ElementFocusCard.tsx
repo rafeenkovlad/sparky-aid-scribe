@@ -574,6 +574,9 @@ function ElementPickerRow({
   updating?: boolean;
   flashing?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const current = elements.find((e) => e.id === selectedId);
+  const others = elements.filter((e) => e.id !== selectedId);
   return (
     <li
       className={
@@ -588,20 +591,44 @@ function ElementPickerRow({
       )}
       <span className="shrink-0 text-white/55">Элемент</span>
       <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
-      <div className="relative inline-flex items-center min-w-0">
-        <select
-          value={selectedId}
-          onChange={(e) => onChange(e.target.value)}
-          className="appearance-none bg-transparent text-right text-white/85 text-[13px] pr-4 pl-1 py-0 outline-none cursor-pointer hover:text-white focus:text-white max-w-[180px] truncate"
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-right text-white/85 text-[13px] hover:text-white max-w-[200px]"
+            title="Сменить элемент"
+          >
+            <span className="truncate">{current?.label ?? "—"}</span>
+            <ChevronRight className="h-3 w-3 rotate-90 text-white/50 shrink-0" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={4}
+          className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
         >
-          {elements.map((el) => (
-            <option key={el.id} value={el.id} className="bg-zinc-900 text-white">
-              {el.label}
-            </option>
-          ))}
-        </select>
-        <ChevronRight className="h-3 w-3 absolute right-0 rotate-90 pointer-events-none text-white/50" />
-      </div>
+          {others.length === 0 ? (
+            <div className="px-2 py-1.5 text-[12px] text-white/50">Других элементов нет</div>
+          ) : (
+            <ul className="space-y-0.5">
+              {others.map((el) => (
+                <li key={el.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(el.id);
+                      setOpen(false);
+                    }}
+                    className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
+                  >
+                    <span className="flex-1 truncate">{el.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </PopoverContent>
+      </Popover>
     </li>
   );
 }
