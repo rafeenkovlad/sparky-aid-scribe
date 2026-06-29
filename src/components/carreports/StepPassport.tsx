@@ -1,11 +1,30 @@
-import { Check, ChevronRight, Pencil, ShieldCheck } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import { sectionProgress } from "@/lib/carreports/inspectionState";
+import { loadTagsFor, type UserTag } from "@/lib/carreports/inspectionTags";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist } from "./DocsChecklist";
 import { NoteProposalInline } from "./NoteProposalInline";
+
+type TestDriveTagCatKey =
+  | "testDriveEngineTags"
+  | "testDriveTransmissionTags"
+  | "testDriveSteeringWheelTags"
+  | "testDriveSuspensionInDriveTags"
+  | "testDriveBrakesInDriveTags";
+
+const TD_CAT_SECTION: Record<TestDriveTagCatKey, string> = {
+  testDriveEngineTags: "engine",
+  testDriveTransmissionTags: "transmission",
+  testDriveSteeringWheelTags: "steering_wheel",
+  testDriveSuspensionInDriveTags: "suspension_in_drive",
+  testDriveBrakesInDriveTags: "brakes_in_drive",
+};
+
 
 interface Props {
   step: StepId;
