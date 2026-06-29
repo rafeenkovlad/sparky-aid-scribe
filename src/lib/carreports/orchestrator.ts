@@ -57,6 +57,7 @@ import type {
   DocumentReconciliationStep,
   InspectionElementFinding,
   MessageAttachment,
+  NoteRef,
   PendingTagName,
   StepId,
   TestDriveStep,
@@ -69,6 +70,15 @@ function todayIso(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${dd}`;
+}
+
+/** Описание заметки, которую пользователь только что заполнил/обновил —
+ *  чтобы UI мог предложить переформулировку. */
+export interface NotePatched {
+  ref: NoteRef;
+  scopeLabel: string;
+  originalText: string;
+  tagNames: string[];
 }
 
 /** Run extraction for a step and return the patch + a short assistant reply. */
@@ -84,6 +94,7 @@ export async function extractForStep(
   reply: string;
   attachments?: MessageAttachment[];
   chips?: ChatChip[];
+  notePatched?: NotePatched;
 }> {
   // Inspection step: AI splits the dictated note into per-element findings,
   // resolves tag names against the server section catalogue, stores both the
