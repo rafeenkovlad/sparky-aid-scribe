@@ -258,6 +258,8 @@ export interface ChatMessage {
 
   /** статус задачи в очереди ИИ (для плейсхолдер-сообщений) */
   queueStatus?: "queued" | "running" | "error";
+  /** payload for kind=noteProposal — reformulation card state */
+  noteProposal?: NoteProposalPayload;
   createdAt: number;
 
 }
