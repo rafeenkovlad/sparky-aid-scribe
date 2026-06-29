@@ -2022,7 +2022,9 @@ export function ChatApp({ threadId }: Props) {
       t.stepIndex = idx;
       if (!changed) return;
       if (isStepFilled(step, t.draft)) {
-        pushMsg(t, step, makeStepPassportMessage(step));
+        if (!isLastMessagePassport(t)) {
+          pushMsg(t, step, makeStepPassportMessage(step));
+        }
       } else {
         pushMsg(t, step, makeIntroMessage(step));
         const ask = nextMissingPrompt(step, t.draft);
