@@ -1,97 +1,69 @@
-## Проблема
+## Диагностика: почему PWA «не работает»
 
-Сейчас каждое прикреплённое фото живёт в приложении тремя «копиями»:
+Инфраструктура PWA уже частично есть:
+- `vite-plugin-pwa` подключён в `vite.config.ts` (`registerType: "autoUpdate"`, `filename: "sw.js"`).
+- `public/manifest.webmanifest` валиден, иконки 192/512 на месте.
+- `src/lib/pwa/register-sw.ts` через `workbox-window` подписан на событие `waiting`.
+- В `src/routes/__root.tsx` уже показывается `toast` с кнопкой «Обновить».
 
-1. полный JPEG-blob в `PreparedPhoto.blob` (≤ 2 МБ);
-2. **полный base64 `dataUrl`** (тот же blob, но +33% размера) — кладётся в `pendingAttachments`, в `thread.draft.inspectionStep.photos[].dataUrl`, в `ChatMessage.pendingPhoto.dataUrl`, в `LegalReviewMaterial.dataUrl` и в `<img src={a.dataUrl}>`;
-3. этот же `dataUrl` сериализуется через `JSON.stringify(thread)` в `localStorage` (`threadStore`), раздувая квоту и нагружая основной поток на каждое сохранение.
+Почему пользователь не видит работу:
+1. `registerServiceWorker` намеренно отказывается регистрировать SW в dev и на **preview-доменах** (`id-preview--*.lovable.app`, `lovableproject.com` и т.п.). Это правильное поведение для Lovable, но пользователь тестирует именно preview → SW никогда не активируется → апдейт-тост не появляется.
+2. Опубликованная версия (`muse-machine-x.lovable.app`) технически должна работать, но нет ручного способа проверить апдейт-флоу: при первой установке `waiting` не срабатывает, нужен второй деплой.
+3. Нет «установить как приложение» промпта и индикации, что SW активен.
 
-Из-за этого RAM-нагрузка растёт линейно от количества фото, а `localStorage` рискует упереться в лимит (~5 МБ) после 3–5 снимков.
+## План пошагового внедрения
 
-## Решение
+### Шаг 1. Документировать ограничение preview
+- В `register-sw.ts` оставить отказ для preview как есть (нельзя нарушать правила Lovable PWA).
+- В UI (toast или Settings) показывать статус: «PWA доступно только в опубликованной версии».
 
-Вынести байты фото в отдельный **IndexedDB-кеш** (`photo-blob-cache`), а в состоянии треда и в `localStorage` хранить только лёгкую ссылку (`photoId` + метаданные + опциональный `remoteUrl`). Превью в UI создаётся `URL.createObjectURL(blob)` лениво и освобождается при размонтировании.
+### Шаг 2. Корректный апдейт-флоу с кнопкой «Обновить»
+Текущий код почти работает, но есть две проблемы:
+- `wb.addEventListener("waiting", …)` срабатывает только при наличии уже контролирующего SW (т.е. со **второго** деплоя). Для первой установки добавить обработку `installed` с `isUpdate=true` как страховку.
+- После клика «Обновить» — ждать `controllerchange`, затем `window.location.reload()` (уже сделано, оставить).
+- Гарантировать, что toast не дублируется (флаг `updatePromptShown`).
 
-### Архитектура
+### Шаг 3. Периодическая проверка обновлений
+Сейчас новая версия SW обнаруживается только при перезагрузке вкладки. Добавить:
+- `wb.update()` на `visibilitychange` (когда вкладка снова в фокусе).
+- `setInterval(() => wb.update(), 60 * 60 * 1000)` — раз в час для долгих сессий.
 
-```text
-                  ┌────────────────────────┐
-add file ─────►   │   preparePhoto()       │
-                  │  blob + thumbBlob      │
-                  └──────────┬─────────────┘
-                             ▼
-                  ┌────────────────────────┐
-                  │ photoCache.put(id,…)   │  IndexedDB store:
-                  │   { full, thumb }      │   key = photoId (uuid)
-                  └──────────┬─────────────┘   value = { fullBlob, thumbBlob,
-                             ▼                            filename, mime, size }
-                  ┌────────────────────────┐
-state / LS  ◄──── │ PhotoRef               │
-                  │  { photoId, filename,  │
-                  │    mime, size,         │
-                  │    remoteUrl?, key?,   │
-                  │    remoteExpiresAt? }  │
-                  └──────────┬─────────────┘
-                             ▼
-                  ┌────────────────────────┐
-render <img> ◄─── │ usePhotoObjectUrl(id)  │  читает thumb из IDB → blob: URL
-                  └────────────────────────┘
-```
+### Шаг 4. Расширить precache для офлайн-старта
+Сейчас `navigateFallback: null` — навигации всегда идут в сеть, офлайн открыть приложение нельзя. Варианты:
+- (рекомендуется) оставить network-first для HTML, но добавить fallback на закешированный `index.html` через `NetworkFirst` для навигаций, чтобы при потере сети показывалось приложение, а не ошибка браузера.
+- Прекешировать шрифты и SVG-иконки (уже в `globPatterns`).
 
-### Что меняем
+### Шаг 5. Кнопка «Установить приложение»
+- Слушать `beforeinstallprompt`, сохранять event, показывать кнопку «Установить» в шапке/настройках.
+- На iOS промпта нет — показывать инструкцию «Поделиться → На экран Домой».
 
-1. **Новый модуль `src/lib/carreports/photoCache.ts`**
-   - `openDB()` — обёртка над `indexedDB` (один store `photos`, ключ — `photoId`).
-   - `putPhoto(id, { fullBlob, thumbBlob, filename, mimeType, size })`.
-   - `getThumb(id)` / `getFull(id)` — возвращают `Blob | null`.
-   - `deletePhoto(id)` / `deleteMany(ids)` — для GC.
-   - `listIds()` — для очистки сирот при старте.
+### Шаг 6. Индикация статуса
+В Settings/Profile показать:
+- «Установлено как PWA» (через `window.matchMedia('(display-mode: standalone)')`).
+- «Офлайн-режим активен» (через `navigator.onLine` + слушатели `online`/`offline`).
 
-2. **Хук `src/hooks/usePhotoObjectUrl.ts`**
-   - принимает `photoId` (или `null`), достаёт thumb-blob из IDB, отдаёт `objectUrl: string | null`;
-   - на размонтировании / смене id вызывает `URL.revokeObjectURL`, чтобы blob-URL не текли.
+### Шаг 7. Проверка
+1. Опубликовать (`muse-machine-x.lovable.app`).
+2. Открыть в Chrome desktop → DevTools → Application → Service Workers → убедиться, что `sw.js` активен.
+3. Установить приложение через адресную строку.
+4. Сделать косметическое изменение, переопубликовать.
+5. Открыть установленное приложение → должен появиться тост «Доступна новая версия» с кнопкой «Обновить».
+6. На iPhone: Safari → Поделиться → На экран Домой → запустить, проверить standalone-режим.
 
-3. **`src/lib/carreports/photo.ts`**
-   - `preparePhoto` дополнительно генерирует thumb-blob (≤ 256 px) и возвращает оба blob'а; `dataUrl` больше не считаем.
-   - Добавляем `storePreparedPhoto(prepared)` — кладёт оба blob'а в IDB и возвращает `PhotoRef { photoId, filename, mimeType, size }`.
-   - `ensurePhotoAccessible` берёт байты не из `dataUrl`, а из `photoCache.getFull(photoId)`; сохраняет полученный `remoteUrl` обратно в ref (через колбэк, чтобы вызывающий мог сохранить в thread).
+## Технические детали изменений
 
-4. **Типы (`src/lib/carreports/types.ts`)**
-   - `InspectionPhoto`: убрать `dataUrl?`, добавить `photoId: string`, оставить `url?`, `remote?`, `addedAt?`. Поле `dataUrl?` помечаем `@deprecated` и оставляем оптично для миграции старых драфтов.
-   - То же для `LegalReviewMaterial` (для картинок) и для `ChatMessage.pendingPhoto`.
-   - `pendingAttachments` в `ChatApp` переезжает на `{ photoId, filename, mimeType, size }`.
+| Файл | Изменение |
+|---|---|
+| `src/lib/pwa/register-sw.ts` | Добавить `installed`-страховку, `wb.update()` на `visibilitychange` + интервал, экспортировать `isPWAEnvironment()` |
+| `src/routes/__root.tsx` | Защита от дубля тоста, дополнительный toast «PWA активно только в опубликованной версии» убрать (не нужно), оставить как есть |
+| `vite.config.ts` | (опционально) `navigateFallback: '/index.html'` + `navigateFallbackDenylist` для `/api/` и `/~oauth` |
+| `src/hooks/usePWAInstall.ts` (новый) | Хук для `beforeinstallprompt` + detect iOS + standalone |
+| `src/components/PWAInstallButton.tsx` (новый) | Кнопка установки, прячется если уже установлено |
 
-5. **Миграция старых тредов (`src/lib/carreports/threadStore.ts`)**
-   - В нормализаторе при загрузке из `localStorage`: для каждого фото с устаревшим `dataUrl` без `photoId` — конвертируем `dataUrl → Blob`, сохраняем в IDB, проставляем `photoId`, удаляем `dataUrl`. После миграции сохраняем тред обратно — `localStorage` сразу худеет.
-   - Опционально (если миграция тяжёлая) — делаем её ленивой при первом обращении к фото.
+## Что НЕ делаем
 
-6. **`ChatApp.tsx`**
-   - Все `<img src={a.dataUrl}>` / `<img src={photoFocus.dataUrl}>` / `<img src={photo.dataUrl}>` заменяем на `<PhotoThumb photoId={a.photoId} />` (тонкий обёрточный компонент над `usePhotoObjectUrl`).
-   - `addAttachment` сохраняет blob'ы в IDB и кладёт в state только ref. Дальнейшие места, где раньше передавался `dataUrl` (`uploadTemporary`, отправка сообщений, `pendingPhoto`), берут blob из IDB через `getFull(photoId)`.
-   - Удаление фото/треда вызывает `photoCache.deletePhoto(id)`.
+- Не регистрируем SW в preview (ломает гайдлайны Lovable).
+- Не пишем свой `public/sw.js` — генерируется `vite-plugin-pwa`.
+- Не включаем `skipWaiting`/`clientsClaim` в workbox — иначе новая версия применится без согласия пользователя и кнопка «Обновить» потеряет смысл.
 
-7. **`InspectionCollage.tsx`** — `photo.dataUrl` заменяется на ленивый `objectUrl` из хука; при отсутствии превью показываем существующий fallback «нет превью».
-
-8. **GC «сирот»**
-   - На старте `ChatApp` собираем все `photoId` из всех тредов, сравниваем с `photoCache.listIds()` и удаляем лишние записи (например, после удаления треда в другой вкладке).
-
-### Что НЕ трогаем
-
-- Серверную часть, presigned-URL, `uploadTemporary`, `cr-proxy`, оркестратор — формат отправки в AI не меняется (он и так использует `url`, а не `dataUrl`).
-- Существующий компрессор изображений (`preparePhoto`) — только расширяем результатом.
-- Логику истечения presigned-URL — `ensurePhotoAccessible` остаётся, источник blob меняется с `dataUrl` на IDB.
-
-### Результат
-
-- RAM-footprint фото в JS-heap ≈ только активно отрисованные thumbnail blob URLs (десятки КБ × видимые ячейки коллажа).
-- `localStorage` хранит компактный JSON со ссылками — десятки байт на фото вместо ~1.5–3 МБ base64.
-- При деплое нового SW и перезагрузке вкладки фото остаются в IndexedDB и доступны офлайн как раньше.
-- Старые треды мигрируют автоматически при первой загрузке.
-
-### Технические детали
-
-- **IndexedDB store name**: `carreports` / object store `photos`, key `photoId` (uuid v4 из `crypto.randomUUID()`).
-- **Thumb size**: 256 px long edge, JPEG q=0.7 — это ~10–30 КБ против ~150 КБ полного.
-- **Object URL revoke**: `useEffect`-cleanup в `usePhotoObjectUrl`, плюс единая `revokeAll()` на `beforeunload`.
-- **SSR safety**: модуль `photoCache` лениво `await import` в браузерных коллбэках, на сервере не используется.
-- **Fallback**: если `indexedDB` недоступен (приватный режим Safari старых версий) — деградируем до in-memory `Map<photoId, Blob>` без `localStorage`-персистентности.
+Подтвердите план — реализую шаги 1–4 (ядро апдейт-флоу) сразу, шаги 5–6 (установка/статус) можно отдельным проходом, если нужны.

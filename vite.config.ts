@@ -24,9 +24,10 @@ export default defineConfig({
         manifest: false,
         devOptions: { enabled: false },
         workbox: {
-          // Never serve HTML from cache — always go to network. This avoids
-          // showing a stale page after deploy. No offline app shell.
-          navigateFallback: null,
+          // HTML navigations are handled via NetworkFirst below so the app
+          // can still open offline once it's been visited at least once.
+          navigateFallback: "/index.html",
+          navigateFallbackDenylist: [/^\/api\//, /^\/~oauth/],
           navigationPreload: true,
           cleanupOutdatedCaches: true,
           // Do NOT skipWaiting/clientsClaim: keep the new SW in "waiting" so
@@ -44,6 +45,19 @@ export default defineConfig({
               options: {
                 cacheName: "static-assets-v1",
                 expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              },
+            },
+            {
+              // HTML navigations: try network first, fall back to cached shell.
+              urlPattern: ({ request, url }) =>
+                request.mode === "navigate" &&
+                !url.pathname.startsWith("/api/") &&
+                !url.pathname.startsWith("/~oauth"),
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "html-shell-v1",
+                networkTimeoutSeconds: 5,
+                expiration: { maxEntries: 10 },
               },
             },
           ],
