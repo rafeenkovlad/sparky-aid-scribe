@@ -1354,6 +1354,38 @@ export async function analyzeInspectionPhoto(
 }
 
 /**
+ * Переформулировать произвольную заметку (любой шаг). Возвращает новый текст
+ * или null, если AI вернул пустоту/ошибку. Учитывает зафиксированные теги:
+ * AI не должен дублировать их словами.
+ */
+export async function reformulateNote(
+  thread: Thread,
+  ref: NoteRef,
+  stepLabel: string,
+  scopeLabel: string,
+  tagNames: string[],
+  originalText: string,
+): Promise<string | null> {
+  if (!originalText || !originalText.trim()) return null;
+  try {
+    const { CLICHE_REFORMULATE_NOTE } = await import("./cliche");
+    const key =
+      ref.kind === "inspection"
+        ? `${ref.kind}:${ref.section}:${ref.elementId}`
+        : ref.kind;
+    const id = aiChatIdFor(thread, `reformulate:${key}`);
+    const cliche = CLICHE_REFORMULATE_NOTE(stepLabel, scopeLabel, tagNames, originalText);
+    const res = await chatCompletions({ id, text: originalText, cliche, model: "gpt-5.4" });
+    const raw = parseJsonResponse<{ note?: string }>(res.content) ?? {};
+    const out = typeof raw.note === "string" ? raw.note.trim() : "";
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
+
+/**
  * Обработать текст заметки без фото: подобрать теги (из каталога или
  * новые pending), определить серьёзность, переформулировать.
  */
