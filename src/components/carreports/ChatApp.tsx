@@ -525,6 +525,7 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.currentSection = snake;
         const sec = INSPECTION_SECTIONS.find((s) => s.snake === snake);
         t.draft.inspectionStep.currentElementId = sec?.elements[0].id;
+        t.draft.inspectionStep.manualCursor = true;
         t.draft.inspectionStep.touched = true;
       });
       ensureSectionMessages(snake);
@@ -540,6 +541,7 @@ export function ChatApp({ threadId }: Props) {
       if (!thread) return;
       updateThread(thread.id, (t) => {
         t.draft.inspectionStep.currentElementId = elementId;
+        t.draft.inspectionStep.manualCursor = true;
       });
       textareaRef.current?.focus();
     },
