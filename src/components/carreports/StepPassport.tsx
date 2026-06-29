@@ -454,18 +454,17 @@ function TestDriveTagPicker({
   // пользователь добавил/убрал тег.
   const selectedKey = selectedTagIds.slice().sort((a, b) => a - b).join(",");
 
-  // Сбрасываем кэшированный список при изменении набора выбранных,
-  // чтобы следующий открытый дропдаун подтянул релевантный ответ сервера.
+  // Перезагружаем список каждый раз, когда:
+  //  - popover открывается;
+  //  - меняется набор выбранных тегов (после клика — selectedKey).
+  // Сервер вернёт релевантный список с учётом selectedTagIds.
   useEffect(() => {
-    setTags(null);
-  }, [selectedKey]);
-
-  useEffect(() => {
-    if (!open || tags !== null) return;
+    if (!open) return;
     let alive = true;
     setLoading(true);
     setError(null);
-    const ids = selectedKey ? selectedKey.split(",").map(Number) : [];
+    setTags(null);
+    const ids = selectedKey ? selectedKey.split(",").map(Number).filter((n) => Number.isFinite(n) && n > 0) : [];
     loadTagsFor("test_drive", null, ids)
       .then((list) => {
         if (alive) setTags(list);
@@ -479,7 +478,8 @@ function TestDriveTagPicker({
     return () => {
       alive = false;
     };
-  }, [open, tags, selectedKey]);
+  }, [open, selectedKey]);
+
 
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
   // Только теги, описывающие неполадку: type = serious / non_serious.
