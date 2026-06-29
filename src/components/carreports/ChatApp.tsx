@@ -3202,6 +3202,15 @@ interface BubbleProps {
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  onTestDriveAddTag?: (
+    catKey:
+      | "testDriveEngineTags"
+      | "testDriveTransmissionTags"
+      | "testDriveSteeringWheelTags"
+      | "testDriveSuspensionInDriveTags"
+      | "testDriveBrakesInDriveTags",
+    name: string,
+  ) => void;
   onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
