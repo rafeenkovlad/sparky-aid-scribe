@@ -381,6 +381,37 @@ export async function extractForStep(
       ? "\n\n* — теги добавятся локально и поедут при отправке как pendingTagNames."
       : "";
 
+    // ─── Если у какого‑то затронутого элемента появилась/обновилась
+    //     текстовая заметка — пробрасываем notePatched, чтобы UI предложил
+    //     переформулировку. Берём первый такой элемент.
+    let notePatched: NotePatched | undefined;
+    for (const eid of touchedElements) {
+      const key = findingKey(sectionSnake, eid);
+      const before = prevFindings[key]?.note ?? "";
+      const after = nextFindings[key]?.note ?? "";
+      if (after && after.trim() && after !== before) {
+        const el = section.elements.find((x) => x.id === eid);
+        const f = nextFindings[key];
+        const names: string[] = [];
+        for (const id of f?.seriousDamageTagIds ?? []) {
+          const n = idToName.get(id);
+          if (n) names.push(n);
+        }
+        for (const id of f?.noSeriousDamageTagIds ?? []) {
+          const n = idToName.get(id);
+          if (n) names.push(n);
+        }
+        for (const p of f?.pendingTagNames ?? []) names.push(p.name);
+        notePatched = {
+          ref: { kind: "inspection", section: sectionSnake, elementId: eid },
+          scopeLabel: `Осмотр · ${section.label}${el ? " · " + el.label : ""}`,
+          originalText: after,
+          tagNames: names,
+        };
+        break;
+      }
+    }
+
     return {
       patch: {
         inspectionStep: {
@@ -392,6 +423,7 @@ export async function extractForStep(
         },
       },
       reply: head + tail,
+      ...(notePatched ? { notePatched } : {}),
     };
   }
 
