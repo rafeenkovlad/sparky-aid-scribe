@@ -2500,9 +2500,10 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
-            onTestDriveAddTag={(catKey, name) => {
-              const n = name.trim();
-              if (!n) return;
+            onTestDriveAddTag={(catKey, tag) => {
+              if (!tag || typeof tag.id !== "number") return;
+              const idStr = String(tag.id);
+              const nameKey = tag.name.trim().toLowerCase();
               updateThread(thread.id, (t) => {
                 const td = { ...(t.draft.testDriveStep ?? {}) } as Record<string, unknown>;
                 const prev = Array.isArray(td[catKey])
@@ -2510,13 +2511,23 @@ export function ChatApp({ threadId }: Props) {
                       (x): x is string => typeof x === "string",
                     )
                   : [];
-                const has = prev.some(
-                  (x) => x.trim().toLowerCase() === n.toLowerCase(),
-                );
-                if (!has) td[catKey] = [...prev, n];
+                const has = prev.some((x) => {
+                  const s = x.trim();
+                  return s === idStr || s.toLowerCase() === nameKey;
+                });
+                if (!has) td[catKey] = [...prev, idStr];
+                // Запоминаем тип, чтобы при сохранении не отправить null.
+                const types = {
+                  ...((td.testDriveTagTypes as Record<string, "serious" | "non_serious">) ?? {}),
+                };
+                if (tag.type === "serious" || tag.type === "non_serious") {
+                  types[nameKey] = tag.type;
+                }
+                td.testDriveTagTypes = types;
                 t.draft.testDriveStep = td as typeof t.draft.testDriveStep;
               });
             }}
+
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
