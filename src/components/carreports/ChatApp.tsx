@@ -2123,7 +2123,7 @@ export function ChatApp({ threadId }: Props) {
             });
           });
         };
-        const { patch, reply, attachments, chips } = await extractForStep(stepForTask, textForAI || combined, fresh, { onClarify });
+        const { patch, reply, attachments, chips, notePatched } = await extractForStep(stepForTask, textForAI || combined, fresh, { onClarify });
         updateThread(threadIdLocal, (t) => {
           Object.assign(t.draft, patch);
           if (reply) {
