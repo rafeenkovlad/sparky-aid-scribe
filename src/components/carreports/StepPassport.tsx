@@ -34,7 +34,7 @@ interface Props {
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
   /** Добавить тег (по имени) в указанную категорию тест-драйва. */
-  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
   noteProposals?: Array<{
     payload: NoteProposalPayload;
@@ -112,7 +112,7 @@ function StepBody({
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
-  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   noteProposals?: Props["noteProposals"];
 
 }) {
@@ -331,7 +331,7 @@ function TestDriveCategoryRow({
   rawTags: string[];
   catKey: TestDriveTagCatKey;
   tagTypes: Record<string, "serious" | "non_serious">;
-  onAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+  onAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
 }) {
   const [catalogue, setCatalogue] = useState<UserTag[] | null>(null);
   useEffect(() => {
@@ -407,7 +407,7 @@ function TestDriveCategoryRow({
             <TestDriveTagPicker
               catKey={catKey}
               selectedNames={visibleTags}
-              onAdd={(name) => onAddTag(catKey, name)}
+              onAdd={(tag) => onAddTag(catKey, tag)}
             />
           )}
         </div>
