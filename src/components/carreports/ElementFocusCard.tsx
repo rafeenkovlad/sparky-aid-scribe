@@ -67,6 +67,8 @@ export interface ElementFocusCardProps {
     onPickAi: () => void;
     onDismiss: () => void;
   };
+  /** Открыть редактор: префилл композера шаблоном правки этого элемента. */
+  onEdit?: (template: string) => void;
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
@@ -86,7 +88,9 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onDismissNoteProposal,
     aiUpdating,
     chatNoteProposal,
+    onEdit,
   } = props;
+
 
   const photo = ins.photos[photoIdx];
   const sectionSnake = (photo?.section ?? "body") as SectionSnake;
