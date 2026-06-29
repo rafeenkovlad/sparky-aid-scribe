@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Pencil,
   Plus,
   Sparkles,
   Trash2,
@@ -67,6 +68,8 @@ export interface ElementFocusCardProps {
     onPickAi: () => void;
     onDismiss: () => void;
   };
+  /** Открыть редактор: префилл композера шаблоном правки этого элемента. */
+  onEdit?: (template: string) => void;
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
@@ -86,7 +89,9 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onDismissNoteProposal,
     aiUpdating,
     chatNoteProposal,
+    onEdit,
   } = props;
+
 
   const photo = ins.photos[photoIdx];
   const sectionSnake = (photo?.section ?? "body") as SectionSnake;
@@ -283,19 +288,48 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 overflow-hidden">
       {/* Паспорт-стайл шапка */}
       <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.06]">
-        <div className="flex items-baseline justify-between mb-0.5">
-          <span className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5">
-            Паспорт элемента
-            {aiUpdating && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                ИИ обновляет…
-              </span>
-            )}
-          </span>
+        <div className="flex items-baseline justify-between mb-0.5 gap-2">
+          {onEdit ? (
+            <button
+              type="button"
+              onClick={() =>
+                onEdit(buildElementEditTemplate({
+                  sectionLabel: section?.label ?? sectionSnake,
+                  elementLabel,
+                  verdictLabel: derivedVerdict !== null ? verdictLabel : null,
+                  serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
+                  seriousPending: pending.filter((p) => p.severity === "serious").map((p) => p.name),
+                  minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
+                  minorPending: pending.filter((p) => p.severity !== "serious").map((p) => p.name),
+                  note: finding?.note ?? "",
+                }))
+              }
+              className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5 hover:text-white transition-colors"
+              title="Открыть редактор в композере"
+            >
+              Паспорт элемента
+              <Pencil className="h-3 w-3 text-white/40" />
+              {aiUpdating && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  ИИ обновляет…
+                </span>
+              )}
+            </button>
+          ) : (
+            <span className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5">
+              Паспорт элемента
+              {aiUpdating && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  ИИ обновляет…
+                </span>
+              )}
+            </span>
+          )}
           <span
             className={
-              "text-[11px] tabular-nums " +
+              "text-[11px] tabular-nums shrink-0 " +
               (allFilled ? "text-emerald-400/80" : "text-white/40")
             }
           >
@@ -322,6 +356,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           )}
         </div>
       </div>
+
 
       {/* Hero-фото умеренной высоты, чтобы карточка вписывалась в ленту чата */}
       <div className="relative select-none bg-black/40">
@@ -1169,4 +1204,28 @@ function InspectionTagPickerRow({
       </div>
     </div>
   );
+}
+
+/** Префилл композера для правки одного элемента осмотра. */
+export function buildElementEditTemplate(args: {
+  sectionLabel: string;
+  elementLabel: string;
+  verdictLabel: string | null;
+  serious: string[];
+  seriousPending: string[];
+  minor: string[];
+  minorPending: string[];
+  note: string;
+}): string {
+  const join = (xs: string[]) => xs.filter((x) => x && x.trim()).join(", ");
+  const serious = join([...args.serious, ...args.seriousPending]);
+  const minor = join([...args.minor, ...args.minorPending]);
+  return [
+    `Осмотр (правка) — ${args.sectionLabel} / ${args.elementLabel}:`,
+    `Состояние: ${args.verdictLabel ?? "—"}`,
+    `Серьёзные: ${serious || "—"}`,
+    `Мелкие: ${minor || "—"}`,
+    "",
+    `Заметка: ${args.note.trim()}`,
+  ].join("\n");
 }
