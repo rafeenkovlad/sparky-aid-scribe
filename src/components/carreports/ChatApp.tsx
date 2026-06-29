@@ -327,6 +327,7 @@ export function ChatApp({ threadId }: Props) {
 
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const askToggledByPointerRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const voiceBaseRef = useRef<string>("");
@@ -2477,7 +2478,21 @@ export function ChatApp({ threadId }: Props) {
           </button>
         )}
         <button
+          type="button"
+          onPointerDown={(e) => {
+            // Prevent textarea blur / mobile keyboard collapse so the toggle
+            // fires on the first tap regardless of current focus.
+            e.preventDefault();
+            askToggledByPointerRef.current = true;
+            setAskMode((v) => !v);
+            textareaRef.current?.focus();
+          }}
           onClick={() => {
+            // Keyboard activation (Enter/Space) fires click without pointerdown.
+            if (askToggledByPointerRef.current) {
+              askToggledByPointerRef.current = false;
+              return;
+            }
             setAskMode((v) => !v);
             textareaRef.current?.focus();
           }}
