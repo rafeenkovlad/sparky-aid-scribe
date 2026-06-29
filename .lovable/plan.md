@@ -1,69 +1,51 @@
-## Диагностика: почему PWA «не работает»
+# План: «паспорт заполненности» при возврате в заполненный шаг
 
-Инфраструктура PWA уже частично есть:
-- `vite-plugin-pwa` подключён в `vite.config.ts` (`registerType: "autoUpdate"`, `filename: "sw.js"`).
-- `public/manifest.webmanifest` валиден, иконки 192/512 на месте.
-- `src/lib/pwa/register-sw.ts` через `workbox-window` подписан на событие `waiting`.
-- В `src/routes/__root.tsx` уже показывается `toast` с кнопкой «Обновить».
+## Цель
+При входе в любой шаг (через `advanceStep` или `jumpTo`), если шаг **уже был заполнен ранее** (`isStepFilled(step, draft) === true`), вместо обычного intro-сообщения + «➡️ ask» показывать карточку-паспорт с тем, что уже введено, и кнопкой действия («Изменить» / «Всё верно, далее»).
 
-Почему пользователь не видит работу:
-1. `registerServiceWorker` намеренно отказывается регистрировать SW в dev и на **preview-доменах** (`id-preview--*.lovable.app`, `lovableproject.com` и т.п.). Это правильное поведение для Lovable, но пользователь тестирует именно preview → SW никогда не активируется → апдейт-тост не появляется.
-2. Опубликованная версия (`muse-machine-x.lovable.app`) технически должна работать, но нет ручного способа проверить апдейт-флоу: при первой установке `waiting` не срабатывает, нужен второй деплой.
-3. Нет «установить как приложение» промпта и индикации, что SW активен.
+Сейчас такой паспорт есть только для `car` (`CarChecklist`, `msg.kind === "passport"`) и `docs` (`DocsChecklist`, `msg.kind === "docsPassport"`). Распространить логику на остальные шаги.
 
-## План пошагового внедрения
+## Шаги
 
-### Шаг 1. Документировать ограничение preview
-- В `register-sw.ts` оставить отказ для preview как есть (нельзя нарушать правила Lovable PWA).
-- В UI (toast или Settings) показывать статус: «PWA доступно только в опубликованной версии».
+### 1. Универсальный компонент паспорта
+Создать `src/components/carreports/StepPassport.tsx` — единый рендер «паспорта» для произвольного шага:
+- принимает `step: StepId`, `draft: ReportDraft`, `onEdit`, `onConfirm`;
+- внутри переключается на специализированный рендер:
+  - `car` → существующий `CarChecklist`
+  - `docs` → существующий `DocsChecklist`
+  - `inspection` → краткая сводка по `INSPECTION_SECTIONS` (счётчики `sectionProgress` + кол-во фото), кнопка «Открыть осмотр»
+  - `legalMaterials` → список файлов (имена + размер) из `legalReviewStep.otherMaterials`
+  - `testDrive` → `notDone` / заметки + флаги (двигатель/КПП/руль/подвеска/тормоза)
+  - `result` → `summaryInspectionNote` + `resultSpecialistNote`
+- общий каркас: заголовок «Уже заполнено», кнопки «Изменить» и «Всё верно, далее».
 
-### Шаг 2. Корректный апдейт-флоу с кнопкой «Обновить»
-Текущий код почти работает, но есть две проблемы:
-- `wb.addEventListener("waiting", …)` срабатывает только при наличии уже контролирующего SW (т.е. со **второго** деплоя). Для первой установки добавить обработку `installed` с `isUpdate=true` как страховку.
-- После клика «Обновить» — ждать `controllerchange`, затем `window.location.reload()` (уже сделано, оставить).
-- Гарантировать, что toast не дублируется (флаг `updatePromptShown`).
+### 2. Новый тип сообщения
+В `src/lib/carreports/types.ts` добавить `kind: "stepPassport"` к `ChatMessage` (поле `step` уже есть).
 
-### Шаг 3. Периодическая проверка обновлений
-Сейчас новая версия SW обнаруживается только при перезагрузке вкладки. Добавить:
-- `wb.update()` на `visibilitychange` (когда вкладка снова в фокусе).
-- `setInterval(() => wb.update(), 60 * 60 * 1000)` — раз в час для долгих сессий.
+### 3. Хелпер выбора intro
+В `src/components/carreports/ChatApp.tsx` ввести `makeStepEntryMessage(step, draft)`:
+- если `isStepFilled(step, draft)` → возвращает сообщение `{ kind: "stepPassport", step }` без `ask`;
+- иначе → текущий `makeIntroMessage(step)` + `nextMissingPrompt`.
 
-### Шаг 4. Расширить precache для офлайн-старта
-Сейчас `navigateFallback: null` — навигации всегда идут в сеть, офлайн открыть приложение нельзя. Варианты:
-- (рекомендуется) оставить network-first для HTML, но добавить fallback на закешированный `index.html` через `NetworkFirst` для навигаций, чтобы при потере сети показывалось приложение, а не ошибка браузера.
-- Прекешировать шрифты и SVG-иконки (уже в `globPatterns`).
+### 4. Применить в точках входа в шаг
+- `advanceStep` (≈ строка 1361): заменить пуш intro + ask на `makeStepEntryMessage`.
+- `jumpTo` (≈ строка 1996): то же самое. Для `jumpTo` показывать паспорт даже если `changed === false`, чтобы повторный клик по шагу из превью тоже подтягивал актуальный паспорт (по желанию — обсудить).
 
-### Шаг 5. Кнопка «Установить приложение»
-- Слушать `beforeinstallprompt`, сохранять event, показывать кнопку «Установить» в шапке/настройках.
-- На iOS промпта нет — показывать инструкцию «Поделиться → На экран Домой».
+### 5. Рендер `stepPassport` в чате
+В блоке рендера ассистента (≈ строка 2975) добавить ветку `msg.kind === "stepPassport"` → `<StepPassport step={msg.step} draft={draft} onEdit={...} onConfirm={advanceStep} />`. Существующие `passport` / `docsPassport` оставляем для обратной совместимости (или мигрируем — отдельным проходом).
 
-### Шаг 6. Индикация статуса
-В Settings/Profile показать:
-- «Установлено как PWA» (через `window.matchMedia('(display-mode: standalone)')`).
-- «Офлайн-режим активен» (через `navigator.onLine` + слушатели `online`/`offline`).
+### 6. Поведение кнопок
+- «Изменить» — снимает паспорт-режим, открывает композер с подсказкой `nextMissingPrompt` (как сейчас при незаполненном шаге).
+- «Всё верно, далее» — вызывает существующий `advanceStep`.
 
-### Шаг 7. Проверка
-1. Опубликовать (`muse-machine-x.lovable.app`).
-2. Открыть в Chrome desktop → DevTools → Application → Service Workers → убедиться, что `sw.js` активен.
-3. Установить приложение через адресную строку.
-4. Сделать косметическое изменение, переопубликовать.
-5. Открыть установленное приложение → должен появиться тост «Доступна новая версия» с кнопкой «Обновить».
-6. На iPhone: Safari → Поделиться → На экран Домой → запустить, проверить standalone-режим.
+## Что НЕ меняем
+- Логику `isStepFilled`, `nextMissingPrompt`, `optionalHintSentence`.
+- Существующие карточки `CarChecklist` / `DocsChecklist` — переиспользуем внутри `StepPassport`.
+- Поведение для пустого шага — остаётся прежним (intro + ask).
 
-## Технические детали изменений
+## Файлы
+- create `src/components/carreports/StepPassport.tsx`
+- edit `src/lib/carreports/types.ts` (новый `kind`)
+- edit `src/components/carreports/ChatApp.tsx` (`makeStepEntryMessage`, `advanceStep`, `jumpTo`, рендер сообщения)
 
-| Файл | Изменение |
-|---|---|
-| `src/lib/pwa/register-sw.ts` | Добавить `installed`-страховку, `wb.update()` на `visibilitychange` + интервал, экспортировать `isPWAEnvironment()` |
-| `src/routes/__root.tsx` | Защита от дубля тоста, дополнительный toast «PWA активно только в опубликованной версии» убрать (не нужно), оставить как есть |
-| `vite.config.ts` | (опционально) `navigateFallback: '/index.html'` + `navigateFallbackDenylist` для `/api/` и `/~oauth` |
-| `src/hooks/usePWAInstall.ts` (новый) | Хук для `beforeinstallprompt` + detect iOS + standalone |
-| `src/components/PWAInstallButton.tsx` (новый) | Кнопка установки, прячется если уже установлено |
-
-## Что НЕ делаем
-
-- Не регистрируем SW в preview (ломает гайдлайны Lovable).
-- Не пишем свой `public/sw.js` — генерируется `vite-plugin-pwa`.
-- Не включаем `skipWaiting`/`clientsClaim` в workbox — иначе новая версия применится без согласия пользователя и кнопка «Обновить» потеряет смысл.
-
-Подтвердите план — реализую шаги 1–4 (ядро апдейт-флоу) сразу, шаги 5–6 (установка/статус) можно отдельным проходом, если нужны.
+Подтверди — приступаю.
