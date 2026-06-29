@@ -30,6 +30,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import logo from "@/assets/cr-logo.png";
 import assistantAvatar from "@/assets/cr-assistant-vindiesel.jpg";
 import { TokenDialog } from "./TokenDialog";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
