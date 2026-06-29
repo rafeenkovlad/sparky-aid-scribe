@@ -352,10 +352,15 @@ function TestDriveCategoryRow({
   }
 
   // Раскрываем numeric id → name из каталога; оставляем только issue-теги.
+  // Параллельно собираем numeric id уже выбранных тегов — их передадим в
+  // дропдаун как selectedTagIds, чтобы сервер вернул релевантный список и
+  // не предлагал уже выбранные.
   const visibleTags: string[] = [];
+  const selectedIds: number[] = [];
   for (const raw of rawTags) {
     const asNum = Number(raw);
     if (Number.isInteger(asNum) && asNum > 0) {
+      selectedIds.push(asNum);
       const t = byId.get(asNum);
       if (t && (t.type === "serious" || t.type === "non_serious")) {
         visibleTags.push(t.name);
@@ -368,8 +373,10 @@ function TestDriveCategoryRow({
     const typed = tagTypes[key];
     if (inCat && (inCat.type === "serious" || inCat.type === "non_serious")) {
       visibleTags.push(raw);
+      selectedIds.push(inCat.id);
     } else if (typed === "serious" || typed === "non_serious") {
       visibleTags.push(raw);
+      if (inCat) selectedIds.push(inCat.id);
     } else if (catalogue === null) {
       // каталог ещё грузится — показываем, чтобы не «мигало» пусто
       visibleTags.push(raw);
@@ -407,6 +414,7 @@ function TestDriveCategoryRow({
             <TestDriveTagPicker
               catKey={catKey}
               selectedNames={visibleTags}
+              selectedTagIds={selectedIds}
               onAdd={(tag) => onAddTag(catKey, tag)}
             />
           )}
