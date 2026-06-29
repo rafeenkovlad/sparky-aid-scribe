@@ -352,10 +352,15 @@ function TestDriveCategoryRow({
   }
 
   // Раскрываем numeric id → name из каталога; оставляем только issue-теги.
+  // Параллельно собираем numeric id уже выбранных тегов — их передадим в
+  // дропдаун как selectedTagIds, чтобы сервер вернул релевантный список и
+  // не предлагал уже выбранные.
   const visibleTags: string[] = [];
+  const selectedIds: number[] = [];
   for (const raw of rawTags) {
     const asNum = Number(raw);
     if (Number.isInteger(asNum) && asNum > 0) {
+      selectedIds.push(asNum);
       const t = byId.get(asNum);
       if (t && (t.type === "serious" || t.type === "non_serious")) {
         visibleTags.push(t.name);
@@ -368,8 +373,10 @@ function TestDriveCategoryRow({
     const typed = tagTypes[key];
     if (inCat && (inCat.type === "serious" || inCat.type === "non_serious")) {
       visibleTags.push(raw);
+      selectedIds.push(inCat.id);
     } else if (typed === "serious" || typed === "non_serious") {
       visibleTags.push(raw);
+      if (inCat) selectedIds.push(inCat.id);
     } else if (catalogue === null) {
       // каталог ещё грузится — показываем, чтобы не «мигало» пусто
       visibleTags.push(raw);
@@ -407,6 +414,7 @@ function TestDriveCategoryRow({
             <TestDriveTagPicker
               catKey={catKey}
               selectedNames={visibleTags}
+              selectedTagIds={selectedIds}
               onAdd={(tag) => onAddTag(catKey, tag)}
             />
           )}
@@ -422,10 +430,12 @@ function TestDriveCategoryRow({
 function TestDriveTagPicker({
   catKey,
   selectedNames,
+  selectedTagIds,
   onAdd,
 }: {
   catKey: TestDriveTagCatKey;
   selectedNames: string[];
+  selectedTagIds: number[];
   onAdd: (tag: UserTag) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -433,12 +443,22 @@ function TestDriveTagPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Стабильный ключ выбранных id — чтобы перезагрузить теги, когда
+  // пользователь добавил/убрал тег.
+  const selectedKey = selectedTagIds.slice().sort((a, b) => a - b).join(",");
+
+  // Сбрасываем кэшированный список при изменении набора выбранных,
+  // чтобы следующий открытый дропдаун подтянул релевантный ответ сервера.
+  useEffect(() => {
+    setTags(null);
+  }, [selectedKey]);
+
   useEffect(() => {
     if (!open || tags !== null) return;
     let alive = true;
     setLoading(true);
     setError(null);
-    loadTagsFor("test_drive", null)
+    loadTagsFor("test_drive", null, selectedTagIds)
       .then((list) => {
         if (alive) setTags(list);
       })
@@ -451,7 +471,7 @@ function TestDriveTagPicker({
     return () => {
       alive = false;
     };
-  }, [open, tags]);
+  }, [open, tags, selectedKey, selectedTagIds]);
 
   const section = TD_CAT_SECTION[catKey];
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
