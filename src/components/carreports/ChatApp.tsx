@@ -1326,6 +1326,7 @@ export function ChatApp({ threadId }: Props) {
             original: np.originalText,
             ai: null,
             loading: true,
+            tagNames: np.tagNames,
           },
           createdAt: Date.now(),
         });
