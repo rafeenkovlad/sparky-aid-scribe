@@ -179,14 +179,13 @@ function StepBody({
         ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags, "testDriveSuspensionInDriveTags"],
         ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags, "testDriveBrakesInDriveTags"],
       ];
-      const cleanTags = (arr?: string[]) =>
+      // Передаём сырой массив (имена и/или numeric id) — TestDriveCategoryRow
+      // сам подгрузит каталог и развернёт id → имя.
+      const rawTags = (arr?: string[]): string[] =>
         Array.isArray(arr)
-          ? arr
-              .filter((x): x is string => typeof x === "string" && !!x.trim())
-              .map((x) => x.trim())
-              // не показываем «голые» числовые id — только человекочитаемые названия
-              .filter((x) => !/^\d+$/.test(x))
+          ? arr.filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim())
           : [];
+      const tagTypes = td.testDriveTagTypes ?? {};
       return (
         <div className="space-y-2 text-[13px] leading-tight">
           <ul className="space-y-1">
@@ -195,12 +194,14 @@ function StepBody({
                 key={label}
                 label={label}
                 val={val}
-                rawTags={cleanTags(tagArr)}
+                rawTags={rawTags(tagArr)}
                 catKey={catKey}
+                tagTypes={tagTypes}
                 onAddTag={onTestDriveAddTag}
               />
             ))}
           </ul>
+
 
 
 
