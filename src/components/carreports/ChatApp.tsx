@@ -3142,6 +3142,10 @@ interface BubbleProps {
   onElementFocusDismissNoteProposal?: () => void;
   onDeleteLegalMaterial?: (idx: number) => void;
   onAddLegalMaterial?: () => void;
+  /** Chat-level note proposal handlers (предлагать переформулировку заметки) */
+  onChatNoteAcceptOriginal?: (ref: NoteRef) => void;
+  onChatNoteAcceptAi?: (ref: NoteRef, ai: string) => void;
+  onChatNoteDismiss?: (ref: NoteRef) => void;
 }
 
 function MessageBubble({
