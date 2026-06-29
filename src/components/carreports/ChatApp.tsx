@@ -2165,6 +2165,7 @@ export function ChatApp({ threadId }: Props) {
                 : "Новый отчёт";
           }
         });
+        if (notePatched) pushChatNoteProposal(threadIdLocal, notePatched);
         // After car extract: if VIN newly known, decode it and fill characteristics
         if (stepForTask === "car") {
           const after = getThread(threadIdLocal);
