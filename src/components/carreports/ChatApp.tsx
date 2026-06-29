@@ -2501,6 +2501,8 @@ export function ChatApp({ threadId }: Props) {
             onChatNoteAcceptOriginal={acceptChatNoteOriginal}
             onChatNoteAcceptAi={acceptChatNoteAi}
             onChatNoteDismiss={dismissChatNoteProposal}
+            stepNoteProposals={stepNoteProposals}
+            hasStepPassport={hasStepPassport}
           />
 
         ))}
