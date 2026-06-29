@@ -1264,7 +1264,7 @@ export function ChatApp({ threadId }: Props) {
     (threadIdLocal: string, ref: NoteRef, text: string) => {
       updateThread(threadIdLocal, (t) => {
         if (ref.kind === "inspection") {
-          const key = findingKey(ref.section, ref.elementId);
+          const key = findingKey(ref.section as SectionSnake, ref.elementId);
           const findings = { ...(t.draft.inspectionStep.findings ?? {}) };
           const f = findings[key];
           if (f) findings[key] = { ...f, note: text };
