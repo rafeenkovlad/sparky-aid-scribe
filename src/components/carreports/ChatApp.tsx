@@ -439,35 +439,6 @@ export function ChatApp({ threadId }: Props) {
     return null;
   }, [currentStepMessages, currentStep]);
 
-  /** Активные (не выбранные) предложения переформулировать заметку в этом шаге. */
-  const stepNoteProposals = useMemo(() => {
-    const out: Array<{
-      payload: NonNullable<ChatMessage["noteProposal"]>;
-      onPickOriginal: () => void;
-      onPickAi: () => void;
-      onDismiss: () => void;
-    }> = [];
-    for (const m of currentStepMessages) {
-      if (m.kind !== "noteProposal" || !m.noteProposal) continue;
-      const p = m.noteProposal;
-      out.push({
-        payload: p,
-        onPickOriginal: () => acceptChatNoteOriginal(p.ref),
-        onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
-        onDismiss: () => dismissChatNoteProposal(p.ref),
-      });
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStepMessages]);
-
-  /** Есть ли в этом шаге stepPassport — тогда noteProposal для testDrive/result
-   *  показываем встроенно в паспорте, а отдельный пузырь скрываем. */
-  const hasStepPassport = useMemo(
-    () => currentStepMessages.some((m) => m.kind === "stepPassport"),
-    [currentStepMessages],
-  );
-
   const insertChip = useCallback((messageId: string, chip: ChatChip) => {
     if (!thread) return;
     updateThread(thread.id, (t) => {
