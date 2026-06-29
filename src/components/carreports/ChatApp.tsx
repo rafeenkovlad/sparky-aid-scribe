@@ -1255,6 +1255,152 @@ export function ChatApp({ threadId }: Props) {
 
   const dismissNoteProposal = useCallback(() => setNoteProposal(null), []);
 
+  // ─── Чат‑карточка «переформулировать заметку» ─────────────────────────
+  // Один inflight на ref — чтобы не дублировать переформулировку.
+  const noteReformInflight = useRef<Set<string>>(new Set());
+
+  /** Записать text в нужное поле draft по NoteRef. */
+  const writeNoteToDraft = useCallback(
+    (threadIdLocal: string, ref: NoteRef, text: string) => {
+      updateThread(threadIdLocal, (t) => {
+        if (ref.kind === "inspection") {
+          const key = findingKey(ref.section, ref.elementId);
+          const findings = { ...(t.draft.inspectionStep.findings ?? {}) };
+          const f = findings[key];
+          if (f) findings[key] = { ...f, note: text };
+          t.draft.inspectionStep = { ...t.draft.inspectionStep, findings };
+        } else if (ref.kind === "testDrive") {
+          t.draft.testDriveStep = {
+            ...t.draft.testDriveStep,
+            testDriveNote: text,
+            notes: text,
+          };
+        } else if (ref.kind === "docs") {
+          t.draft.documentReconciliationStep = {
+            ...t.draft.documentReconciliationStep,
+            note: text,
+          };
+        } else if (ref.kind === "resultSummary") {
+          t.draft.resultStep = { ...t.draft.resultStep, summaryInspectionNote: text };
+        } else if (ref.kind === "resultVerdict") {
+          t.draft.resultStep = { ...t.draft.resultStep, resultSpecialistNote: text };
+        }
+      });
+    },
+    [],
+  );
+
+  /** Обновить поле noteProposal у конкретного сообщения. */
+  const patchNoteProposalMsg = useCallback(
+    (
+      threadIdLocal: string,
+      step: StepId,
+      messageId: string,
+      patch: Partial<NonNullable<ChatMessage["noteProposal"]>>,
+    ) => {
+      updateThread(threadIdLocal, (t) => {
+        const m = t.messages[step].find((x) => x.id === messageId);
+        if (m?.noteProposal) m.noteProposal = { ...m.noteProposal, ...patch };
+      });
+    },
+    [],
+  );
+
+  /** Пушит карточку‑proposal и запускает переформулировку. */
+  const pushChatNoteProposal = useCallback(
+    (threadIdLocal: string, np: NotePatched) => {
+      const step = stepForNoteRef(np.ref);
+      const stableId = `note-proposal:${noteRefKey(np.ref)}`;
+      updateThread(threadIdLocal, (t) => {
+        // не плодим карточки на тот же ref — заменяем
+        t.messages[step] = t.messages[step].filter((m) => m.id !== stableId);
+        pushMsg(t, step, {
+          id: stableId,
+          role: "assistant",
+          text: "",
+          step,
+          kind: "noteProposal",
+          noteProposal: {
+            ref: np.ref,
+            scopeLabel: np.scopeLabel,
+            original: np.originalText,
+            ai: null,
+            loading: true,
+          },
+          createdAt: Date.now(),
+        });
+      });
+      const key = noteRefKey(np.ref);
+      if (noteReformInflight.current.has(key)) return;
+      noteReformInflight.current.add(key);
+      void (async () => {
+        try {
+          const t = getThread(threadIdLocal);
+          if (!t) return;
+          const stepLabel = stepById(step).label;
+          const aiText = await reformulateNote(
+            t,
+            np.ref,
+            stepLabel,
+            np.scopeLabel,
+            np.tagNames,
+            np.originalText,
+          );
+          patchNoteProposalMsg(threadIdLocal, step, stableId, {
+            ai: aiText,
+            loading: false,
+          });
+        } finally {
+          noteReformInflight.current.delete(key);
+        }
+      })();
+    },
+    [patchNoteProposalMsg],
+  );
+
+  const acceptChatNoteOriginal = useCallback(
+    (ref: NoteRef) => {
+      if (!thread) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      patchNoteProposalMsg(thread.id, step, stableId, { picked: "original" });
+    },
+    [thread, patchNoteProposalMsg],
+  );
+
+  const acceptChatNoteAi = useCallback(
+    (ref: NoteRef, aiText: string) => {
+      if (!thread || !aiText) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      writeNoteToDraft(thread.id, ref, aiText);
+      patchNoteProposalMsg(thread.id, step, stableId, { picked: "ai" });
+      updateThread(thread.id, (t) => {
+        pushMsg(t, step, {
+          id: msgId(),
+          role: "assistant",
+          text: "✏️ Заметка обновлена переформулированным вариантом.",
+          step,
+          createdAt: Date.now(),
+        });
+      });
+    },
+    [thread, writeNoteToDraft, patchNoteProposalMsg],
+  );
+
+  const dismissChatNoteProposal = useCallback(
+    (ref: NoteRef) => {
+      if (!thread) return;
+      const step = stepForNoteRef(ref);
+      const stableId = `note-proposal:${noteRefKey(ref)}`;
+      updateThread(thread.id, (t) => {
+        t.messages[step] = t.messages[step].filter((m) => m.id !== stableId);
+      });
+    },
+    [thread],
+  );
+
+
   /** Распознать тег / описание по заметке через ИИ. */
   const runPhotoAi = useCallback(async () => {
     if (photoFocusIdx === null || !thread || !photoFocus?.url || photoAiBusy) return;
