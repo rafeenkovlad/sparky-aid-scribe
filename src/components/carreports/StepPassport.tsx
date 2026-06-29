@@ -1,10 +1,11 @@
 import { Check, ChevronRight, Pencil, ShieldCheck } from "lucide-react";
-import type { ReportDraft, StepId } from "@/lib/carreports/types";
+import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import { sectionProgress } from "@/lib/carreports/inspectionState";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist } from "./DocsChecklist";
+import { NoteProposalInline } from "./NoteProposalInline";
 
 interface Props {
   step: StepId;
@@ -13,6 +14,13 @@ interface Props {
   onConfirm?: () => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
+  noteProposals?: Array<{
+    payload: NoteProposalPayload;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  }>;
 }
 
 /**
