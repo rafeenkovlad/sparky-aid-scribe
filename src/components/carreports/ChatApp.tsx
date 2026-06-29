@@ -2500,6 +2500,23 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
+            onTestDriveAddTag={(catKey, name) => {
+              const n = name.trim();
+              if (!n) return;
+              updateThread(thread.id, (t) => {
+                const td = { ...(t.draft.testDriveStep ?? {}) } as Record<string, unknown>;
+                const prev = Array.isArray(td[catKey])
+                  ? (td[catKey] as unknown[]).filter(
+                      (x): x is string => typeof x === "string",
+                    )
+                  : [];
+                const has = prev.some(
+                  (x) => x.trim().toLowerCase() === n.toLowerCase(),
+                );
+                if (!has) td[catKey] = [...prev, n];
+                t.draft.testDriveStep = td as typeof t.draft.testDriveStep;
+              });
+            }}
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
