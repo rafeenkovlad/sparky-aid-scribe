@@ -674,7 +674,7 @@ export async function extractForStep(
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
-      const notes = prev.notes ? `${prev.notes}\n${text}` : text;
+      const notes = text;
       return {
         patch: { testDriveStep: { ...prev, notDone, notes } },
         reply: notDone
