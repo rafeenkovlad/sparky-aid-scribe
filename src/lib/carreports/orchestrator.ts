@@ -1151,7 +1151,28 @@ export async function extractForStep(
         c.engineModelMatchWithPTSOrSTS = data.engineModelMatchWithPTSOrSTS;
       if (typeof data.note === "string") c.note = data.note;
       const merged = { ...thread.draft.documentReconciliationStep, ...c };
-      return { patch: { documentReconciliationStep: merged }, reply: summarizeDocs(merged) };
+      const prevDocNote = thread.draft.documentReconciliationStep?.note ?? "";
+      const tags: string[] = [];
+      const fmt = (b: boolean | null | undefined, ok: string, no: string) =>
+        b === true ? ok : b === false ? no : null;
+      const vinTag = fmt(merged.vinOnBodyMatchWithPTSOrSTS, "VIN совпадает", "VIN не совпадает");
+      const engTag = fmt(merged.engineModelMatchWithPTSOrSTS, "Двигатель совпадает", "Двигатель не совпадает");
+      const ownTag = fmt(merged.ownerFullNameMatchWithPTSOrSTS, "Собственник совпадает", "Собственник не совпадает");
+      for (const t of [vinTag, engTag, ownTag]) if (t) tags.push(t);
+      const docNotePatched: NotePatched | undefined =
+        merged.note && merged.note.trim() && merged.note !== prevDocNote
+          ? {
+              ref: { kind: "docs" },
+              scopeLabel: "Документы",
+              originalText: merged.note,
+              tagNames: tags,
+            }
+          : undefined;
+      return {
+        patch: { documentReconciliationStep: merged },
+        reply: summarizeDocs(merged),
+        ...(docNotePatched ? { notePatched: docNotePatched } : {}),
+      };
     }
     default:
       return { patch: {}, reply: "" };
