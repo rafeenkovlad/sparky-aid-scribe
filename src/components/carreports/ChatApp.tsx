@@ -2468,6 +2468,9 @@ export function ChatApp({ threadId }: Props) {
               });
             }}
             onAddLegalMaterial={() => materialsInputRef.current?.click()}
+            onChatNoteAcceptOriginal={acceptChatNoteOriginal}
+            onChatNoteAcceptAi={acceptChatNoteAi}
+            onChatNoteDismiss={dismissChatNoteProposal}
           />
 
         ))}
