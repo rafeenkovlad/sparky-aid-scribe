@@ -190,47 +190,18 @@ function StepBody({
       return (
         <div className="space-y-2 text-[13px] leading-tight">
           <ul className="space-y-1">
-            {flags.map(([label, val, tagArr, catKey]) => {
-              const tags = cleanTags(tagArr);
-              return (
-                <li key={label} className="min-w-0">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    {val === true ? (
-                      <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
-                    ) : val === false ? (
-                      <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full bg-rose-400/80" />
-                    ) : (
-                      <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
-                    )}
-                    <span className="shrink-0 text-white/55">{label}</span>
-                    <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
-                    <span className="text-white/65">
-                      {val === true ? "ок" : val === false ? "замечания" : "—"}
-                    </span>
-                  </div>
-                  {(tags.length > 0 || onTestDriveAddTag) && (
-                    <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
-                      {tags.map((t, i) => (
-                        <span
-                          key={`${t}-${i}`}
-                          className="inline-flex items-center rounded-md bg-white/[0.06] border border-white/10 text-white/80 text-[11px] px-1.5 py-0.5"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                      {onTestDriveAddTag && (
-                        <TestDriveTagPicker
-                          catKey={catKey}
-                          selectedNames={tags}
-                          onAdd={(name) => onTestDriveAddTag(catKey, name)}
-                        />
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+            {flags.map(([label, val, tagArr, catKey]) => (
+              <TestDriveCategoryRow
+                key={label}
+                label={label}
+                val={val}
+                rawTags={cleanTags(tagArr)}
+                catKey={catKey}
+                onAddTag={onTestDriveAddTag}
+              />
+            ))}
           </ul>
+
 
 
           {(td.notes || td.testDriveNote) && (
@@ -344,6 +315,87 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
   ].join("\n");
 
 }
+
+/** Строка категории тест-драйва: чипы (только issue-теги) + дропдаун. */
+function TestDriveCategoryRow({
+  label,
+  val,
+  rawTags,
+  catKey,
+  onAddTag,
+}: {
+  label: string;
+  val: boolean | undefined;
+  rawTags: string[];
+  catKey: TestDriveTagCatKey;
+  onAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
+}) {
+  const [catalogue, setCatalogue] = useState<UserTag[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadTagsFor("test_drive", TD_CAT_SECTION[catKey])
+      .then((list) => {
+        if (alive) setCatalogue(list);
+      })
+      .catch(() => {
+        if (alive) setCatalogue([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [catKey]);
+
+  const issueNames = new Set(
+    (catalogue ?? [])
+      .filter((t) => t.type === "serious" || t.type === "non_serious")
+      .map((t) => t.name.trim().toLowerCase()),
+  );
+  // Пока каталог не загружен — показываем все теги, чтобы не «мигало» пусто.
+  const visibleTags =
+    catalogue === null
+      ? rawTags
+      : rawTags.filter((n) => issueNames.has(n.trim().toLowerCase()));
+
+  return (
+    <li className="min-w-0">
+      <div className="flex items-baseline gap-2 min-w-0">
+        {val === true ? (
+          <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+        ) : val === false ? (
+          <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full bg-rose-400/80" />
+        ) : (
+          <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+        )}
+        <span className="shrink-0 text-white/55">{label}</span>
+        <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+        <span className="text-white/65">
+          {val === true ? "ок" : val === false ? "замечания" : "—"}
+        </span>
+      </div>
+      {(visibleTags.length > 0 || onAddTag) && (
+        <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
+          {visibleTags.map((t, i) => (
+            <span
+              key={`${t}-${i}`}
+              className="inline-flex items-center rounded-md bg-white/[0.06] border border-white/10 text-white/80 text-[11px] px-1.5 py-0.5"
+            >
+              {t}
+            </span>
+          ))}
+          {onAddTag && (
+            <TestDriveTagPicker
+              catKey={catKey}
+              selectedNames={visibleTags}
+              onAdd={(name) => onAddTag(catKey, name)}
+            />
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 
 /** Дропдаун-подсказка из GetUserTags: только теги с типом serious/non_serious. */
 function TestDriveTagPicker({
