@@ -346,19 +346,9 @@ function TestDriveCategoryRow({
     };
   }, []);
 
-  const section = TD_CAT_SECTION[catKey];
-  const issueNames = new Set(
-    (catalogue ?? [])
-      .filter((t) => t.type === "serious" || t.type === "non_serious")
-      .filter((t) => !t.section || t.section === section)
-      .map((t) => t.name.trim().toLowerCase()),
-  );
-  // Пока каталог не загружен — показываем все теги, чтобы не «мигало» пусто.
-  const visibleTags =
-    catalogue === null
-      ? rawTags
-      : rawTags.filter((n) => issueNames.has(n.trim().toLowerCase()));
-
+  // Показываем все уже выставленные теги без фильтрации по каталогу:
+  // каталог может быть неполным/устаревшим, а сохранённые теги — это факт.
+  const visibleTags = rawTags;
 
   return (
     <li className="min-w-0">
@@ -373,9 +363,10 @@ function TestDriveCategoryRow({
         <span className="shrink-0 text-white/55">{label}</span>
         <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
         <span className="text-white/65">
-          {val === true ? "ок" : val === false ? "замечания" : "—"}
+          {val === true ? "норма" : val === false ? "замечания" : "—"}
         </span>
       </div>
+
       {(visibleTags.length > 0 || onAddTag) && (
         <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
           {visibleTags.map((t, i) => (
