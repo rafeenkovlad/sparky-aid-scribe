@@ -4,6 +4,7 @@
 import type { Workbox } from "workbox-window";
 
 const SW_URL = "/sw.js";
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1h
 
 function isRefusedContext(): boolean {
   if (typeof window === "undefined") return true;
@@ -35,6 +36,10 @@ function isRefusedContext(): boolean {
   return false;
 }
 
+export function isPWAEnvironment(): boolean {
+  return !isRefusedContext();
+}
+
 async function unregisterOwnSW() {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
   try {
@@ -56,6 +61,7 @@ async function unregisterOwnSW() {
 export type UpdateReadyHandler = (activate: () => Promise<void>) => void;
 
 let registered = false;
+let updatePromptShown = false;
 
 export async function registerServiceWorker(onUpdateReady?: UpdateReadyHandler) {
   if (isRefusedContext()) {
@@ -71,19 +77,32 @@ export async function registerServiceWorker(onUpdateReady?: UpdateReadyHandler) 
 
     const promptUpdate = () => {
       if (!onUpdateReady) return;
+      if (updatePromptShown) return;
+      updatePromptShown = true;
       onUpdateReady(async () => {
-        // Reload once the new SW takes control.
         const reload = () => window.location.reload();
         navigator.serviceWorker.addEventListener("controllerchange", reload, { once: true });
         wb.messageSkipWaiting();
       });
     };
 
-    // Fired when a new SW has installed and is waiting (we already control the page).
+    // New SW installed and waiting (page already controlled by an old SW).
     wb.addEventListener("waiting", promptUpdate);
-
+    // Safety net: some browsers fire "installed" with isUpdate=true instead.
+    wb.addEventListener("installed", (event) => {
+      if (event.isUpdate) promptUpdate();
+    });
 
     await wb.register();
+
+    // Periodically check for updates so long-lived sessions notice new deploys.
+    const checkForUpdate = () => {
+      void wb.update().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkForUpdate();
+    });
+    window.setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS);
   } catch (err) {
     console.warn("[pwa] SW registration failed", err);
   }
