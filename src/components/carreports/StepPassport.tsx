@@ -323,18 +323,58 @@ function TestDriveCategoryRow({
   val,
   rawTags,
   catKey,
+  tagTypes,
   onAddTag,
 }: {
   label: string;
   val: boolean | undefined;
   rawTags: string[];
   catKey: TestDriveTagCatKey;
+  tagTypes: Record<string, "serious" | "non_serious">;
   onAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
 }) {
-  // Показываем все уже выставленные теги без фильтрации по каталогу:
-  // каталог может быть неполным/устаревшим, а сохранённые теги — это факт.
-  const visibleTags = rawTags;
+  const [catalogue, setCatalogue] = useState<UserTag[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadTagsFor("test_drive", null)
+      .then((list) => alive && setCatalogue(list))
+      .catch(() => alive && setCatalogue([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
+  const byId = new Map<number, UserTag>();
+  const byName = new Map<string, UserTag>();
+  for (const t of catalogue ?? []) {
+    byId.set(t.id, t);
+    byName.set(t.name.trim().toLowerCase(), t);
+  }
+
+  // Раскрываем numeric id → name из каталога; оставляем только issue-теги.
+  const visibleTags: string[] = [];
+  for (const raw of rawTags) {
+    const asNum = Number(raw);
+    if (Number.isInteger(asNum) && asNum > 0) {
+      const t = byId.get(asNum);
+      if (t && (t.type === "serious" || t.type === "non_serious")) {
+        visibleTags.push(t.name);
+      }
+      // если каталог ещё не загрузился — пропускаем id, имя появится после
+      continue;
+    }
+    const key = raw.trim().toLowerCase();
+    const inCat = byName.get(key);
+    const typed = tagTypes[key];
+    if (inCat && (inCat.type === "serious" || inCat.type === "non_serious")) {
+      visibleTags.push(raw);
+    } else if (typed === "serious" || typed === "non_serious") {
+      visibleTags.push(raw);
+    } else if (catalogue === null) {
+      // каталог ещё грузится — показываем, чтобы не «мигало» пусто
+      visibleTags.push(raw);
+    }
+  }
 
   return (
     <li className="min-w-0">
@@ -375,6 +415,7 @@ function TestDriveCategoryRow({
     </li>
   );
 }
+
 
 
 /** Дропдаун-подсказка из GetUserTags: только теги с типом serious/non_serious. */
