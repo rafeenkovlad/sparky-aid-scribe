@@ -330,25 +330,10 @@ function TestDriveCategoryRow({
   catKey: TestDriveTagCatKey;
   onAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
 }) {
-  const [catalogue, setCatalogue] = useState<UserTag[] | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    loadTagsFor("test_drive", null)
-      .then((list) => {
-        if (alive) setCatalogue(list);
-      })
-      .catch(() => {
-        if (alive) setCatalogue([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   // Показываем все уже выставленные теги без фильтрации по каталогу:
   // каталог может быть неполным/устаревшим, а сохранённые теги — это факт.
   const visibleTags = rawTags;
+
 
   return (
     <li className="min-w-0">
