@@ -2482,13 +2482,18 @@ export function ChatApp({ threadId }: Props) {
             // Prevent textarea blur / mobile keyboard collapse so the toggle
             // fires on the first tap regardless of current focus.
             e.preventDefault();
+            askToggledByPointerRef.current = true;
             setAskMode((v) => !v);
             textareaRef.current?.focus();
           }}
-          onClick={(e) => {
-            // onPointerDown already handled toggle on devices that fire it.
-            // Fallback for environments without pointer events.
-            e.preventDefault();
+          onClick={() => {
+            // Keyboard activation (Enter/Space) fires click without pointerdown.
+            if (askToggledByPointerRef.current) {
+              askToggledByPointerRef.current = false;
+              return;
+            }
+            setAskMode((v) => !v);
+            textareaRef.current?.focus();
           }}
           aria-label={askMode ? "Отменить вопрос" : "Есть вопрос"}
           title={askMode ? "Отменить вопрос" : "Есть вопрос"}
