@@ -174,8 +174,21 @@ function StepBody({
             ))}
           </ul>
           {(td.notes || td.testDriveNote) && (
-            <div className="pt-2 border-t border-white/5 text-white/70 whitespace-pre-wrap">
-              {td.notes ?? td.testDriveNote}
+            <div className="pt-2 border-t border-white/5">
+              <div className="text-white/70 whitespace-pre-wrap">
+                {td.notes ?? td.testDriveNote}
+              </div>
+              {(() => {
+                const p = findProposal(noteProposals, (r) => r.kind === "testDrive");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
           {(onTestDriveAllOk || onEdit) && (
