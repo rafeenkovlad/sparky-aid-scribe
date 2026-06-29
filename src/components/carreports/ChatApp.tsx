@@ -2022,7 +2022,7 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             };
-            const { patch, reply, attachments, chips } = await extractForStep(
+            const { patch, reply, attachments, chips, notePatched } = await extractForStep(
               "inspection",
               combined,
               fresh,
@@ -2044,6 +2044,7 @@ export function ChatApp({ threadId }: Props) {
                 });
               }
             });
+            if (notePatched) pushChatNoteProposal(threadIdLocal, notePatched);
           } catch (e) {
             const message = e instanceof Error ? e.message : "Ошибка ИИ";
             updateThread(threadIdLocal, (t) => {
