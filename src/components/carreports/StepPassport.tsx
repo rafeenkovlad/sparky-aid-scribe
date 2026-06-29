@@ -420,7 +420,7 @@ function TestDriveTagPicker({
     let alive = true;
     setLoading(true);
     setError(null);
-    loadTagsFor("test_drive", TD_CAT_SECTION[catKey])
+    loadTagsFor("test_drive", null)
       .then((list) => {
         if (alive) setTags(list);
       })
@@ -433,15 +433,19 @@ function TestDriveTagPicker({
     return () => {
       alive = false;
     };
-  }, [open, tags, catKey]);
+  }, [open, tags]);
 
+  const section = TD_CAT_SECTION[catKey];
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
-  // Только теги, описывающие неполадку: type = serious / non_serious.
+  // Только теги, описывающие неполадку: type = serious / non_serious,
+  // и относящиеся к нужной категории (если у тега указана section).
   const suggestions = (tags ?? []).filter(
     (t) =>
       (t.type === "serious" || t.type === "non_serious") &&
+      (!t.section || t.section === section) &&
       !selectedSet.has(t.name.trim().toLowerCase()),
   );
+
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
