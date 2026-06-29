@@ -637,18 +637,13 @@ export async function extractForStep(
       tags("testDriveSuspensionInDriveTags");
       tags("testDriveBrakesInDriveTags");
       if (typeof raw.testDriveNote === "string") {
-        merged.testDriveNote = prev.notes
-          ? `${prev.notes}\n${raw.testDriveNote}`
-          : raw.testDriveNote;
+        merged.testDriveNote = raw.testDriveNote;
       }
       // mirror legacy local fields for UI/preview compatibility
       merged.notDone = merged.testDriveIsIncluded === false ? true : prev.notDone;
       merged.notes =
-        typeof merged.testDriveNote === "string"
-          ? merged.testDriveNote
-          : prev.notes
-            ? `${prev.notes}\n${text}`
-            : text;
+        typeof merged.testDriveNote === "string" ? merged.testDriveNote : text;
+
       const tdNote = typeof merged.testDriveNote === "string" ? merged.testDriveNote : "";
       const tdPrevNote = typeof prev.testDriveNote === "string" ? prev.testDriveNote : "";
       const tdTagNames: string[] = [];
@@ -679,7 +674,7 @@ export async function extractForStep(
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
-      const notes = prev.notes ? `${prev.notes}\n${text}` : text;
+      const notes = text;
       return {
         patch: { testDriveStep: { ...prev, notDone, notes } },
         reply: notDone
