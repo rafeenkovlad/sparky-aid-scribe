@@ -1332,6 +1332,21 @@ export function ChatApp({ threadId }: Props) {
           },
           createdAt: Date.now(),
         });
+        // Показать паспорт шага, чтобы переформулировка отрисовалась inline
+        // под исходной заметкой (для testDrive/docs/result). Для inspection
+        // паспорт раздела не нужен — там inline в ElementFocusCard.
+        if (np.ref.kind !== "inspection") {
+          const passportId = `passport-${step}`;
+          t.messages[step] = t.messages[step].filter((m) => m.id !== passportId);
+          pushMsg(t, step, {
+            id: passportId,
+            role: "assistant",
+            text: "",
+            step,
+            kind: "stepPassport",
+            createdAt: Date.now(),
+          });
+        }
       });
       const key = noteRefKey(np.ref);
       if (noteReformInflight.current.has(key)) return;
