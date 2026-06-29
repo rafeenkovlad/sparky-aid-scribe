@@ -1469,12 +1469,12 @@ export function ChatApp({ threadId }: Props) {
       out.push({
         payload: p,
         onPickOriginal: () => acceptChatNoteOriginal(p.ref, p.original),
-        onPickAi: () => p.ai && acceptChatNoteAi(p.ref, p.ai),
+        onPickAi: () => regenerateChatNoteAi(p.ref),
         onDismiss: () => dismissChatNoteProposal(p.ref),
       });
     }
     return out;
-  }, [currentStepMessages, acceptChatNoteOriginal, acceptChatNoteAi, dismissChatNoteProposal]);
+  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal]);
 
   /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
    *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */
