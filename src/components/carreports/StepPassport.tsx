@@ -228,12 +228,34 @@ function StepBody({
             <div>
               <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Резюме</div>
               <div className="text-white/85 whitespace-pre-wrap">{r.summaryInspectionNote}</div>
+              {(() => {
+                const p = findProposal(noteProposals, (r2) => r2.kind === "resultSummary");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
           {r.resultSpecialistNote && (
             <div className="pt-2 border-t border-white/5">
               <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Вердикт</div>
               <div className="text-white/85 whitespace-pre-wrap">{r.resultSpecialistNote}</div>
+              {(() => {
+                const p = findProposal(noteProposals, (r2) => r2.kind === "resultVerdict");
+                return p ? (
+                  <NoteProposalInline
+                    payload={p.payload}
+                    onPickOriginal={p.onPickOriginal}
+                    onPickAi={p.onPickAi}
+                    onDismiss={p.onDismiss}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
         </div>
