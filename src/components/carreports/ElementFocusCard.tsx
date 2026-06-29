@@ -21,6 +21,7 @@ import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
 import type { InspectionStep, NoteProposalPayload, PendingTagName } from "@/lib/carreports/types";
 import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
 import { NoteProposalInline } from "./NoteProposalInline";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
@@ -420,30 +421,27 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
         )}
         {!tagsLoading && !tagsError && (
           <>
-            <TagRow
+            <InspectionTagPickerRow
               tone="serious"
-              section={sectionSnake}
+              label="Серьёзные"
               tags={serious}
               selected={sIds}
               pending={pending.filter((p) => p.severity === "serious")}
-              onTap={onToggleTag}
+              onToggleTag={onToggleTag}
               onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-              onAdd={(name) => onAddPendingTag(name, "serious")}
-              onCatalogChanged={() => setTokenTick((t) => t + 1)}
             />
-            <TagRow
+            <InspectionTagPickerRow
               tone="minor"
-              section={sectionSnake}
+              label="Мелкие"
               tags={minor}
               selected={nsIds}
               pending={pending.filter((p) => p.severity !== "serious")}
-              onTap={onToggleTag}
+              onToggleTag={onToggleTag}
               onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-              onAdd={(name) => onAddPendingTag(name, "non_serious")}
-              onCatalogChanged={() => setTokenTick((t) => t + 1)}
             />
           </>
         )}
+
 
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
@@ -1022,6 +1020,126 @@ function ProposalRow(props: {
       ) : (
         <div className="text-white/40 italic">пусто</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Строка выбора тегов в стиле тест-драйва: чипы выбранных + "+" с поповером.
+ * Список в поповере — уже отсортированный сервером каталог (с учётом
+ * selectedTagIds) минус уже выбранные.
+ */
+function InspectionTagPickerRow({
+  tone,
+  label,
+  tags,
+  selected,
+  pending,
+  onToggleTag,
+  onTogglePending,
+}: {
+  tone: "serious" | "minor";
+  label: string;
+  tags: UserTag[];
+  selected: Set<number>;
+  pending: PendingTagName[];
+  onToggleTag: (t: UserTag) => void;
+  onTogglePending: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const dotCls = tone === "serious" ? "bg-rose-400" : "bg-amber-400";
+  const chipCls =
+    tone === "serious"
+      ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
+      : "border-amber-400/30 bg-amber-500/10 text-amber-100";
+
+  const selectedTags = tags.filter((t) => selected.has(t.id));
+  const suggestions = tags.filter((t) => !selected.has(t.id));
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
+        <span className={"inline-block h-1.5 w-1.5 rounded-full " + dotCls} />
+        {label}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {selectedTags.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onToggleTag(t)}
+            className={"inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] border " + chipCls}
+            title="Убрать тег"
+          >
+            <Check className="h-3 w-3 -ml-0.5" />
+            {t.name}
+          </button>
+        ))}
+        {pending.map((p) => (
+          <button
+            key={`pending:${p.name}`}
+            type="button"
+            onClick={() => onTogglePending(p.name)}
+            className="inline-flex items-center gap-1 rounded-full border border-violet-400/40 bg-violet-500/15 px-2.5 py-1 text-[12px] text-violet-100 hover:bg-violet-500/25"
+            title="Новый тег — создастся при отправке. Нажмите, чтобы убрать."
+          >
+            ✨ {p.name}
+            <X className="h-3 w-3 opacity-70" />
+          </button>
+        ))}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="Добавить тег"
+              title="Добавить тег"
+              className={
+                "inline-flex items-center justify-center rounded-full border border-dashed h-[26px] w-[26px] transition-colors " +
+                (tone === "serious"
+                  ? "border-rose-400/40 text-rose-100/70 hover:bg-rose-500/10"
+                  : "border-amber-400/40 text-amber-100/70 hover:bg-amber-500/10")
+              }
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            sideOffset={4}
+            className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
+          >
+            {suggestions.length === 0 ? (
+              <div className="px-2 py-1.5 text-[12px] text-white/50">Нет подходящих тегов</div>
+            ) : (
+              <ul className="space-y-0.5">
+                {suggestions.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onToggleTag(t);
+                        // не закрываем — даём добавить несколько подряд
+                      }}
+                      className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
+                    >
+                      <span className="flex-1 truncate">{t.name}</span>
+                      <span
+                        className={
+                          t.type === "serious"
+                            ? "text-[10px] text-rose-300"
+                            : "text-[10px] text-amber-300"
+                        }
+                      >
+                        {t.type === "serious" ? "серьёзный" : "несерьёзный"}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   );
 }
