@@ -2965,6 +2965,7 @@ function MessageBubble({
   draft,
   onFillMissing,
   onDocsAllMatch,
+  onTestDriveAllOk,
   onAdvance,
   inspectionDraft,
   inspectionCursor,
