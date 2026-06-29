@@ -457,29 +457,16 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           </div>
         )}
         {!tagsLoading && !tagsError && (
-          <>
-            <InspectionTagPickerRow
-              tone="serious"
-              label="Серьёзные"
-              tags={serious}
-              selected={sIds}
-              pending={pending.filter((p) => p.severity === "serious")}
-              onToggleTag={onToggleTag}
-              onTogglePending={(name) => onTogglePendingTag(name, "serious")}
-            />
-            <InspectionTagPickerRow
-              tone="minor"
-              label="Мелкие"
-              tags={minor}
-              selected={nsIds}
-              pending={pending.filter((p) => p.severity !== "serious")}
-              onToggleTag={onToggleTag}
-              onTogglePending={(name) => onTogglePendingTag(name, "non_serious")}
-            />
-          </>
+          <InspectionTagPickerRow
+            label="Замечания"
+            tags={[...serious, ...minor]}
+            seriousSelected={sIds}
+            minorSelected={nsIds}
+            pending={pending}
+            onToggleTag={onToggleTag}
+            onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
+          />
         )}
-
-
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
         {finding?.note?.trim() && (
@@ -503,10 +490,52 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               )}
           </div>
         )}
+
+        {/* Нижние кнопки — как в тест-драйве */}
+        <div className="pt-2 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onSetVerdict("ok")}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-400/10 hover:bg-emerald-400/15 text-emerald-200 text-[12px] font-medium px-3 py-1.5 transition-colors"
+          >
+            <Check className="h-3.5 w-3.5" />
+            Нареканий нет
+          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() =>
+                onEdit(
+                  buildElementEditTemplate({
+                    sectionLabel: section?.label ?? sectionSnake,
+                    elementLabel,
+                    verdictLabel: derivedVerdict !== null ? verdictLabel : null,
+                    serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
+                    seriousPending: pending
+                      .filter((p) => p.severity === "serious")
+                      .map((p) => p.name),
+                    minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
+                    minorPending: pending
+                      .filter((p) => p.severity !== "serious")
+                      .map((p) => p.name),
+                    note: finding?.note ?? "",
+                  }),
+                )
+              }
+              aria-label="Редактировать"
+              title="Редактировать"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Редактировать
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
 
 function ReadOnlyTagRow(props: {
   label: string;
