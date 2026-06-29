@@ -327,6 +327,7 @@ export function ChatApp({ threadId }: Props) {
 
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const askToggledByPointerRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const voiceBaseRef = useRef<string>("");
