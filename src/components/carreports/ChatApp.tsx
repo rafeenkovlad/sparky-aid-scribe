@@ -3313,17 +3313,27 @@ function MessageBubble({
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
+            noteProposals={stepNoteProposals?.filter(
+              (p) => stepForNoteRef(p.payload.ref) === msg.step,
+            )}
           />
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
-          <NoteProposalCard
-            payload={msg.noteProposal}
-            onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
-            onPickAi={() =>
-              msg.noteProposal!.ai &&
-              onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
-            }
-            onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
-          />
+          // Если в этом шаге уже есть stepPassport — карточка отрисована inline
+          // под исходной заметкой; отдельный пузырь не нужен.
+          hasStepPassport &&
+          (msg.noteProposal.ref.kind === "testDrive" ||
+            msg.noteProposal.ref.kind === "resultSummary" ||
+            msg.noteProposal.ref.kind === "resultVerdict") ? null : (
+            <NoteProposalCard
+              payload={msg.noteProposal}
+              onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
+              onPickAi={() =>
+                msg.noteProposal!.ai &&
+                onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
+              }
+              onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
+            />
+          )
         ) : (
           msg.text && (
             <>
