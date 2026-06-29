@@ -3073,6 +3073,7 @@ function MessageBubble({
             onEdit={onFillMissing}
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
+            onTestDriveAllOk={onTestDriveAllOk}
           />
         ) : (
           msg.text && (
