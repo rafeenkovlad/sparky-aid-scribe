@@ -136,7 +136,12 @@ export interface TestDriveStep {
   testDriveSuspensionInDriveTags?: string[];
   testDriveBrakesInDriveTags?: string[];
   testDriveNote?: string;
+  /** Тип (serious/non_serious) для тегов, заведённых через AI-классификацию.
+   *  Ключ — имя тега (lowercased trim). Используется для фильтрации отображения
+   *  и для гарантии, что AddUserTag никогда не уходит с type=null. */
+  testDriveTagTypes?: Record<string, "serious" | "non_serious">;
 }
+
 
 export interface ResultStep {
   summaryInspectionNote?: string;
