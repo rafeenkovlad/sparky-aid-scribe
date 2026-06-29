@@ -454,6 +454,7 @@ export async function extractForStep(
     } catch {
       // если роутер упал — используем текущий раздел/элемент как раньше.
     }
+    }
 
     // Fetch tags catalogue for this section (cached); never throws.
     const tagCatalogue = await loadSectionTags(sectionSnake);
