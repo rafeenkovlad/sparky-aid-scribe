@@ -96,6 +96,18 @@ function pushMsg(t: Thread, step: StepId, m: ChatMessage): void {
   t.messages[step].push({ ...m, step: m.step ?? step });
 }
 
+function isLastMessagePassport(t: Thread): boolean {
+  const all: ChatMessage[] = [];
+  for (const k of Object.keys(t.messages) as StepId[]) {
+    const arr = t.messages[k];
+    if (arr && arr.length) all.push(...arr);
+  }
+  if (!all.length) return false;
+  all.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  const last = all[all.length - 1];
+  return last.kind === "stepPassport" || last.kind === "passport" || last.kind === "docsPassport";
+}
+
 function totalMessages(m: Thread["messages"]): number {
   return (
     m.car.length +
