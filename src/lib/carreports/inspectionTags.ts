@@ -42,14 +42,16 @@ export async function loadSectionTags(
   return loadTagsFor("inspection", section, selectedTagIds);
 }
 
-/** Универсальная загрузка тегов для произвольного step/section. */
+/** Универсальная загрузка тегов для произвольного step/section.
+ *  `section = null` → запрос на уровне всего step. */
 export async function loadTagsFor(
   step: string,
-  section: string,
+  section: string | null,
   selectedTagIds?: number[],
 ): Promise<UserTag[]> {
-  const useSelected = !!(selectedTagIds && selectedTagIds.length > 0);
-  const cacheKey = `${step}:${section}`;
+  const selected = Array.isArray(selectedTagIds) ? selectedTagIds : [];
+  const useSelected = selected.length > 0;
+  const cacheKey = `${step}:${section ?? "*"}`;
   if (!useSelected) {
     const hit = cache.get(cacheKey);
     if (hit) return hit;
@@ -59,8 +61,13 @@ export async function loadTagsFor(
 
   const fetcher = (async () => {
     try {
-      const params: Record<string, unknown> = { step, section };
-      if (useSelected) params.selectedTagIds = selectedTagIds;
+      // Сервер ожидает все три поля: step, section (может быть null),
+      // selectedTagIds (всегда массив, пустой если выбранных нет).
+      const params: Record<string, unknown> = {
+        step,
+        section,
+        selectedTagIds: selected,
+      };
       const r = await rpc<{ result?: UserTag[] } | UserTag[]>(
         "Storage.GetUserTags",
         params,
@@ -76,6 +83,7 @@ export async function loadTagsFor(
   if (!useSelected) inflight.set(cacheKey, fetcher);
   return fetcher;
 }
+
 
 
 function norm(s: string): string {
