@@ -3015,7 +3015,14 @@ function MessageBubble({
               </div>
             )}
           </div>
-        ) : (
+        ) : msg.kind === "stepPassport" && draft && msg.step ? (
+          <StepPassport
+            step={msg.step}
+            draft={draft}
+            onEdit={onFillMissing}
+            onConfirm={onAdvance}
+            onDocsAllMatch={onDocsAllMatch}
+          />
           msg.text && (
             <>
               <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
