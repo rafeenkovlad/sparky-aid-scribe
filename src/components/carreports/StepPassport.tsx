@@ -146,33 +146,59 @@ function StepBody({
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       if (td.notDone) return <div className="text-white/70 text-[13px]">Тест-драйв не проводился.</div>;
-      const flags: Array<[string, boolean | undefined]> = [
-        ["Двигатель", td.testDriveEngineIsWorkingProperly],
-        ["КПП", td.testDriveTransmissionIsWorkingProperly],
-        ["Руль", td.testDriveSteeringWheelIsWorkingProperly],
-        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly],
-        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly],
+      const flags: Array<[string, boolean | undefined, string[] | undefined]> = [
+        ["Двигатель", td.testDriveEngineIsWorkingProperly, td.testDriveEngineTags],
+        ["КПП", td.testDriveTransmissionIsWorkingProperly, td.testDriveTransmissionTags],
+        ["Руль", td.testDriveSteeringWheelIsWorkingProperly, td.testDriveSteeringWheelTags],
+        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags],
+        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags],
       ];
+      const cleanTags = (arr?: string[]) =>
+        Array.isArray(arr)
+          ? arr
+              .filter((x): x is string => typeof x === "string" && !!x.trim())
+              .map((x) => x.trim())
+              // не показываем «голые» числовые id — только человекочитаемые названия
+              .filter((x) => !/^\d+$/.test(x))
+          : [];
       return (
         <div className="space-y-2 text-[13px] leading-tight">
-          <ul className="space-y-0.5">
-            {flags.map(([label, val]) => (
-              <li key={label} className="flex items-baseline gap-2 min-w-0">
-                {val === true ? (
-                  <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
-                ) : val === false ? (
-                  <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full bg-rose-400/80" />
-                ) : (
-                  <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
-                )}
-                <span className="shrink-0 text-white/55">{label}</span>
-                <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
-                <span className="text-white/65">
-                  {val === true ? "ок" : val === false ? "замечания" : "—"}
-                </span>
-              </li>
-            ))}
+          <ul className="space-y-1">
+            {flags.map(([label, val, tagArr]) => {
+              const tags = cleanTags(tagArr);
+              return (
+                <li key={label} className="min-w-0">
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    {val === true ? (
+                      <Check className="h-3 w-3 shrink-0 translate-y-0.5 text-emerald-400/80" />
+                    ) : val === false ? (
+                      <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full bg-rose-400/80" />
+                    ) : (
+                      <span className="h-3 w-3 shrink-0 translate-y-0.5 rounded-full border border-white/15" />
+                    )}
+                    <span className="shrink-0 text-white/55">{label}</span>
+                    <span className="flex-1 border-b border-dashed border-white/5 translate-y-[-3px]" />
+                    <span className="text-white/65">
+                      {val === true ? "ок" : val === false ? "замечания" : "—"}
+                    </span>
+                  </div>
+                  {tags.length > 0 && (
+                    <div className="pl-5 mt-1 flex flex-wrap gap-1">
+                      {tags.map((t, i) => (
+                        <span
+                          key={`${t}-${i}`}
+                          className="inline-flex items-center rounded-md bg-white/[0.06] border border-white/10 text-white/80 text-[11px] px-1.5 py-0.5"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
+
           {(td.notes || td.testDriveNote) && (
             <div className="pt-2 border-t border-white/5">
               <div className="text-white/70 whitespace-pre-wrap">
