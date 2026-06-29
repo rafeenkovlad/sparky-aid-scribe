@@ -3231,6 +3231,8 @@ function MessageBubble({
   onChatNoteAcceptOriginal,
   onChatNoteAcceptAi,
   onChatNoteDismiss,
+  stepNoteProposals,
+  hasStepPassport,
 }: BubbleProps) {
 
 
