@@ -2193,6 +2193,7 @@ export function ChatApp({ threadId }: Props) {
                 }
               });
             }}
+            onAdvance={advanceStep}
             onDocsAllMatch={() => {
               updateThread(thread.id, (t) => {
                 t.draft.documentReconciliationStep = {
