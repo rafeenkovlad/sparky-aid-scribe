@@ -1332,6 +1332,21 @@ export function ChatApp({ threadId }: Props) {
           },
           createdAt: Date.now(),
         });
+        // Показать паспорт шага, чтобы переформулировка отрисовалась inline
+        // под исходной заметкой (для testDrive/docs/result). Для inspection
+        // паспорт раздела не нужен — там inline в ElementFocusCard.
+        if (np.ref.kind !== "inspection") {
+          const passportId = `passport-${step}`;
+          t.messages[step] = t.messages[step].filter((m) => m.id !== passportId);
+          pushMsg(t, step, {
+            id: passportId,
+            role: "assistant",
+            text: "",
+            step,
+            kind: "stepPassport",
+            createdAt: Date.now(),
+          });
+        }
       });
       const key = noteRefKey(np.ref);
       if (noteReformInflight.current.has(key)) return;
@@ -3414,26 +3429,11 @@ function MessageBubble({
             )}
           />
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
-          // Если в этом шаге уже есть stepPassport — карточка отрисована inline
-          // под исходной заметкой; отдельный пузырь не нужен.
-          (hasStepPassport &&
-            (msg.noteProposal.ref.kind === "testDrive" ||
-              msg.noteProposal.ref.kind === "resultSummary" ||
-              msg.noteProposal.ref.kind === "resultVerdict" ||
-              msg.noteProposal.ref.kind === "docs")) ||
-          // Inspection: переформулировка показывается inline в карточке
-          // элемента (ElementFocusCard), отдельный пузырь не нужен.
-          msg.noteProposal.ref.kind === "inspection" ? null : (
-            <NoteProposalCard
-              payload={msg.noteProposal}
-              onPickOriginal={() => onChatNoteAcceptOriginal?.(msg.noteProposal!.ref)}
-              onPickAi={() =>
-                msg.noteProposal!.ai &&
-                onChatNoteAcceptAi?.(msg.noteProposal!.ref, msg.noteProposal!.ai)
-              }
-              onDismiss={() => onChatNoteDismiss?.(msg.noteProposal!.ref)}
-            />
-          )
+          // Карточка переформулировки не показывается отдельным пузырём —
+          // она рисуется inline (под исходной заметкой в паспорте шага или
+          // в ElementFocusCard для осмотра). Сам message нужен как источник
+          // данных для inline-рендера (см. stepNoteProposals).
+          null
         ) : (
           msg.text && (
             <>
