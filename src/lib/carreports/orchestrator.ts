@@ -467,10 +467,33 @@ export async function extractForStep(
           : prev.notes
             ? `${prev.notes}\n${text}`
             : text;
+      const tdNote = typeof merged.testDriveNote === "string" ? merged.testDriveNote : "";
+      const tdPrevNote = typeof prev.testDriveNote === "string" ? prev.testDriveNote : "";
+      const tdTagNames: string[] = [];
+      for (const k of [
+        "testDriveEngineTags",
+        "testDriveTransmissionTags",
+        "testDriveSteeringWheelTags",
+        "testDriveSuspensionInDriveTags",
+        "testDriveBrakesInDriveTags",
+      ] as const) {
+        const v = merged[k];
+        if (Array.isArray(v)) for (const x of v) if (typeof x === "string") tdTagNames.push(x);
+      }
+      const notePatched: NotePatched | undefined =
+        tdNote && tdNote.trim() && tdNote !== tdPrevNote
+          ? {
+              ref: { kind: "testDrive" },
+              scopeLabel: "Тест‑драйв",
+              originalText: tdNote,
+              tagNames: tdTagNames,
+            }
+          : undefined;
       return {
         patch: { testDriveStep: merged },
         reply: summarizeTestDrive(merged),
         chips: testDriveChips(),
+        ...(notePatched ? { notePatched } : {}),
       };
     } catch {
       const notDone = /не\s+проводил/i.test(text) ? true : prev.notDone;
