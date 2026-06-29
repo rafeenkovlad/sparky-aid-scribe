@@ -430,10 +430,12 @@ function TestDriveCategoryRow({
 function TestDriveTagPicker({
   catKey,
   selectedNames,
+  selectedTagIds,
   onAdd,
 }: {
   catKey: TestDriveTagCatKey;
   selectedNames: string[];
+  selectedTagIds: number[];
   onAdd: (tag: UserTag) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -441,12 +443,22 @@ function TestDriveTagPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Стабильный ключ выбранных id — чтобы перезагрузить теги, когда
+  // пользователь добавил/убрал тег.
+  const selectedKey = selectedTagIds.slice().sort((a, b) => a - b).join(",");
+
+  // Сбрасываем кэшированный список при изменении набора выбранных,
+  // чтобы следующий открытый дропдаун подтянул релевантный ответ сервера.
+  useEffect(() => {
+    setTags(null);
+  }, [selectedKey]);
+
   useEffect(() => {
     if (!open || tags !== null) return;
     let alive = true;
     setLoading(true);
     setError(null);
-    loadTagsFor("test_drive", null)
+    loadTagsFor("test_drive", null, selectedTagIds)
       .then((list) => {
         if (alive) setTags(list);
       })
@@ -459,7 +471,7 @@ function TestDriveTagPicker({
     return () => {
       alive = false;
     };
-  }, [open, tags]);
+  }, [open, tags, selectedKey, selectedTagIds]);
 
   const section = TD_CAT_SECTION[catKey];
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
