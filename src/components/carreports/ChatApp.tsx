@@ -2500,6 +2500,23 @@ export function ChatApp({ threadId }: Props) {
                 });
               });
             }}
+            onTestDriveAddTag={(catKey, name) => {
+              const n = name.trim();
+              if (!n) return;
+              updateThread(thread.id, (t) => {
+                const td = { ...(t.draft.testDriveStep ?? {}) } as Record<string, unknown>;
+                const prev = Array.isArray(td[catKey])
+                  ? (td[catKey] as unknown[]).filter(
+                      (x): x is string => typeof x === "string",
+                    )
+                  : [];
+                const has = prev.some(
+                  (x) => x.trim().toLowerCase() === n.toLowerCase(),
+                );
+                if (!has) td[catKey] = [...prev, n];
+                t.draft.testDriveStep = td as typeof t.draft.testDriveStep;
+              });
+            }}
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
@@ -3202,6 +3219,15 @@ interface BubbleProps {
   onFillMissing?: (template: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  onTestDriveAddTag?: (
+    catKey:
+      | "testDriveEngineTags"
+      | "testDriveTransmissionTags"
+      | "testDriveSteeringWheelTags"
+      | "testDriveSuspensionInDriveTags"
+      | "testDriveBrakesInDriveTags",
+    name: string,
+  ) => void;
   onAdvance?: () => void;
   /** Inspection chat card data + handlers. */
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
@@ -3255,6 +3281,7 @@ function MessageBubble({
   onFillMissing,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   onAdvance,
   inspectionDraft,
   inspectionCursor,
@@ -3368,6 +3395,7 @@ function MessageBubble({
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
+            onTestDriveAddTag={onTestDriveAddTag}
             noteProposals={stepNoteProposals?.filter(
               (p) => stepForNoteRef(p.payload.ref) === msg.step,
             )}

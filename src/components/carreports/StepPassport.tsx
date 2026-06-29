@@ -1,11 +1,30 @@
-import { Check, ChevronRight, Pencil, ShieldCheck } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import { sectionProgress } from "@/lib/carreports/inspectionState";
+import { loadTagsFor, type UserTag } from "@/lib/carreports/inspectionTags";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist } from "./DocsChecklist";
 import { NoteProposalInline } from "./NoteProposalInline";
+
+type TestDriveTagCatKey =
+  | "testDriveEngineTags"
+  | "testDriveTransmissionTags"
+  | "testDriveSteeringWheelTags"
+  | "testDriveSuspensionInDriveTags"
+  | "testDriveBrakesInDriveTags";
+
+const TD_CAT_SECTION: Record<TestDriveTagCatKey, string> = {
+  testDriveEngineTags: "engine",
+  testDriveTransmissionTags: "transmission",
+  testDriveSteeringWheelTags: "steering_wheel",
+  testDriveSuspensionInDriveTags: "suspension_in_drive",
+  testDriveBrakesInDriveTags: "brakes_in_drive",
+};
+
 
 interface Props {
   step: StepId;
@@ -14,6 +33,8 @@ interface Props {
   onConfirm?: () => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  /** Добавить тег (по имени) в указанную категорию тест-драйва. */
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
   /** Активные предложения переформулировать заметку, относящиеся к этому шагу. */
   noteProposals?: Array<{
     payload: NoteProposalPayload;
@@ -34,6 +55,7 @@ export function StepPassport({
   onConfirm,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   noteProposals,
 }: Props) {
   const hideConfirm = step === "legalMaterials" || step === "testDrive";
@@ -50,6 +72,7 @@ export function StepPassport({
           onEdit={onEdit}
           onDocsAllMatch={onDocsAllMatch}
           onTestDriveAllOk={onTestDriveAllOk}
+          onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
         />
       </div>
@@ -81,6 +104,7 @@ function StepBody({
   onEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   noteProposals,
 }: {
   step: StepId;
@@ -88,7 +112,9 @@ function StepBody({
   onEdit?: (t: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
+  onTestDriveAddTag?: (catKey: TestDriveTagCatKey, name: string) => void;
   noteProposals?: Props["noteProposals"];
+
 }) {
   switch (step) {
     case "car":
@@ -146,12 +172,12 @@ function StepBody({
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       if (td.notDone) return <div className="text-white/70 text-[13px]">Тест-драйв не проводился.</div>;
-      const flags: Array<[string, boolean | undefined, string[] | undefined]> = [
-        ["Двигатель", td.testDriveEngineIsWorkingProperly, td.testDriveEngineTags],
-        ["КПП", td.testDriveTransmissionIsWorkingProperly, td.testDriveTransmissionTags],
-        ["Руль", td.testDriveSteeringWheelIsWorkingProperly, td.testDriveSteeringWheelTags],
-        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags],
-        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags],
+      const flags: Array<[string, boolean | undefined, string[] | undefined, TestDriveTagCatKey]> = [
+        ["Двигатель", td.testDriveEngineIsWorkingProperly, td.testDriveEngineTags, "testDriveEngineTags"],
+        ["КПП", td.testDriveTransmissionIsWorkingProperly, td.testDriveTransmissionTags, "testDriveTransmissionTags"],
+        ["Руль", td.testDriveSteeringWheelIsWorkingProperly, td.testDriveSteeringWheelTags, "testDriveSteeringWheelTags"],
+        ["Подвеска", td.testDriveSuspensionInDriveIsWorkingProperly, td.testDriveSuspensionInDriveTags, "testDriveSuspensionInDriveTags"],
+        ["Тормоза", td.testDriveBrakesInDriveIsWorkingProperly, td.testDriveBrakesInDriveTags, "testDriveBrakesInDriveTags"],
       ];
       const cleanTags = (arr?: string[]) =>
         Array.isArray(arr)
@@ -164,7 +190,7 @@ function StepBody({
       return (
         <div className="space-y-2 text-[13px] leading-tight">
           <ul className="space-y-1">
-            {flags.map(([label, val, tagArr]) => {
+            {flags.map(([label, val, tagArr, catKey]) => {
               const tags = cleanTags(tagArr);
               return (
                 <li key={label} className="min-w-0">
@@ -182,8 +208,8 @@ function StepBody({
                       {val === true ? "ок" : val === false ? "замечания" : "—"}
                     </span>
                   </div>
-                  {tags.length > 0 && (
-                    <div className="pl-5 mt-1 flex flex-wrap gap-1">
+                  {(tags.length > 0 || onTestDriveAddTag) && (
+                    <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
                       {tags.map((t, i) => (
                         <span
                           key={`${t}-${i}`}
@@ -192,12 +218,20 @@ function StepBody({
                           {t}
                         </span>
                       ))}
+                      {onTestDriveAddTag && (
+                        <TestDriveTagPicker
+                          catKey={catKey}
+                          selectedNames={tags}
+                          onAdd={(name) => onTestDriveAddTag(catKey, name)}
+                        />
+                      )}
                     </div>
                   )}
                 </li>
               );
             })}
           </ul>
+
 
           {(td.notes || td.testDriveNote) && (
             <div className="pt-2 border-t border-white/5">
@@ -310,3 +344,101 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
   ].join("\n");
 
 }
+
+/** Дропдаун-подсказка из GetUserTags: только теги с типом serious/non_serious. */
+function TestDriveTagPicker({
+  catKey,
+  selectedNames,
+  onAdd,
+}: {
+  catKey: TestDriveTagCatKey;
+  selectedNames: string[];
+  onAdd: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tags, setTags] = useState<UserTag[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || tags !== null) return;
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    loadTagsFor("test_drive", TD_CAT_SECTION[catKey])
+      .then((list) => {
+        if (alive) setTags(list);
+      })
+      .catch((e: unknown) => {
+        if (alive) setError(e instanceof Error ? e.message : "Не удалось загрузить теги");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, tags, catKey]);
+
+  const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
+  // Только теги, описывающие неполадку: type = serious / non_serious.
+  const suggestions = (tags ?? []).filter(
+    (t) =>
+      (t.type === "serious" || t.type === "non_serious") &&
+      !selectedSet.has(t.name.trim().toLowerCase()),
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Добавить тег"
+          title="Добавить тег"
+          className="inline-flex items-center justify-center rounded-md border border-dashed border-white/15 text-white/60 hover:text-white hover:border-white/30 h-[22px] w-[22px]"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
+      >
+        {loading && <div className="px-2 py-1.5 text-[12px] text-white/60">Загрузка…</div>}
+        {error && <div className="px-2 py-1.5 text-[12px] text-rose-300">{error}</div>}
+        {!loading && !error && suggestions.length === 0 && (
+          <div className="px-2 py-1.5 text-[12px] text-white/50">Нет подходящих тегов</div>
+        )}
+        {!loading && !error && suggestions.length > 0 && (
+          <ul className="space-y-0.5">
+            {suggestions.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAdd(t.name);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-2 py-1 rounded text-[12px] hover:bg-white/10 flex items-center gap-2"
+                >
+                  <span className="flex-1 truncate">{t.name}</span>
+                  <span
+                    className={
+                      t.type === "serious"
+                        ? "text-[10px] text-rose-300"
+                        : "text-[10px] text-amber-300"
+                    }
+                  >
+                    {t.type === "serious" ? "серьёзный" : "несерьёзный"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
