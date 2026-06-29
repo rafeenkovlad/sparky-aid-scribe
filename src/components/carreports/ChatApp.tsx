@@ -2516,6 +2516,7 @@ export function ChatApp({ threadId }: Props) {
               {countDocsPassport(thread.draft)}/4
             </span>
           </button>
+        )}
         {(currentStep === "inspection" ||
           currentStep === "legalMaterials" ||
           currentStep === "testDrive" ||
