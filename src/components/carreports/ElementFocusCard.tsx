@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { getSection, type SectionSnake } from "@/lib/carreports/inspectionSections";
 import { getFinding, photosForSection } from "@/lib/carreports/inspectionState";
-import type { InspectionStep, PendingTagName } from "@/lib/carreports/types";
+import type { InspectionStep, NoteProposalPayload, PendingTagName } from "@/lib/carreports/types";
 import { deleteUserTag, loadSectionTags, updateUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
+import { NoteProposalInline } from "./NoteProposalInline";
 import { subscribeToken } from "@/lib/carreports/tokenStore";
 
 
