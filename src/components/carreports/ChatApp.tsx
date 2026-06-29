@@ -3264,6 +3264,7 @@ function MessageBubble({
   onFillMissing,
   onDocsAllMatch,
   onTestDriveAllOk,
+  onTestDriveAddTag,
   onAdvance,
   inspectionDraft,
   inspectionCursor,
