@@ -473,16 +473,17 @@ function TestDriveTagPicker({
     };
   }, [open, tags, selectedKey, selectedTagIds]);
 
-  const section = TD_CAT_SECTION[catKey];
   const selectedSet = new Set(selectedNames.map((s) => s.trim().toLowerCase()));
-  // Только теги, описывающие неполадку: type = serious / non_serious,
-  // и относящиеся к нужной категории (если у тега указана section).
+  // Только теги, описывающие неполадку: type = serious / non_serious.
+  // По section не фильтруем — сервер возвращает общий список тегов шага
+  // test_drive, и у части из них section может быть null или относиться к
+  // другой категории. Категория уточняется в момент сохранения тега.
   const suggestions = (tags ?? []).filter(
     (t) =>
       (t.type === "serious" || t.type === "non_serious") &&
-      (!t.section || t.section === section) &&
       !selectedSet.has(t.name.trim().toLowerCase()),
   );
+  void catKey;
 
 
   return (
