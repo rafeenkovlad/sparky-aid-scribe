@@ -2477,9 +2477,18 @@ export function ChatApp({ threadId }: Props) {
           </button>
         )}
         <button
-          onClick={() => {
+          type="button"
+          onPointerDown={(e) => {
+            // Prevent textarea blur / mobile keyboard collapse so the toggle
+            // fires on the first tap regardless of current focus.
+            e.preventDefault();
             setAskMode((v) => !v);
             textareaRef.current?.focus();
+          }}
+          onClick={(e) => {
+            // onPointerDown already handled toggle on devices that fire it.
+            // Fallback for environments without pointer events.
+            e.preventDefault();
           }}
           aria-label={askMode ? "Отменить вопрос" : "Есть вопрос"}
           title={askMode ? "Отменить вопрос" : "Есть вопрос"}
