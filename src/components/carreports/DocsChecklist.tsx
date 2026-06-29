@@ -1,5 +1,6 @@
 import { Check, X, Pencil, ShieldCheck } from "lucide-react";
-import type { ReportDraft } from "@/lib/carreports/types";
+import type { NoteProposalPayload, ReportDraft } from "@/lib/carreports/types";
+import { NoteProposalInline } from "./NoteProposalInline";
 
 type TriState = "match" | "mismatch" | "unknown";
 
@@ -17,13 +18,20 @@ interface Props {
   onEdit?: (template: string) => void;
   /** Отметить все три «совпадения» как совпадающие. */
   onAllMatch?: () => void;
+  /** Предложение переформулировать заметку (docs). */
+  noteProposal?: {
+    payload: NoteProposalPayload;
+    onPickOriginal: () => void;
+    onPickAi: () => void;
+    onDismiss: () => void;
+  };
 }
 
 /**
  * Чат-карточка «Сверка документов».
  * Стиль повторяет «Паспорт авто» из первого шага.
  */
-export function DocsChecklist({ draft, onEdit, onAllMatch }: Props) {
+export function DocsChecklist({ draft, onEdit, onAllMatch, noteProposal }: Props) {
   const d = draft.documentReconciliationStep ?? {};
 
   const ownersFilled = typeof d.ownersCount === "number";
