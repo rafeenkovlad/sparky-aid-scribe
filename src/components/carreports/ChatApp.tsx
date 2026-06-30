@@ -1390,6 +1390,31 @@ export function ChatApp({ threadId }: Props) {
     [patchNoteProposalMsg],
   );
 
+  const generateInspectionNote = useCallback(
+    (args: {
+      section: SectionSnake;
+      elementId: string;
+      scopeLabel: string;
+      originalText: string;
+      tagNames: string[];
+    }) => {
+      if (!thread) return;
+      const tagNames = args.tagNames
+        .map((name) => name.trim())
+        .filter((name, idx, arr) => name && arr.indexOf(name) === idx);
+      if (!tagNames.length) return;
+      pushChatNoteProposal(thread.id, {
+        ref: { kind: "inspection", section: args.section, elementId: args.elementId },
+        scopeLabel: args.scopeLabel,
+        originalText:
+          args.originalText.trim() ||
+          `Замечания: ${tagNames.join(", ")}.`,
+        tagNames,
+      });
+    },
+    [thread, pushChatNoteProposal],
+  );
+
   const acceptChatNoteOriginal = useCallback(
     (ref: NoteRef, originalText?: string) => {
       if (!thread) return;
@@ -2598,6 +2623,7 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusAddPendingTag={photoAddPendingTag}
             onElementFocusDeletePhoto={deletePhotoFocus}
             onMutateFindingAt={mutateFindingAt}
+            onGenerateInspectionNote={generateInspectionNote}
             elementFocusNoteProposal={noteProposal}
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
@@ -3301,6 +3327,13 @@ interface BubbleProps {
     idx: number,
     mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
   ) => void;
+  onGenerateInspectionNote?: (args: {
+    section: SectionSnake;
+    elementId: string;
+    scopeLabel: string;
+    originalText: string;
+    tagNames: string[];
+  }) => void;
   elementFocusNoteProposal?: NoteProposalT | null;
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
@@ -3354,6 +3387,7 @@ function MessageBubble({
   onElementFocusAddPendingTag,
   onElementFocusDeletePhoto,
   onMutateFindingAt,
+  onGenerateInspectionNote,
   elementFocusNoteProposal,
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
@@ -3524,7 +3558,10 @@ function MessageBubble({
               onChangePhotoIdx={(idx) => onElementFocusChangePhoto?.(idx)}
               onChangeElement={(elementId) => onElementFocusChangeElement?.(elementId)}
               onSetVerdict={(v) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => {
                   if (v === "ok") {
                     f.noDamage = true;
@@ -3537,17 +3574,26 @@ function MessageBubble({
                 });
               }}
               onToggleTag={(t) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 const bucket: "serious" | "non_serious" =
                   t.type === "serious" ? "serious" : "non_serious";
                 onMutateFindingAt?.(idx, (f) => toggleFindingTag(f, bucket, t.id));
               }}
               onAddPendingTag={(n, s) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
               }}
               onTogglePendingTag={(n, s) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
               }}
               onDeletePhoto={onElementFocusDeletePhoto}
@@ -3557,7 +3603,11 @@ function MessageBubble({
               onDismissNoteProposal={onElementFocusDismissNoteProposal}
               aiUpdating={!!elementFocusNoteProposal?.loading}
               chatNoteProposal={(() => {
-                const photo = inspectionDraft.photos[msg.photoIdx];
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
+                const photo = inspectionDraft.photos[idx];
                 if (!photo) return undefined;
                 const sec = photo.section;
                 const elId =
@@ -3571,6 +3621,7 @@ function MessageBubble({
                 );
                 return found;
               })()}
+              onGenerateNote={onGenerateInspectionNote}
               onEdit={onFillMissing}
             />
 

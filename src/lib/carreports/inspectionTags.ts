@@ -38,8 +38,9 @@ if (typeof window !== "undefined") {
 export async function loadSectionTags(
   section: SectionSnake,
   selectedTagIds?: number[],
+  force = false,
 ): Promise<UserTag[]> {
-  return loadTagsFor("inspection", section, selectedTagIds);
+  return loadTagsFor("inspection", section, selectedTagIds, force);
 }
 
 /** Универсальная загрузка тегов для произвольного step/section.
@@ -48,11 +49,13 @@ export async function loadTagsFor(
   step: string,
   section: string | null,
   selectedTagIds?: number[],
+  force = false,
 ): Promise<UserTag[]> {
   const selected = Array.isArray(selectedTagIds) ? selectedTagIds : [];
   const useSelected = selected.length > 0;
+  const useCache = !useSelected && !force;
   const cacheKey = `${step}:${section ?? "*"}`;
-  if (!useSelected) {
+  if (useCache) {
     const hit = cache.get(cacheKey);
     if (hit) return hit;
     const running = inflight.get(cacheKey);
@@ -77,10 +80,10 @@ export async function loadTagsFor(
       if (!useSelected) cache.set(cacheKey, list);
       return list;
     } finally {
-      if (!useSelected) inflight.delete(cacheKey);
+      if (useCache) inflight.delete(cacheKey);
     }
   })();
-  if (!useSelected) inflight.set(cacheKey, fetcher);
+  if (useCache) inflight.set(cacheKey, fetcher);
   return fetcher;
 }
 
