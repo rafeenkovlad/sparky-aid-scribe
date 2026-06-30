@@ -63,7 +63,12 @@ export function StepPassport({
   onReformulateResultNote,
 }: Props) {
   const hideConfirm =
-    step === "legalMaterials" || step === "testDrive" || step === "result";
+    step === "legalMaterials" ||
+    step === "testDrive" ||
+    step === "result" ||
+    step === "car" ||
+    step === "characteristics";
+
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
       <div className="mb-2">
