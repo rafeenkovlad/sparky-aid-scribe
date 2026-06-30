@@ -3383,6 +3383,12 @@ export function ChatApp({ threadId }: Props) {
             (thread.messages.result ?? []).some((m) => m.kind === "finishComplete");
           return (
             <button
+              onPointerDown={(e) => {
+                // Не даём фокусу уйти на textarea/композер при тапе кнопки
+                // (особенно на мобильных, где это раскрывает клавиатуру).
+                e.preventDefault();
+                textareaRef.current?.blur();
+              }}
               onClick={() => {
                 if (currentStep === "result") {
                   if (finishAlreadySubmitted) return;
