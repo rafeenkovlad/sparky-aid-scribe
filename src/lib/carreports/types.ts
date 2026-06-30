@@ -271,7 +271,9 @@ export interface ChatMessage {
     | "inspectionAttachAssign"
     | "inspectionElementFocus"
     | "legalMaterialsCollage"
-    | "uploadProgress";
+    | "uploadProgress"
+    | "finishConfirm"
+    | "finishComplete";
   /** payload for kind=uploadProgress — финальная выгрузка отчёта */
   uploadProgress?: {
     phase: "uploading" | "done" | "error";
@@ -280,6 +282,11 @@ export interface ChatMessage {
     total?: number;
     reportId?: string | number;
     note?: string;
+  };
+  /** payload for kind=finishComplete — успешная выгрузка с кнопкой «Поделиться» */
+  finishComplete?: {
+    reportId?: string | number;
+    shareUrl?: string;
   };
   /** payload for kind=missingFields — required-field gate before AI summary */
   missingFields?: { label: string; step: StepId; sectionSnake?: string }[];
