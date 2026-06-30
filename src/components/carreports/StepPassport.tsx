@@ -113,6 +113,7 @@ function StepBody({
   onTestDriveAllOk,
   onTestDriveAddTag,
   noteProposals,
+  onReformulateResultNote,
 }: {
   step: StepId;
   draft: ReportDraft;
@@ -121,8 +122,10 @@ function StepBody({
   onTestDriveAllOk?: () => void;
   onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   noteProposals?: Props["noteProposals"];
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 
 }) {
+
   switch (step) {
     case "car":
     case "characteristics":
