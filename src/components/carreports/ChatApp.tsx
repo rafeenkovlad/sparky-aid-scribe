@@ -1550,7 +1550,7 @@ export function ChatApp({ threadId }: Props) {
       });
     }
     return out;
-  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal]);
+  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal, writeNoteToDraft, thread]);
 
   /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
    *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */
