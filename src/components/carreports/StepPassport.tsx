@@ -90,7 +90,9 @@ export function StepPassport({
           onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
           onReformulateResultNote={onReformulateResultNote}
+          onDeleteLegalMaterial={onDeleteLegalMaterial}
         />
+
       </div>
 
 
