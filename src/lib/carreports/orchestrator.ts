@@ -805,6 +805,44 @@ export async function extractForStep(
           pending.push({ name, severity: "non_serious" });
       }
 
+      // Fallback: если ИИ описал замечание в заметке, но не выписал
+      // ни одного тега (и не пометил noDamage=true) — пробуем достать тег
+      // из текста по ключевым словам, чтобы не терять находку.
+      const noteSource = `${f.note ?? ""} ${text}`.toLowerCase();
+      const explicitNoDamage = noDamage === true;
+      if (!explicitNoDamage && !sIds.size && !nsIds.size && !pending.length) {
+        const KEYWORD_TAGS: Array<{ re: RegExp; name: string; severity: "serious" | "non_serious" }> = [
+          { re: /прож(о|ё)г|прожжен|сигарет/, name: "Прожог", severity: "non_serious" },
+          { re: /пятн/, name: "Пятно", severity: "non_serious" },
+          { re: /разрыв|порез|порван/, name: "Разрыв", severity: "serious" },
+          { re: /цара|задир/, name: "Царапина", severity: "non_serious" },
+          { re: /скол/, name: "Скол", severity: "non_serious" },
+          { re: /вмятин/, name: "Вмятина", severity: "non_serious" },
+          { re: /потёрт|потерт|притёрт|притерт|затир/, name: "Потёртость", severity: "non_serious" },
+          { re: /ржав|корроз/, name: "Коррозия", severity: "serious" },
+          { re: /перекрас|крашен/, name: "Покраска", severity: "serious" },
+          { re: /трещин|треснут/, name: "Трещина", severity: "serious" },
+          { re: /загрязн|грязн/, name: "Загрязнение", severity: "non_serious" },
+          { re: /скрип|стук|посторонн.*звук/, name: "Посторонний звук", severity: "non_serious" },
+        ];
+        const SERIOUS_MARK = /(серь[её]зн|сильн|глубок|больш|крупн|значительн)/;
+        const NON_SERIOUS_MARK = /(мелк|маленьк|поверхностн|л[её]гк)/;
+        for (const k of KEYWORD_TAGS) {
+          if (!k.re.test(noteSource)) continue;
+          let severity = k.severity;
+          if (SERIOUS_MARK.test(noteSource)) severity = "serious";
+          else if (NON_SERIOUS_MARK.test(noteSource)) severity = "non_serious";
+          const id = await resolveOrCreateTagId(tagCatalogue, sectionSnake, k.name, severity);
+          if (id) {
+            if (severity === "serious") sIds.add(id);
+            else nsIds.add(id);
+          } else if (!pending.some((p) => p.name === k.name)) {
+            pending.push({ name: k.name, severity });
+          }
+          break;
+        }
+      }
+
       const nextNote = f.note?.trim()
         ? base.note
           ? `${base.note}\n${f.note.trim()}`
