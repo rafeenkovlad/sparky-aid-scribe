@@ -270,7 +270,7 @@ export interface ChatMessage {
     | "noteProposal"
     | "missingFields"
     | "inspectionSectionPicker"
-    | "inspectionSectionPassport"
+    
     | "inspectionFullPassport"
     | "inspectionChips"
     | "inspectionUploadPrompt"
