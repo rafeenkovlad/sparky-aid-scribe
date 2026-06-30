@@ -60,6 +60,7 @@ export function StepPassport({
   onTestDriveAllOk,
   onTestDriveAddTag,
   noteProposals,
+  onReformulateResultNote,
 }: Props) {
   const hideConfirm =
     step === "legalMaterials" || step === "testDrive" || step === "result";
@@ -78,8 +79,10 @@ export function StepPassport({
           onTestDriveAllOk={onTestDriveAllOk}
           onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
+          onReformulateResultNote={onReformulateResultNote}
         />
       </div>
+
 
       {onConfirm && !hideConfirm && (
         <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-end gap-2">
