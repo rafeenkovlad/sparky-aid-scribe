@@ -712,22 +712,20 @@ export async function uploadReportFileMultipart(opts: {
 
     // 3) считаем количество частей
     const totalParts = Math.max(1, Math.ceil(blob.size / PART_SIZE));
-    const parts: { PartNumber: number; ETag: string }[] = [];
+    const parts: { partNumber: number; etag: string }[] = [];
     for (let i = 0; i < totalParts; i++) {
       const partNumber = i + 1;
       const start = i * PART_SIZE;
-      const end = Math.min(blob.size, start + PART_SIZE);
+      const end = Math.min(start + PART_SIZE, blob.size);
       const chunk = blob.slice(start, end);
-
       const part = await rpc<{ url: string; partNumber: number }>(
         "ObjectStorage.GetPartUploadUrl",
         { reportNumber, filename, uploadId, partNumber },
       );
-
       const putRes = await fetch(part.url, {
         method: "PUT",
-        headers: opts.contentType ? { "Content-Type": opts.contentType } : undefined,
         body: chunk,
+        headers: { "Content-Type": blob.type || "application/octet-stream" },
       });
       if (!putRes.ok) {
         return { ok: false, note: `S3 PUT part ${partNumber}: ${putRes.status}` };
@@ -736,7 +734,7 @@ export async function uploadReportFileMultipart(opts: {
       if (!etag) {
         return { ok: false, note: "S3 не вернул ETag (проверьте CORS expose ETag)." };
       }
-      parts.push({ PartNumber: partNumber, ETag: etag.replace(/"/g, "") });
+      parts.push({ partNumber, etag: etag.replace(/"/g, "") });
       opts.onProgress?.(partNumber / totalParts);
     }
 
