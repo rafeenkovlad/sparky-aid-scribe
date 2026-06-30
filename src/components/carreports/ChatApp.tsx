@@ -3567,7 +3567,9 @@ function MessageBubble({
             noteProposals={stepNoteProposals?.filter(
               (p) => stepForNoteRef(p.payload.ref) === msg.step,
             )}
+            onReformulateResultNote={onReformulateResultNote}
           />
+
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
           // Карточка переформулировки не показывается отдельным пузырём —
           // она рисуется inline (под исходной заметкой в паспорте шага или
