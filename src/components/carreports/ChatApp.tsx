@@ -2159,6 +2159,8 @@ export function ChatApp({ threadId }: Props) {
     } finally {
       setBusy(false);
     }
+  }, [thread, busy]);
+
 
 
 
