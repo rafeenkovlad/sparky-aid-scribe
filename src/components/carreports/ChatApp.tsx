@@ -40,6 +40,7 @@ import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
 import { InspectionSectionPassport } from "./InspectionSectionPassport";
+import { InspectionFullPassport } from "./InspectionFullPassport";
 import { NoteProposalCard } from "./NoteProposalCard";
 
 
@@ -559,6 +560,25 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread],
   );
+
+  const showInspectionFullPassport = useCallback(() => {
+    if (!thread) return;
+    updateThread(thread.id, (t) => {
+      const list = t.messages.inspection;
+      // Удаляем предыдущий общий паспорт, чтобы не дублировался.
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        if (list[i].kind === "inspectionFullPassport") list.splice(i, 1);
+      }
+      pushMsg(t, "inspection", {
+        id: `insp-full-passport-${Date.now()}`,
+        role: "assistant",
+        text: "",
+        step: "inspection",
+        kind: "inspectionFullPassport",
+        createdAt: Date.now(),
+      });
+    });
+  }, [thread]);
 
 
   const selectSection = useCallback(
@@ -2975,6 +2995,7 @@ export function ChatApp({ threadId }: Props) {
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
+            onShowInspectionFullPassport={showInspectionFullPassport}
             onSelectElement={selectElement}
             onSetVerdict={setVerdict}
             onToggleTag={toggleTagOnFinding}
@@ -3718,6 +3739,7 @@ interface BubbleProps {
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
   inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
   onSelectSection?: (snake: SectionSnake) => void;
+  onShowInspectionFullPassport?: () => void;
   onSelectElement?: (elementId: string) => void;
   onSetVerdict?: (v: "ok" | "minor" | "serious") => void;
   onToggleTag?: (t: UserTag) => void;
@@ -3791,6 +3813,7 @@ function MessageBubble({
   inspectionDraft,
   inspectionCursor,
   onSelectSection,
+  onShowInspectionFullPassport,
   onSelectElement,
   onSetVerdict,
   onToggleTag,
@@ -4044,7 +4067,11 @@ function MessageBubble({
             currentSection={inspectionCursor?.section.snake}
             interactive
             onPick={onSelectSection ?? (() => {})}
+            onShowFullPassport={onShowInspectionFullPassport}
           />
+        )}
+        {msg.kind === "inspectionFullPassport" && inspectionDraft && (
+          <InspectionFullPassport step={inspectionDraft} />
         )}
         {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
           <InspectionChipsCard
