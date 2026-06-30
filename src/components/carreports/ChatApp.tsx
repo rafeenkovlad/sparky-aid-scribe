@@ -1778,6 +1778,34 @@ export function ChatApp({ threadId }: Props) {
   //  4) сообщение «Отчёт успешно выгружен» с кнопкой «Поделиться».
   const doFinish = useCallback(async () => {
     if (!thread || busy) return;
+
+    // Гейт обязательных полей — не дёргаем Storage.PrepareSpecialistReport,
+    // если пользователь ещё не заполнил всё необходимое: иначе бэкенд
+    // вернёт техническую ошибку «This value should not be blank.», которая
+    // пользователю ни о чём не говорит. Показываем то же сообщение, что и
+    // для AI-резюме, с кнопками перехода в нужный шаг/раздел.
+    const fresh0 = getThread(thread.id) ?? thread;
+    const missing = collectMissingForSummary(fresh0.draft);
+    if (missing.length > 0) {
+      updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter(
+          (m) => m.kind !== "finishConfirm",
+        );
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text:
+            "Не получится выгрузить отчёт — остались незаполненные обязательные поля. " +
+            "Перейдите по кнопкам ниже и допишите недостающее, затем снова нажмите «Завершить».",
+          step: "result",
+          kind: "missingFields",
+          missingFields: missing,
+          createdAt: Date.now(),
+        });
+      });
+      return;
+    }
+
     setBusy(true);
     const progressId = `finish-progress-${Date.now()}`;
     try {
@@ -1797,13 +1825,33 @@ export function ChatApp({ threadId }: Props) {
       const fresh = getThread(thread.id) ?? thread;
       const r = await submitReport(fresh.draft);
       if (!r.remote) {
+        // На случай, если бэкенд всё-таки вернул ошибку про незаполненные
+        // поля (например, серверные требования изменились) — показываем
+        // дружелюбное сообщение вместо технического текста ошибки.
+        const raw = r.note ?? "Не удалось подготовить отчёт.";
+        const looksLikeBlank = /should not be blank|обязательн|required/i.test(raw);
         updateThread(thread.id, (t) => {
-          pushMsg(t, "result", {
-            id: msgId(),
-            role: "assistant",
-            text: `⚠️ ${r.note ?? "Не удалось подготовить отчёт."}`,
-            createdAt: Date.now(),
-          });
+          if (looksLikeBlank) {
+            const miss = collectMissingForSummary(t.draft);
+            pushMsg(t, "result", {
+              id: msgId(),
+              role: "assistant",
+              text:
+                "Не получится выгрузить отчёт — на сервере не приняты обязательные поля. " +
+                "Проверьте, что во всех шагах заполнены обязательные данные, и попробуйте снова.",
+              step: "result",
+              kind: "missingFields",
+              missingFields: miss,
+              createdAt: Date.now(),
+            });
+          } else {
+            pushMsg(t, "result", {
+              id: msgId(),
+              role: "assistant",
+              text: `⚠️ ${raw}`,
+              createdAt: Date.now(),
+            });
+          }
         });
         return;
       }
