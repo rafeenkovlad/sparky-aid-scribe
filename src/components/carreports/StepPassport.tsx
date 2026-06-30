@@ -398,14 +398,17 @@ export function buildCarEditTemplate(draft: ReportDraft, step: StepId): string {
   const lines: string[] = [
     step === "characteristics" ? "Характеристики (правка):" : "Автомобиль (правка):",
   ];
-  const push = (label: string, value: string | number | undefined | null) => {
-    if (value === undefined || value === null || value === "") return;
-    lines.push(`${label}: ${value}`);
+  const fmt = (value: string | number | undefined | null): string => {
+    if (value === undefined || value === null || value === "") return "—";
+    return String(value);
   };
+  const push = (label: string, value: string | number | undefined | null) => {
+    lines.push(`${label}: ${fmt(value)}`);
+  };
+  push("Дата осмотра", c.dateInspection ?? "");
   push("VIN", c.vin ?? (c.unreadableVin ? "нечитаемый" : ""));
   push("Госномер", c.gosNumber ?? "");
   push("Пробег", c.mileage ? `${c.mileage} км` : "");
-  push("Дата осмотра", c.dateInspection ?? "");
   push("Город осмотра", c.cityInspection ?? "");
   push("Ссылка", c.uriListing ?? "");
   push("Марка", ch.brandName ?? "");
@@ -420,6 +423,7 @@ export function buildCarEditTemplate(draft: ReportDraft, step: StepId): string {
   push("Комплектация", ch.equipment ?? "");
   return lines.join("\n");
 }
+
 
 
 

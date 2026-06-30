@@ -22,6 +22,7 @@ export function CarChecklist({ draft }: Props) {
   const ch = draft.characteristicsStep ?? {};
 
   const required: Item[] = [
+    { label: "Дата осмотра", filled: !!c.dateInspection, value: c.dateInspection },
     {
       label: "VIN",
       filled: !!c.vin && c.vin.length >= 11,
@@ -37,9 +38,9 @@ export function CarChecklist({ draft }: Props) {
       filled: !!c.mileage,
       value: c.mileage ? `${c.mileage.toLocaleString("ru-RU")} км` : undefined,
     },
-    { label: "Дата осмотра", filled: !!c.dateInspection, value: c.dateInspection },
     { label: "Год", filled: !!ch.year, value: ch.year ? String(ch.year) : undefined },
   ];
+
 
   const optional: Item[] = [
     { label: "Город осмотра", filled: !!c.cityInspection, value: c.cityInspection },
