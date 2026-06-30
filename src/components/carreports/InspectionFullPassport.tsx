@@ -1,7 +1,8 @@
-import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Check, Camera } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   INSPECTION_SECTIONS,
+  ZONE_TO_SECTION,
   type SectionSnake,
 } from "@/lib/carreports/inspectionSections";
 import type { InspectionStep } from "@/lib/carreports/types";
@@ -10,6 +11,7 @@ import { loadTagsFor, type UserTag } from "@/lib/carreports/inspectionTags";
 interface Props {
   step: InspectionStep;
 }
+
 
 const LKP_SECTIONS: SectionSnake[] = ["body", "body_reinforcement"];
 
