@@ -1036,6 +1036,12 @@ export async function extractForStep(
 
   // Result: AI splits text into summary vs verdict.
   if (step === "result") {
+    // Структурированный режим правки: пользователь нажал «Редактировать»
+    // в паспорте итога. Парсим секции «Резюме:» и «Вердикт:» и
+    // заменяем целиком — это явная правка пользователем.
+    if (/^\s*Итог\s*\(правка\)\s*:/i.test(text)) {
+      return handleResultEdit(thread, text);
+    }
     const prev = thread.draft.resultStep ?? {};
     try {
       const id = aiChatIdFor(thread, "extract:result");
