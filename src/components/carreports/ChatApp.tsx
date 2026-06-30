@@ -2150,6 +2150,12 @@ export function ChatApp({ threadId }: Props) {
         }
         completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
       }
+      let shareUrl: string | undefined;
+      if (!completeNote && numericId != null) {
+        const { createShareUrl } = await import("@/lib/carreports/storageApi");
+        const s = await createShareUrl(numericId);
+        shareUrl = s.url;
+      }
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
@@ -2160,12 +2166,14 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId,
-            shareUrl: !completeNote && reportId ? `https://app.carreports.ru/r/${reportId}` : undefined,
+            shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
+            retryNumericId: completeNote ? numericId : undefined,
           },
           createdAt: Date.now(),
         });
       });
+
     } finally {
       setBusy(false);
     }
