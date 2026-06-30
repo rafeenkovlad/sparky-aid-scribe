@@ -463,6 +463,7 @@ export async function submitReport(draft: ReportDraft): Promise<{
   remote: boolean;
   reportId?: string | number;
   method?: string;
+  uploadFilesCount?: number;
   note?: string;
 }> {
   try {
