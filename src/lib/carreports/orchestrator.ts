@@ -571,6 +571,13 @@ export async function extractForStep(
   // resolves tag names against the server section catalogue, stores both the
   // legacy free-form note and structured findings.
   if (step === "inspection") {
+    // Структурированный режим правки: пользователь нажал «Редактировать» в
+    // паспорте элемента осмотра. Парсим детерминированно, считаем diff,
+    // удалённые теги снимаем через Storage.RemoveUserTag, новые —
+    // нормализуем (опечатки/длина) и создаём через Storage.AddUserTag.
+    if (/^\s*Осмотр\s*\(правка\)\s*\[section=/i.test(text)) {
+      return handleInspectionEdit(thread, text);
+    }
     const ins = thread.draft.inspectionStep;
     // Resolve cursor → active section + element. Legacy fallback via ZONE_TO_SECTION.
     let sectionSnake: SectionSnake =
