@@ -244,7 +244,7 @@ export function optionalHintSentence(id: StepId, d: ReportDraft): string {
 }
 
 export function filledCount(d: ReportDraft): number {
-  return FLOW_STEPS.slice(0, FLOW_STEPS.length - 1).filter((s) => isStepFilled(s.id, d)).length;
+  return FLOW_STEPS.filter((s) => isStepFilled(s.id, d)).length;
 }
 
 export function shortCarSummary(d: ReportDraft): string {
