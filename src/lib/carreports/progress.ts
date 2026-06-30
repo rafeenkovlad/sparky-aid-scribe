@@ -175,11 +175,10 @@ export function remainingFieldLabels(id: StepId, d: ReportDraft): string[] {
     }
     case "inspection": {
       const ins = d.inspectionStep ?? { sectionNotes: {}, photos: [] };
-      const empty = INSPECTION_SECTIONS.filter(
-        (s) => sectionProgress(ins, s).filled === 0,
+      const missing = REQUIRED_INSPECTION_SNAKES.filter(
+        (snake) => !(ins.photos ?? []).some((p) => p.section === snake),
       );
-      if (empty.length) out.push(`разделов без записей: ${empty.length}`);
-      if ((ins.photos?.length ?? 0) === 0) out.push("фото");
+      for (const s of missing) out.push(REQUIRED_INSPECTION_LABELS[s].toLowerCase());
       break;
     }
 
