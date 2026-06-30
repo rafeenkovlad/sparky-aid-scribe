@@ -2719,8 +2719,24 @@ export function ChatApp({ threadId }: Props) {
                 requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
               }
             }}
+            onReformulateResultNote={(kind) => {
+              if (!thread) return;
+              const r = thread.draft.resultStep ?? {};
+              const originalText =
+                (kind === "resultSummary"
+                  ? r.summaryInspectionNote
+                  : r.resultSpecialistNote) ?? "";
+              if (!originalText.trim()) return;
+              pushChatNoteProposal(thread.id, {
+                ref: { kind },
+                scopeLabel: kind === "resultSummary" ? "Резюме" : "Вердикт",
+                originalText,
+                tagNames: [],
+              });
+            }}
 
           />
+
 
         ))}
 
