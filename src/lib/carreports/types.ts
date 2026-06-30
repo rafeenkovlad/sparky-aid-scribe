@@ -162,6 +162,11 @@ export interface LegalReviewMaterial {
   filename: string;
   /** id записи в IndexedDB-кеше (если файл готовился через preparePhoto). */
   photoId?: string;
+  /** id записи в IndexedDB для произвольных файлов (видео/документы),
+   *  которые не сжимаем и держим локально до финальной выгрузки. */
+  localFileId?: string;
+  /** Файл ещё не выгружен в S3 — будет загружен multipart'ом при «Завершить». */
+  pending?: boolean;
   /** S3-ключ во временном бакете (возвращает ObjectStorage). */
   key?: string;
   /** Категория файла (по mime/расширению). */
@@ -176,6 +181,7 @@ export interface LegalReviewMaterial {
   mimeType?: string;
   addedAt?: number;
 }
+
 
 
 export interface LegalReviewStep {
