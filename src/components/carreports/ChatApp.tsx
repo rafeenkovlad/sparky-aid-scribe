@@ -2109,6 +2109,58 @@ export function ChatApp({ threadId }: Props) {
     }
   }, [thread, busy]);
 
+  // Повторная финализация без перевыгрузки файлов — кнопка «Повторить» в карточке.
+  const doRetryFinalize = useCallback(async (finalizeId: string | number) => {
+    if (!thread || busy) return;
+    setBusy(true);
+    const progressId = `retry-finalize-${Date.now()}`;
+    try {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: progressId,
+          role: "assistant",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "finalizing", percent: 100, uploaded: 1, total: 1, note: "Повторная финализация…" },
+          createdAt: Date.now(),
+        });
+      });
+      const { completeReport } = await import("@/lib/carreports/storageApi");
+      const delays = [0, 1500, 4000];
+      let completeNote = "";
+      let reportId: string | number | undefined;
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (delays[attempt] > 0) await new Promise((res) => setTimeout(res, delays[attempt]));
+        const c = await completeReport(finalizeId);
+        if (c.remote) {
+          completeNote = "";
+          reportId = c.reportId ?? finalizeId;
+          break;
+        }
+        completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
+      }
+      updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: completeNote ? `⚠️ Финализация снова не удалась: ${completeNote}` : "",
+          step: "result",
+          kind: "finishComplete",
+          finishComplete: {
+            reportId,
+            shareUrl: !completeNote && reportId ? `https://app.carreports.ru/r/${reportId}` : undefined,
+            retryFinalizeId: completeNote ? finalizeId : undefined,
+          },
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+
+
 
 
 
