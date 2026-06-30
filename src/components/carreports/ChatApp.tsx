@@ -1866,15 +1866,19 @@ export function ChatApp({ threadId }: Props) {
     setBusy(true);
     const progressId = `finish-progress-${Date.now()}`;
     try {
-      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз
+      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз,
+      // и сразу показываем единый прогресс-бар (без текстовых «Шаг 1/Шаг 2»).
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
           (m) => m.kind !== "finishConfirm",
         );
         pushMsg(t, "result", {
-          id: msgId(),
+          id: progressId,
           role: "assistant",
-          text: "🔧 Шаг 1 — подготавливаю файлы к выгрузке…",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "preparing", percent: 0, uploaded: 0, total: 1, note: "Подготовка отчёта…" },
           createdAt: Date.now(),
         });
       });
@@ -1888,11 +1892,10 @@ export function ChatApp({ threadId }: Props) {
         const raw = r.note ?? "Не удалось подготовить отчёт.";
         const looksLikeBlank = /should not be blank|обязательн|необходимо|required|теги|tags?/i.test(raw);
         updateThread(thread.id, (t) => {
+          // убираем прогресс — будем показывать карточку с переходами
+          t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
           if (looksLikeBlank) {
             const miss = collectMissingForSummary(t.draft);
-            // Если локальный гейт ничего не нашёл, но сервер ругается —
-            // пробуем по ключевым словам понять, куда вести пользователя,
-            // чтобы он увидел кнопку перехода, а не просто текст.
             if (miss.length === 0) {
               const low = raw.toLowerCase();
               const guesses: Array<{ re: RegExp; item: { label: string; step: StepId; sectionSnake?: string } }> = [
@@ -1913,7 +1916,6 @@ export function ChatApp({ threadId }: Props) {
                 if (g.re.test(low)) miss.push(g.item);
               }
               if (miss.length === 0) {
-                // Совсем не угадали — ведём на тест-драйв как самый частый источник.
                 miss.push({ label: "Проверьте обязательные поля во всех шагах", step: "testDrive" });
               }
             }
@@ -1943,22 +1945,16 @@ export function ChatApp({ threadId }: Props) {
       // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера.
       const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
       updateThread(thread.id, (t) => {
-        pushMsg(t, "result", {
-          id: msgId(),
-          role: "assistant",
-          text: "📤 Шаг 2 — выгружаю файлы…",
-          createdAt: Date.now(),
-        });
-        pushMsg(t, "result", {
-          id: progressId,
-          role: "assistant",
-          text: "",
-          step: "result",
-          kind: "uploadProgress",
-          uploadProgress: { phase: "uploading", percent: 0, uploaded: 0, total },
-          createdAt: Date.now(),
-        });
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "uploading";
+          m.uploadProgress.percent = 0;
+          m.uploadProgress.uploaded = 0;
+          m.uploadProgress.total = total;
+          m.uploadProgress.note = undefined;
+        }
       });
+
 
       for (let i = 1; i <= total; i++) {
         await new Promise((res) => setTimeout(res, 220));
