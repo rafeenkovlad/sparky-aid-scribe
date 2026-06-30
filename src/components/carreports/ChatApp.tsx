@@ -4186,8 +4186,10 @@ function MessageBubble({
                 await navigator.clipboard?.writeText(shareUrl);
               } catch { /* ignore */ }
             };
+            const retryId = fc.retryFinalizeId;
+            const isError = !!retryId;
             return (
-              <div className="rounded-2xl rounded-tl-md bg-emerald-500/10 border border-emerald-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+              <div className={`rounded-2xl rounded-tl-md border text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px] ${isError ? "bg-rose-500/10 border-rose-400/30" : "bg-emerald-500/10 border-emerald-400/30"}`}>
                 <div className="whitespace-pre-wrap text-white/90">
                   {msg.text || "✅ Отчёт успешно выгружен."}
                 </div>
@@ -4200,9 +4202,19 @@ function MessageBubble({
                     <Share2 className="h-3.5 w-3.5" /> Поделиться
                   </button>
                 )}
+                {retryId != null && (
+                  <button
+                    type="button"
+                    onClick={() => onRetryFinalize?.(retryId)}
+                    className="w-full rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Повторить
+                  </button>
+                )}
               </div>
             );
           })()
+
 
         ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
           (() => {
