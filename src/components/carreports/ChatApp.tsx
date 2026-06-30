@@ -3523,10 +3523,33 @@ function MessageBubble({
               }
               onChangePhotoIdx={(idx) => onElementFocusChangePhoto?.(idx)}
               onChangeElement={(elementId) => onElementFocusChangeElement?.(elementId)}
-              onSetVerdict={(v) => onElementFocusSetVerdict?.(v)}
-              onToggleTag={(t) => onElementFocusToggleTag?.(t)}
-              onAddPendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
-              onTogglePendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
+              onSetVerdict={(v) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => {
+                  if (v === "ok") {
+                    f.noDamage = true;
+                    f.seriousDamageTagIds = [];
+                    f.noSeriousDamageTagIds = [];
+                    f.pendingTagNames = [];
+                  } else {
+                    f.noDamage = false;
+                  }
+                });
+              }}
+              onToggleTag={(t) => {
+                const idx = msg.photoIdx as number;
+                const bucket: "serious" | "non_serious" =
+                  t.type === "serious" ? "serious" : "non_serious";
+                onMutateFindingAt?.(idx, (f) => toggleFindingTag(f, bucket, t.id));
+              }}
+              onAddPendingTag={(n, s) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
+              }}
+              onTogglePendingTag={(n, s) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
+              }}
               onDeletePhoto={onElementFocusDeletePhoto}
               noteProposal={elementFocusNoteProposal ?? null}
               onPickNoteOriginal={onElementFocusPickNoteOriginal}
