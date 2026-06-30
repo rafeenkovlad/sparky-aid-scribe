@@ -725,7 +725,7 @@ export async function uploadReportFileMultipart(opts: {
       const putRes = await fetch(part.url, {
         method: "PUT",
         body: chunk,
-        headers: { "Content-Type": contentType },
+        headers: { "Content-Type": blob.type || "application/octet-stream" },
       });
       if (!putRes.ok) {
         return { ok: false, note: `S3 PUT part ${partNumber}: ${putRes.status}` };
