@@ -2844,8 +2844,13 @@ export function ChatApp({ threadId }: Props) {
           }}
           className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
-          <CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее
+          {currentStep === "result" ? (
+            <>📄 Предварительный просмотр отчёта</>
+          ) : (
+            <><CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее</>
+          )}
         </button>
+
         {hasCurrentStepDraft && (
           <button
             onClick={() => {
