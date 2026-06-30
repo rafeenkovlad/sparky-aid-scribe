@@ -3561,6 +3561,25 @@ function MessageBubble({
           // в ElementFocusCard для осмотра). Сам message нужен как источник
           // данных для inline-рендера (см. stepNoteProposals).
           null
+        ) : msg.kind === "missingFields" && msg.missingFields?.length ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-amber-400/30 text-sm px-3 py-2.5 text-white space-y-2">
+            {msg.text && (
+              <div className="whitespace-pre-wrap text-white/85">{msg.text}</div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              {msg.missingFields.map((it, i) => (
+                <button
+                  key={`${it.step}-${it.sectionSnake ?? ""}-${i}`}
+                  type="button"
+                  onClick={() => onJumpToMissing?.(it.step, it.sectionSnake)}
+                  className="text-left rounded-lg border border-white/15 bg-white/[0.03] hover:bg-white/[0.07] px-3 py-2 text-[13px] text-white/90 transition"
+                >
+                  → {it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
         ) : (
           msg.text && (
             <>
