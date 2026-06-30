@@ -506,6 +506,58 @@ export async function submitReport(draft: ReportDraft): Promise<{
       /* keep pending names — server will report if any blocking */
     }
 
+    // 0b) Resolve test-drive tag NAMES (strings) → numeric ids. The AI/edit
+    //     flows store tag names; the server expects int[]. Without this step
+    //     `intTags()` silently drops every string and the backend rejects with
+    //     "необходимо указать теги".
+    try {
+      const { loadTagsFor, findTagId, addUserTag } = await import("./inspectionTags");
+      const td = draft.testDriveStep ?? {};
+      const td2 = td as Record<string, unknown>;
+      const TD_MAP: Array<{ key: string; section: string }> = [
+        { key: "testDriveEngineTags", section: "engine" },
+        { key: "testDriveTransmissionTags", section: "transmission" },
+        { key: "testDriveSteeringWheelTags", section: "steering_wheel" },
+        { key: "testDriveSuspensionInDriveTags", section: "suspension_in_drive" },
+        { key: "testDriveBrakesInDriveTags", section: "brakes_in_drive" },
+      ];
+      for (const { key, section } of TD_MAP) {
+        const arr = td2[key];
+        if (!Array.isArray(arr) || arr.length === 0) continue;
+        const ids: number[] = [];
+        let catalogue: Awaited<ReturnType<typeof loadTagsFor>> | null = null;
+        for (const v of arr) {
+          if (typeof v === "number" && Number.isInteger(v) && v > 0) {
+            ids.push(v);
+            continue;
+          }
+          if (typeof v !== "string" || !v.trim()) continue;
+          if (!catalogue) {
+            try {
+              catalogue = await loadTagsFor("testDrive", section);
+            } catch {
+              catalogue = [];
+            }
+          }
+          const hit = findTagId(catalogue ?? [], v);
+          if (hit?.id) {
+            ids.push(hit.id);
+            continue;
+          }
+          try {
+            const created = await addUserTag(section, v, "non_serious", "testDrive");
+            if (created?.id) ids.push(created.id);
+          } catch {
+            /* skip unresolved */
+          }
+        }
+        td2[key] = Array.from(new Set(ids));
+      }
+      draft.testDriveStep = td2 as typeof draft.testDriveStep;
+    } catch {
+      /* fallthrough — server will surface the missing-tags error */
+    }
+
     // Resolve modelCarId + modelGenerationRestylingFrameId on the fly if
     // missing — Doc requires one of them on characteristicsStep.
     let resolved: ResolvedCar = { modelCarId: null, modelGenerationRestylingFrameId: null, trace: [] };
