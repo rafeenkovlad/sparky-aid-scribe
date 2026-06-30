@@ -1387,7 +1387,7 @@ function RemarksPassportRow({
         >
           {item.value ?? "—"}
         </span>
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
             <button
               type="button"
