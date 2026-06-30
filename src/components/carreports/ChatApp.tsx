@@ -2712,6 +2712,14 @@ export function ChatApp({ threadId }: Props) {
             onChatNoteDismiss={dismissChatNoteProposal}
             stepNoteProposals={stepNoteProposals}
             hasStepPassport={hasStepPassport}
+            onJumpToMissing={(step, snake) => {
+              jumpTo(step);
+              if (step === "inspection" && snake) {
+                // Дать шагу смонтироваться, затем выбрать раздел.
+                requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
+              }
+            }}
+
           />
 
         ))}
