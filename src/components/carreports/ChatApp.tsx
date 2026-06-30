@@ -2941,6 +2941,18 @@ export function ChatApp({ threadId }: Props) {
                   types[nameKey] = tag.type;
                 }
                 td.testDriveTagTypes = types;
+                // Если добавили тег — категория уже не "норма", снимаем флаг исправности.
+                const flagByCat: Record<string, string> = {
+                  testDriveEngineTags: "testDriveEngineIsWorkingProperly",
+                  testDriveTransmissionTags: "testDriveTransmissionIsWorkingProperly",
+                  testDriveSteeringWheelTags: "testDriveSteeringWheelIsWorkingProperly",
+                  testDriveSuspensionInDriveTags: "testDriveSuspensionInDriveIsWorkingProperly",
+                  testDriveBrakesInDriveTags: "testDriveBrakesInDriveIsWorkingProperly",
+                };
+                const flagKey = flagByCat[catKey];
+                if (flagKey) td[flagKey] = false;
+                td.testDriveIsIncluded = true;
+                td.notDone = false;
                 t.draft.testDriveStep = td as typeof t.draft.testDriveStep;
               });
             }}
