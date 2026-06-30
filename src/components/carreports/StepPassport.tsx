@@ -389,37 +389,34 @@ function TestDriveCategoryRow({
     byName.set(t.name.trim().toLowerCase(), t);
   }
 
-  // Раскрываем numeric id → name из каталога; оставляем только issue-теги.
-  // Параллельно собираем numeric id уже выбранных тегов — их передадим в
-  // дропдаун как selectedTagIds, чтобы сервер вернул релевантный список и
-  // не предлагал уже выбранные.
-  const visibleTags: string[] = [];
+  // Раскрываем numeric id → name из каталога. Показываем ВСЕ выбранные
+  // теги (тип может быть null у свежесозданных user-тегов) — цветом лишь
+  // подсвечиваем серьёзные/несерьёзные.
+  const visibleTags: Array<{ name: string; type: string | null }> = [];
   const selectedIds: number[] = [];
   for (const raw of rawTags) {
     const asNum = Number(raw);
     if (Number.isInteger(asNum) && asNum > 0) {
       selectedIds.push(asNum);
       const t = byId.get(asNum);
-      if (t && (t.type === "serious" || t.type === "non_serious")) {
-        visibleTags.push(t.name);
-      }
-      // если каталог ещё не загрузился — пропускаем id, имя появится после
+      if (t) visibleTags.push({ name: t.name, type: t.type });
+      // если каталог ещё не загрузился — id появится как имя после загрузки
       continue;
     }
     const key = raw.trim().toLowerCase();
     const inCat = byName.get(key);
-    const typed = tagTypes[key];
-    if (inCat && (inCat.type === "serious" || inCat.type === "non_serious")) {
-      visibleTags.push(raw);
-      selectedIds.push(inCat.id);
-    } else if (typed === "serious" || typed === "non_serious") {
-      visibleTags.push(raw);
-      if (inCat) selectedIds.push(inCat.id);
-    } else if (catalogue === null) {
-      // каталог ещё грузится — показываем, чтобы не «мигало» пусто
-      visibleTags.push(raw);
-    }
+    const typed = tagTypes[key] ?? inCat?.type ?? null;
+    if (inCat) selectedIds.push(inCat.id);
+    visibleTags.push({ name: raw, type: typed });
   }
+
+  const tagClass = (type: string | null): string => {
+    if (type === "serious")
+      return "bg-rose-500/10 border-rose-400/30 text-rose-100";
+    if (type === "non_serious")
+      return "bg-amber-500/10 border-amber-400/30 text-amber-100";
+    return "bg-white/[0.06] border-white/10 text-white/80";
+  };
 
   return (
     <li className="min-w-0">
@@ -442,16 +439,16 @@ function TestDriveCategoryRow({
         <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
           {visibleTags.map((t, i) => (
             <span
-              key={`${t}-${i}`}
-              className="inline-flex items-center rounded-md bg-white/[0.06] border border-white/10 text-white/80 text-[11px] px-1.5 py-0.5"
+              key={`${t.name}-${i}`}
+              className={`inline-flex items-center rounded-md border text-[11px] px-1.5 py-0.5 ${tagClass(t.type)}`}
             >
-              {t}
+              {t.name}
             </span>
           ))}
           {onAddTag && (
             <TestDriveTagPicker
               catKey={catKey}
-              selectedNames={visibleTags}
+              selectedNames={visibleTags.map((t) => t.name)}
               selectedTagIds={selectedIds}
               onAdd={(tag) => onAddTag(catKey, tag)}
             />
@@ -461,6 +458,7 @@ function TestDriveCategoryRow({
     </li>
   );
 }
+
 
 
 
