@@ -1330,6 +1330,7 @@ function RemarksPassportRow({
   onTogglePending,
   tagsLoading,
   tagsError,
+  onOpenPicker,
 }: {
   item: { label: string; filled: boolean; value?: string };
   updating?: boolean;
@@ -1342,8 +1343,13 @@ function RemarksPassportRow({
   onTogglePending: (name: string, severity: "serious" | "non_serious") => void;
   tagsLoading: boolean;
   tagsError: string | null;
+  onOpenPicker?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) onOpenPicker?.();
+  };
   const chipCls = (type: string | null) =>
     type === "serious"
       ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
