@@ -3996,7 +3996,7 @@ interface BubbleProps {
   /** Подтверждение «Продолжить» в карточке завершения отчёта. */
   onFinishContinue?: () => void;
   /** Повторить финализацию отчёта после неудачной попытки. */
-  onRetryFinalize?: (finalizeId: string | number) => void;
+  onRetryFinalize?: (finalizeId: string | number, numericId?: string | number) => void;
 
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
