@@ -253,6 +253,8 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
       noSeriousDamageTags?: number[];
       note?: string;
       audioNotes?: string[];
+      paintworkThicknessFrom?: number;
+      paintworkThicknessTo?: number;
     },
   ) => {
     const hasFile = opts.hasFile === true;
@@ -268,8 +270,15 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
     };
     // paintworkThickness* — у элементов кузова и силового каркаса.
     if (PAINTWORK_SECTION_TYPES.has(sectionType)) {
-      base.paintworkThicknessFrom = 80;
-      base.paintworkThicknessTo = 200;
+      const from = Number.isFinite(opts.paintworkThicknessFrom)
+        ? Math.max(0, Math.round(opts.paintworkThicknessFrom!))
+        : 80;
+      const toRaw = Number.isFinite(opts.paintworkThicknessTo)
+        ? Math.max(0, Math.round(opts.paintworkThicknessTo!))
+        : 200;
+      const to = Math.max(from, toRaw);
+      base.paintworkThicknessFrom = from;
+      base.paintworkThicknessTo = to;
     }
 
     return base;
@@ -292,6 +301,8 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
         noSeriousDamageTags: f.noSeriousDamageTagIds,
         note: f.note,
         audioNotes: f.audioNotes,
+        paintworkThicknessFrom: f.paintworkThicknessFrom,
+        paintworkThicknessTo: f.paintworkThicknessTo,
       }),
     );
     sec[el.collection] = arr;

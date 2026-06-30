@@ -1837,7 +1837,13 @@ export interface PhotoFindingDraft {
   noSeriousTagIds: number[];
   pendingTags: PendingTagName[];
   note: string;
+  /** ЛКП: считанное значение толщиномера (если на фото читаемо). */
+  paintworkThicknessFrom?: number;
+  paintworkThicknessTo?: number;
 }
+
+/** Разделы, поддерживающие ЛКП (толщину окраса). */
+const PAINTWORK_SECTIONS: ReadonlySet<string> = new Set(["body", "body_reinforcement"]);
 
 /**
  * Распознать одно фото осмотра в структурированную находку (без записи в draft).
@@ -1856,6 +1862,7 @@ export async function analyzeInspectionPhoto(
   const tagCatalogue = await loadSectionTags(sectionSnake);
 
   const id = aiChatIdFor(thread, `vision:inspection:${sectionSnake}:${photoUrl.slice(-12)}`);
+  const supportsPaintwork = PAINTWORK_SECTIONS.has(sectionSnake);
   const cliche = CLICHE_INSPECTION_PHOTO(
     section.label,
     section.elements.map((el) => ({
@@ -1865,6 +1872,7 @@ export async function analyzeInspectionPhoto(
     })),
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
     existingNote,
+    supportsPaintwork,
   );
   const text = hint?.trim() || "Опиши, что видно на фото.";
 
@@ -1878,6 +1886,8 @@ export async function analyzeInspectionPhoto(
     seriousTags?: unknown;
     nonSeriousTags?: unknown;
     note?: string;
+    paintworkThicknessFrom?: unknown;
+    paintworkThicknessTo?: unknown;
   }>(res.content) ?? {};
 
   const elementIds = new Set(section.elements.map((e) => e.id));
@@ -1907,6 +1917,22 @@ export async function analyzeInspectionPhoto(
     else pending.push({ name, severity: "non_serious" });
   }
 
+  // ЛКП (мкм): AI возвращает поля только если на фото читаемо.
+  const toThickness = (v: unknown): number | undefined => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    if (!Number.isFinite(n)) return undefined;
+    const r = Math.round(n);
+    if (r < 10 || r > 2000) return undefined;
+    return r;
+  };
+  let pwFrom = supportsPaintwork ? toThickness(raw.paintworkThicknessFrom) : undefined;
+  let pwTo = supportsPaintwork ? toThickness(raw.paintworkThicknessTo) : undefined;
+  if (pwFrom != null && pwTo == null) pwTo = pwFrom;
+  if (pwTo != null && pwFrom == null) pwFrom = pwTo;
+  if (pwFrom != null && pwTo != null && pwFrom > pwTo) {
+    const t = pwFrom; pwFrom = pwTo; pwTo = t;
+  }
+
   return {
     elementId,
     noDamage: noDamage && !seriousIds.size && !nsIds.size,
@@ -1914,6 +1940,8 @@ export async function analyzeInspectionPhoto(
     noSeriousTagIds: [...nsIds],
     pendingTags: pending,
     note: typeof raw.note === "string" ? raw.note.trim() : "",
+    paintworkThicknessFrom: pwFrom,
+    paintworkThicknessTo: pwTo,
   };
 }
 

@@ -1058,6 +1058,8 @@ export function ChatApp({ threadId }: Props) {
           noSeriousTagIds: number[];
           pendingTags: PendingTagName[];
           note: string;
+          paintworkThicknessFrom?: number;
+          paintworkThicknessTo?: number;
         };
         const needVisionForElement = !elIdInitial && !!photoFocus.url;
         if (needVisionForElement) {
@@ -1088,6 +1090,8 @@ export function ChatApp({ threadId }: Props) {
             noSeriousTagIds: v.noSeriousTagIds,
             pendingTags: v.pendingTags,
             note: v.note,
+            paintworkThicknessFrom: v.paintworkThicknessFrom,
+            paintworkThicknessTo: v.paintworkThicknessTo,
           };
           resultElementId = v.elementId;
         } else {
@@ -1196,6 +1200,8 @@ export function ChatApp({ threadId }: Props) {
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
+            if (r.paintworkThicknessFrom != null) f.paintworkThicknessFrom = r.paintworkThicknessFrom;
+            if (r.paintworkThicknessTo != null) f.paintworkThicknessTo = r.paintworkThicknessTo;
             appliedSerious = [...sSet];
             appliedNonSerious = [...nsSet];
             appliedPending = [...existing];
@@ -1643,6 +1649,8 @@ export function ChatApp({ threadId }: Props) {
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
+            if (r.paintworkThicknessFrom != null) f.paintworkThicknessFrom = r.paintworkThicknessFrom;
+            if (r.paintworkThicknessTo != null) f.paintworkThicknessTo = r.paintworkThicknessTo;
           });
           t.draft.inspectionStep.touched = true;
         });
@@ -4126,6 +4134,16 @@ function MessageBubble({
               })()}
               onGenerateNote={onGenerateInspectionNote}
               onEdit={onFillMissing}
+              onSetPaintwork={(from, to) => {
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
+                onMutateFindingAt?.(idx, (f) => {
+                  f.paintworkThicknessFrom = from;
+                  f.paintworkThicknessTo = to;
+                });
+              }}
             />
 
           )}
