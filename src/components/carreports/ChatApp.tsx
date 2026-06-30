@@ -3239,7 +3239,7 @@ export function ChatApp({ threadId }: Props) {
           {currentStep === "result" ? (
             <><FileText className="h-3.5 w-3.5" /> Завершить</>
           ) : (
-            <><CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее</>
+            <><ChevronRight className="h-3.5 w-3.5" /> Далее</>
           )}
         </button>
 
