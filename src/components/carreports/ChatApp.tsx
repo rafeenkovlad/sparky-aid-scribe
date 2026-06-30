@@ -1727,17 +1727,10 @@ export function ChatApp({ threadId }: Props) {
       updateThread(thread.id, (t) => {
         t.draft.resultStep.summaryInspectionNote = r.summary;
         if (r.verdict) t.draft.resultStep.resultSpecialistNote = r.verdict;
-        pushMsg(t, "result", {
-          id: msgId(),
-          role: "assistant",
-          text:
-            `✅ AI-резюме готово:\n\n` +
-            r.summary +
-            (r.verdict ? `\n\nВЕРДИКТ: ${r.verdict}` : "") +
-            "\n\nПоправьте при необходимости и переходите к отправке.",
-          step: "result",
-          createdAt: Date.now(),
-        });
+        if (!isLastMessagePassport(t)) {
+          pushMsg(t, "result", makeStepPassportMessage("result"));
+        }
+
       });
     } catch (e) {
       const m = e instanceof Error ? e.message : "Ошибка AI";
