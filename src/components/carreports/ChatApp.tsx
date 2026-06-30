@@ -3295,6 +3295,12 @@ interface BubbleProps {
   onElementFocusToggleTag?: (t: UserTag) => void;
   onElementFocusAddPendingTag?: (name: string, severity: "serious" | "non_serious") => void;
   onElementFocusDeletePhoto?: () => void;
+  /** Прямая мутация finding фото по индексу — для inline-карточек чата,
+   *  у которых нет глобального photoFocusIdx. */
+  onMutateFindingAt?: (
+    idx: number,
+    mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
+  ) => void;
   elementFocusNoteProposal?: NoteProposalT | null;
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
