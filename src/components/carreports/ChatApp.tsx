@@ -3776,6 +3776,59 @@ function MessageBubble({
             </div>
           </div>
 
+        ) : msg.kind === "finishConfirm" ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-amber-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+            <div className="whitespace-pre-wrap text-white/85">
+              {msg.text || "После выгрузки отчёт нельзя будет отредактировать. Продолжить?"}
+            </div>
+            <button
+              type="button"
+              onClick={() => onFinishContinue?.()}
+              className="w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[13px] font-medium px-3 py-2 transition"
+            >
+              Продолжить
+            </button>
+          </div>
+
+        ) : msg.kind === "finishComplete" ? (
+          (() => {
+            const fc = msg.finishComplete ?? {};
+            const shareUrl = fc.shareUrl;
+            const onShare = async () => {
+              if (!shareUrl) return;
+              const data = {
+                title: "Отчёт об осмотре",
+                text: fc.reportId ? `Отчёт ${fc.reportId}` : "Отчёт",
+                url: shareUrl,
+              };
+              try {
+                if (typeof navigator !== "undefined" && "share" in navigator) {
+                  await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share(data);
+                  return;
+                }
+              } catch { /* fallback ниже */ }
+              try {
+                await navigator.clipboard?.writeText(shareUrl);
+              } catch { /* ignore */ }
+            };
+            return (
+              <div className="rounded-2xl rounded-tl-md bg-emerald-500/10 border border-emerald-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+                <div className="whitespace-pre-wrap text-white/90">
+                  {msg.text || "✅ Отчёт успешно выгружен."}
+                </div>
+                {shareUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void onShare()}
+                    className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Поделиться
+                  </button>
+                )}
+              </div>
+            );
+          })()
+
         ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
           (() => {
             const up = msg.uploadProgress!;
