@@ -1748,15 +1748,43 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
 
-  // «Завершить» на шаге Итог: пошагово оформляем выгрузку отчёта.
-  //  1) подготовка файлов  (Storage.PrepareSpecialistReport — submitReport)
-  //  2) собственно выгрузка — показываем прогресс-бар по числу файлов
+  // «Завершить» на шаге Итог — сперва показываем подтверждение, что после
+  // выгрузки отчёт уже нельзя будет редактировать. Кнопка «Продолжить»
+  // внутри сообщения запускает doFinish().
+  const doFinishConfirm = useCallback(() => {
+    if (!thread || busy) return;
+    updateThread(thread.id, (t) => {
+      // не плодим дубликаты подтверждения
+      t.messages.result = t.messages.result.filter(
+        (m) => m.kind !== "finishConfirm",
+      );
+      pushMsg(t, "result", {
+        id: msgId(),
+        role: "assistant",
+        text: "После выгрузки отчёт нельзя будет отредактировать. Продолжить?",
+        step: "result",
+        kind: "finishConfirm",
+        createdAt: Date.now(),
+      });
+    });
+  }, [thread, busy]);
+
+  // Пошаговая выгрузка отчёта:
+  //  1) Storage.PrepareSpecialistReport (submitReport) — создаёт черновик
+  //     и возвращает список файлов для загрузки.
+  //  2) загрузка файлов — отображаем прогресс-бар по числу файлов.
+  //  3) Storage.CompleteSpecialistReport — фиксируем отчёт.
+  //  4) сообщение «Отчёт успешно выгружен» с кнопкой «Поделиться».
   const doFinish = useCallback(async () => {
     if (!thread || busy) return;
     setBusy(true);
     const progressId = `finish-progress-${Date.now()}`;
     try {
+      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз
       updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter(
+          (m) => m.kind !== "finishConfirm",
+        );
         pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
@@ -1779,8 +1807,7 @@ export function ChatApp({ threadId }: Props) {
         return;
       }
 
-      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера
-      // (uploadFiles из Storage.PrepareSpecialistReport).
+      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера.
       const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
       updateThread(thread.id, (t) => {
         pushMsg(t, "result", {
@@ -1800,8 +1827,6 @@ export function ChatApp({ threadId }: Props) {
         });
       });
 
-      // Анимируем прогресс — файлы уже залиты во временное хранилище ранее,
-      // тут отображаем шаги фиксации отчёта на сервере.
       for (let i = 1; i <= total; i++) {
         await new Promise((res) => setTimeout(res, 220));
         const percent = Math.round((i / total) * 100);
@@ -1821,8 +1846,39 @@ export function ChatApp({ threadId }: Props) {
           m.uploadProgress.percent = 100;
           m.uploadProgress.uploaded = total;
           m.uploadProgress.reportId = r.reportId;
-          m.uploadProgress.note = `Отчёт ${r.reportId ?? ""} выгружен.`;
+          m.uploadProgress.note = `Файлы загружены (${total}/${total}).`;
         }
+      });
+
+      // Шаг 3 — финализация отчёта.
+      const finalizeId = r.reportNumericId ?? r.reportId;
+      let completeNote = "";
+      if (finalizeId != null) {
+        const { completeReport } = await import("@/lib/carreports/storageApi");
+        const c = await completeReport(finalizeId);
+        if (!c.remote) {
+          completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
+        }
+      }
+
+      // Шаг 4 — финальное сообщение с кнопкой «Поделиться».
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: completeNote
+            ? `⚠️ Файлы выгружены, но финализация не удалась: ${completeNote}`
+            : `✅ Отчёт ${r.reportId ?? ""} успешно выгружен.`,
+          step: "result",
+          kind: "finishComplete",
+          finishComplete: {
+            reportId: r.reportId,
+            shareUrl: r.reportId
+              ? `https://app.carreports.ru/r/${r.reportId}`
+              : undefined,
+          },
+          createdAt: Date.now(),
+        });
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
@@ -1844,6 +1900,7 @@ export function ChatApp({ threadId }: Props) {
       setBusy(false);
     }
   }, [thread, busy]);
+
 
 
 
