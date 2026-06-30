@@ -431,6 +431,31 @@ export function ChatApp({ threadId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [currentStepMessages.length, currentStep, lastMsgId, lastMsgStamp]);
 
+  // Композер скоупим по (thread, step): при переходе на другой шаг текущий
+  // черновик сохраняем, на новом шаге показываем его собственный (или пусто).
+  // На возврат — восстанавливаем то, что было набрано.
+  const composerDraftsRef = useRef<Record<string, string>>({});
+  const composerStepKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!thread) return;
+    const nextKey = `${thread.id}:${currentStep}`;
+    const prevKey = composerStepKeyRef.current;
+    if (prevKey === nextKey) return;
+    if (prevKey !== null) {
+      composerDraftsRef.current[prevKey] = composer;
+    }
+    composerStepKeyRef.current = nextKey;
+    const restored = composerDraftsRef.current[nextKey] ?? "";
+    setComposer(restored);
+    // При уходе из шага «Осмотр» выходим из фокуса фото, чтобы выбранный
+    // элемент не «протекал» в другие шаги.
+    if (prevKey && !prevKey.endsWith(":inspection") ? false : prevKey !== null && currentStep !== "inspection") {
+      setPhotoFocusIdx(null);
+      composerBackupRef.current = null;
+    }
+  }, [thread, currentStep, composer]);
+
+
   const lastOptionsMsgId = useMemo(() => {
     for (let i = currentStepMessages.length - 1; i >= 0; i--) {
       const m = currentStepMessages[i];
