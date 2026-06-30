@@ -81,6 +81,7 @@ import { Sparkles } from "lucide-react";
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
+import { collectMissingForSummary } from "@/lib/carreports/summaryGate";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
