@@ -263,6 +263,7 @@ export interface ChatMessage {
     | "docsPassport"
     | "stepPassport"
     | "noteProposal"
+    | "missingFields"
     | "inspectionSectionPicker"
     | "inspectionChips"
     | "inspectionUploadPrompt"
@@ -270,6 +271,9 @@ export interface ChatMessage {
     | "inspectionAttachAssign"
     | "inspectionElementFocus"
     | "legalMaterialsCollage";
+  /** payload for kind=missingFields — required-field gate before AI summary */
+  missingFields?: { label: string; step: StepId; sectionSnake?: string }[];
+
   /** инспекционный раздел (snake) для kind=inspectionUploadPrompt/inspectionCollage */
   sectionSnake?: string;
   /** индекс фото в inspectionStep.photos для kind=inspectionElementFocus */
