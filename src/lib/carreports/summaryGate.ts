@@ -90,3 +90,7 @@ export function collectMissingForSummary(d: ReportDraft): MissingSummaryItem[] {
     }
   }
 
+  return out;
+}
+
+
