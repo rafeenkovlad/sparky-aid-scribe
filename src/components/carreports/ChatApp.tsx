@@ -3715,7 +3715,44 @@ function MessageBubble({
             </div>
           </div>
 
-        ) : (
+        ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
+          (() => {
+            const up = msg.uploadProgress!;
+            const isErr = up.phase === "error";
+            const isDone = up.phase === "done";
+            const barColor = isErr
+              ? "bg-rose-500"
+              : isDone
+                ? "bg-emerald-500"
+                : "bg-orange-400";
+            const title = isErr
+              ? "Ошибка выгрузки"
+              : isDone
+                ? "Файлы выгружены"
+                : "Выгрузка файлов…";
+            return (
+              <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white space-y-2 min-w-[240px]">
+                <div className="flex items-center justify-between text-[12px] text-white/80">
+                  <span>{title}</span>
+                  <span className="tabular-nums text-white/60">
+                    {up.uploaded ?? 0}/{up.total ?? "?"} · {up.percent}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full ${barColor} transition-all duration-200`}
+                    style={{ width: `${Math.min(100, Math.max(0, up.percent))}%` }}
+                  />
+                </div>
+                {up.note && (
+                  <div className={`text-[12px] ${isErr ? "text-rose-300" : "text-white/60"}`}>
+                    {up.note}
+                  </div>
+                )}
+              </div>
+            );
+          })()
+
           msg.text && (
             <>
               <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
