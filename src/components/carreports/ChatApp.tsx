@@ -2597,6 +2597,7 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusToggleTag={photoToggleTag}
             onElementFocusAddPendingTag={photoAddPendingTag}
             onElementFocusDeletePhoto={deletePhotoFocus}
+            onMutateFindingAt={mutateFindingAt}
             elementFocusNoteProposal={noteProposal}
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
