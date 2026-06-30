@@ -80,13 +80,6 @@ export interface ElementFocusCardProps {
   onEdit?: (template: string) => void;
 }
 
-function mergeTags(...groups: UserTag[][]): UserTag[] {
-  const byId = new Map<number, UserTag>();
-  for (const group of groups) {
-    for (const tag of group) byId.set(tag.id, tag);
-  }
-  return [...byId.values()];
-}
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
   const {
