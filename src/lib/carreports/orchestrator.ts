@@ -1837,7 +1837,13 @@ export interface PhotoFindingDraft {
   noSeriousTagIds: number[];
   pendingTags: PendingTagName[];
   note: string;
+  /** ЛКП: считанное значение толщиномера (если на фото читаемо). */
+  paintworkThicknessFrom?: number;
+  paintworkThicknessTo?: number;
 }
+
+/** Разделы, поддерживающие ЛКП (толщину окраса). */
+const PAINTWORK_SECTIONS: ReadonlySet<string> = new Set(["body", "body_reinforcement"]);
 
 /**
  * Распознать одно фото осмотра в структурированную находку (без записи в draft).
