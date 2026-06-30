@@ -81,6 +81,7 @@ import { Sparkles } from "lucide-react";
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
+import { collectMissingForSummary } from "@/lib/carreports/summaryGate";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
@@ -1689,6 +1690,27 @@ export function ChatApp({ threadId }: Props) {
 
   const doGenSummary = useCallback(async () => {
     if (!thread || busy) return;
+    // Gate: проверяем обязательные поля каждого шага. Если что-то
+    // не заполнено — резюме не запускаем, показываем сообщение с
+    // кнопками перехода в нужный шаг (и сразу в нужный раздел осмотра).
+    const fresh0 = getThread(thread.id) ?? thread;
+    const missing = collectMissingForSummary(fresh0.draft);
+    if (missing.length > 0) {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text:
+            "Резюме нельзя собрать — не заполнены обязательные поля. " +
+            "Перейдите по кнопкам и допишите недостающее, затем нажмите «AI-резюме» снова.",
+          step: "result",
+          kind: "missingFields",
+          missingFields: missing,
+          createdAt: Date.now(),
+        });
+      });
+      return;
+    }
     setBusy(true);
     updateThread(thread.id, (t) => {
       pushMsg(t, "result", {
@@ -2690,6 +2712,14 @@ export function ChatApp({ threadId }: Props) {
             onChatNoteDismiss={dismissChatNoteProposal}
             stepNoteProposals={stepNoteProposals}
             hasStepPassport={hasStepPassport}
+            onJumpToMissing={(step, snake) => {
+              jumpTo(step);
+              if (step === "inspection" && snake) {
+                // Дать шагу смонтироваться, затем выбрать раздел.
+                requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
+              }
+            }}
+
           />
 
         ))}
@@ -3397,6 +3427,8 @@ interface BubbleProps {
     onDismiss: () => void;
   }>;
   hasStepPassport?: boolean;
+  /** Прыжок на шаг (и опционально сразу выбрать раздел осмотра). */
+  onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
 }
 
 function MessageBubble({
@@ -3445,6 +3477,7 @@ function MessageBubble({
   onChatNoteDismiss,
   stepNoteProposals,
   hasStepPassport,
+  onJumpToMissing,
 }: BubbleProps) {
 
 
@@ -3536,6 +3569,25 @@ function MessageBubble({
           // в ElementFocusCard для осмотра). Сам message нужен как источник
           // данных для inline-рендера (см. stepNoteProposals).
           null
+        ) : msg.kind === "missingFields" && msg.missingFields?.length ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-amber-400/30 text-sm px-3 py-2.5 text-white space-y-2">
+            {msg.text && (
+              <div className="whitespace-pre-wrap text-white/85">{msg.text}</div>
+            )}
+            <div className="flex flex-col gap-1.5">
+              {msg.missingFields.map((it, i) => (
+                <button
+                  key={`${it.step}-${it.sectionSnake ?? ""}-${i}`}
+                  type="button"
+                  onClick={() => onJumpToMissing?.(it.step, it.sectionSnake)}
+                  className="text-left rounded-lg border border-white/15 bg-white/[0.03] hover:bg-white/[0.07] px-3 py-2 text-[13px] text-white/90 transition"
+                >
+                  → {it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
         ) : (
           msg.text && (
             <>
