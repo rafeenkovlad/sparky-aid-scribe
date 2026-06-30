@@ -1852,7 +1852,7 @@ export function ChatApp({ threadId }: Props) {
         // поля (например, серверные требования изменились) — показываем
         // дружелюбное сообщение вместо технического текста ошибки.
         const raw = r.note ?? "Не удалось подготовить отчёт.";
-        const looksLikeBlank = /should not be blank|обязательн|required/i.test(raw);
+        const looksLikeBlank = /should not be blank|обязательн|необходимо|required|теги|tags?/i.test(raw);
         updateThread(thread.id, (t) => {
           if (looksLikeBlank) {
             const miss = collectMissingForSummary(t.draft);
