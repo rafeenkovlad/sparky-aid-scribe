@@ -1886,6 +1886,8 @@ export async function analyzeInspectionPhoto(
     seriousTags?: unknown;
     nonSeriousTags?: unknown;
     note?: string;
+    paintworkThicknessFrom?: unknown;
+    paintworkThicknessTo?: unknown;
   }>(res.content) ?? {};
 
   const elementIds = new Set(section.elements.map((e) => e.id));
@@ -1915,6 +1917,22 @@ export async function analyzeInspectionPhoto(
     else pending.push({ name, severity: "non_serious" });
   }
 
+  // ЛКП (мкм): AI возвращает поля только если на фото читаемо.
+  const toThickness = (v: unknown): number | undefined => {
+    const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+    if (!Number.isFinite(n)) return undefined;
+    const r = Math.round(n);
+    if (r < 10 || r > 2000) return undefined;
+    return r;
+  };
+  let pwFrom = supportsPaintwork ? toThickness(raw.paintworkThicknessFrom) : undefined;
+  let pwTo = supportsPaintwork ? toThickness(raw.paintworkThicknessTo) : undefined;
+  if (pwFrom != null && pwTo == null) pwTo = pwFrom;
+  if (pwTo != null && pwFrom == null) pwFrom = pwTo;
+  if (pwFrom != null && pwTo != null && pwFrom > pwTo) {
+    const t = pwFrom; pwFrom = pwTo; pwTo = t;
+  }
+
   return {
     elementId,
     noDamage: noDamage && !seriousIds.size && !nsIds.size,
@@ -1922,6 +1940,8 @@ export async function analyzeInspectionPhoto(
     noSeriousTagIds: [...nsIds],
     pendingTags: pending,
     note: typeof raw.note === "string" ? raw.note.trim() : "",
+    paintworkThicknessFrom: pwFrom,
+    paintworkThicknessTo: pwTo,
   };
 }
 
