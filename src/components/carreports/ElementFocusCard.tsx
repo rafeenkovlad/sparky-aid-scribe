@@ -452,6 +452,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
                   onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
                   tagsLoading={tagsLoading}
                   tagsError={tagsError}
+                  onOpenPicker={reloadTags}
                 />
               );
             }
