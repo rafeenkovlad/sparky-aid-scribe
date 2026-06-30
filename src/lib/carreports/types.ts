@@ -270,7 +270,17 @@ export interface ChatMessage {
     | "inspectionCollage"
     | "inspectionAttachAssign"
     | "inspectionElementFocus"
-    | "legalMaterialsCollage";
+    | "legalMaterialsCollage"
+    | "uploadProgress";
+  /** payload for kind=uploadProgress — финальная выгрузка отчёта */
+  uploadProgress?: {
+    phase: "uploading" | "done" | "error";
+    percent: number;
+    uploaded?: number;
+    total?: number;
+    reportId?: string | number;
+    note?: string;
+  };
   /** payload for kind=missingFields — required-field gate before AI summary */
   missingFields?: { label: string; step: StepId; sectionSnake?: string }[];
 

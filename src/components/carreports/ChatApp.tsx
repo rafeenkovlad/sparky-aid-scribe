@@ -1748,6 +1748,107 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
 
+  // «Завершить» на шаге Итог: пошагово оформляем выгрузку отчёта.
+  //  1) подготовка файлов  (Storage.PrepareSpecialistReport — submitReport)
+  //  2) собственно выгрузка — показываем прогресс-бар по числу файлов
+  const doFinish = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    const progressId = `finish-progress-${Date.now()}`;
+    try {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: "🔧 Шаг 1 — подготавливаю файлы к выгрузке…",
+          createdAt: Date.now(),
+        });
+      });
+
+      const fresh = getThread(thread.id) ?? thread;
+      const r = await submitReport(fresh.draft);
+      if (!r.remote) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, "result", {
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${r.note ?? "Не удалось подготовить отчёт."}`,
+            createdAt: Date.now(),
+          });
+        });
+        return;
+      }
+
+      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера
+      // (uploadFiles из Storage.PrepareSpecialistReport).
+      const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: "📤 Шаг 2 — выгружаю файлы…",
+          createdAt: Date.now(),
+        });
+        pushMsg(t, "result", {
+          id: progressId,
+          role: "assistant",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "uploading", percent: 0, uploaded: 0, total },
+          createdAt: Date.now(),
+        });
+      });
+
+      // Анимируем прогресс — файлы уже залиты во временное хранилище ранее,
+      // тут отображаем шаги фиксации отчёта на сервере.
+      for (let i = 1; i <= total; i++) {
+        await new Promise((res) => setTimeout(res, 220));
+        const percent = Math.round((i / total) * 100);
+        updateThread(thread.id, (t) => {
+          const m = t.messages.result.find((x) => x.id === progressId);
+          if (m?.uploadProgress) {
+            m.uploadProgress.percent = percent;
+            m.uploadProgress.uploaded = i;
+          }
+        });
+      }
+
+      updateThread(thread.id, (t) => {
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "done";
+          m.uploadProgress.percent = 100;
+          m.uploadProgress.uploaded = total;
+          m.uploadProgress.reportId = r.reportId;
+          m.uploadProgress.note = `Отчёт ${r.reportId ?? ""} выгружен.`;
+        }
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
+      updateThread(thread.id, (t) => {
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "error";
+          m.uploadProgress.note = msg;
+        } else {
+          pushMsg(t, "result", {
+            id: `m_${Date.now()}`,
+            role: "assistant",
+            text: `⚠️ ${msg}`,
+            createdAt: Date.now(),
+          });
+        }
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+
+
+
+
 
 
   const advanceStep = useCallback(() => {
@@ -2839,18 +2940,21 @@ export function ChatApp({ threadId }: Props) {
 
         <button
           onClick={() => {
+            if (currentStep === "result") {
+              void doFinish();
+              return;
+            }
             setAskMode(false);
             advanceStep();
           }}
-          className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+          disabled={busy && currentStep === "result"}
+          className="rounded-full bg-orange-500/90 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           {currentStep === "result" ? (
-            <><FileText className="h-3.5 w-3.5" /> Завершить и выгрузить</>
+            <><FileText className="h-3.5 w-3.5" /> Завершить</>
           ) : (
             <><CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее</>
           )}
-
-
         </button>
 
         {hasCurrentStepDraft && (
@@ -3611,6 +3715,43 @@ function MessageBubble({
             </div>
           </div>
 
+        ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
+          (() => {
+            const up = msg.uploadProgress!;
+            const isErr = up.phase === "error";
+            const isDone = up.phase === "done";
+            const barColor = isErr
+              ? "bg-rose-500"
+              : isDone
+                ? "bg-emerald-500"
+                : "bg-orange-400";
+            const title = isErr
+              ? "Ошибка выгрузки"
+              : isDone
+                ? "Файлы выгружены"
+                : "Выгрузка файлов…";
+            return (
+              <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white space-y-2 min-w-[240px]">
+                <div className="flex items-center justify-between text-[12px] text-white/80">
+                  <span>{title}</span>
+                  <span className="tabular-nums text-white/60">
+                    {up.uploaded ?? 0}/{up.total ?? "?"} · {up.percent}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full ${barColor} transition-all duration-200`}
+                    style={{ width: `${Math.min(100, Math.max(0, up.percent))}%` }}
+                  />
+                </div>
+                {up.note && (
+                  <div className={`text-[12px] ${isErr ? "text-rose-300" : "text-white/60"}`}>
+                    {up.note}
+                  </div>
+                )}
+              </div>
+            );
+          })()
         ) : (
           msg.text && (
             <>
