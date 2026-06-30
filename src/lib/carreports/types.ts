@@ -300,7 +300,10 @@ export interface ChatMessage {
   finishComplete?: {
     reportId?: string | number;
     shareUrl?: string;
+    /** если задано — финализация не удалась, показать кнопку «Повторить» */
+    retryFinalizeId?: string | number;
   };
+
   /** payload for kind=missingFields — required-field gate before AI summary */
   missingFields?: { label: string; step: StepId; sectionSnake?: string }[];
 
