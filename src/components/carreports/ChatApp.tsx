@@ -2986,15 +2986,8 @@ export function ChatApp({ threadId }: Props) {
             ✨ AI-резюме
           </button>
         )}
-        {currentStep === "submit" && (
-          <button
-            onClick={() => void doSubmit()}
-            disabled={busy}
-            className="rounded-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 flex items-center gap-1 shadow-[0_0_24px_-6px_rgba(16,185,129,0.6)]"
-          >
-            <CheckCheck className="h-3.5 w-3.5" /> Отправить отчёт
-          </button>
-        )}
+
+
 
         <button
           onClick={() => {
