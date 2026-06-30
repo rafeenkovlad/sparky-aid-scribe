@@ -2870,6 +2870,7 @@ export function ChatApp({ threadId }: Props) {
                 requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
               }
             }}
+            onFinishContinue={() => void doFinish()}
             onReformulateResultNote={(kind) => {
               if (!thread) return;
               const r = thread.draft.resultStep ?? {};
