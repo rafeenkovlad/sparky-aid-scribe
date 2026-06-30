@@ -39,7 +39,7 @@ import { InspectionDateField } from "./InspectionDateField";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
-import { InspectionSectionPassport } from "./InspectionSectionPassport";
+
 import { InspectionFullPassport } from "./InspectionFullPassport";
 import { NoteProposalCard } from "./NoteProposalCard";
 
@@ -521,7 +521,6 @@ export function ChatApp({ threadId }: Props) {
     (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
-        const passportId = `insp-passport-${snake}`;
         const promptId = `insp-prompt-${snake}`;
         const collageId = `insp-collage-${snake}`;
         const hasPhotos = t.draft.inspectionStep.photos.some(
@@ -530,23 +529,10 @@ export function ChatApp({ threadId }: Props) {
         const keepId = hasPhotos ? collageId : promptId;
         const list = t.messages.inspection;
         for (let i = list.length - 1; i >= 0; i -= 1) {
-          if (
-            list[i].id === promptId ||
-            list[i].id === collageId ||
-            list[i].id === passportId
-          ) {
+          if (list[i].id === promptId || list[i].id === collageId) {
             list.splice(i, 1);
           }
         }
-        pushMsg(t, "inspection", {
-          id: passportId,
-          role: "assistant",
-          text: "",
-          step: "inspection",
-          kind: "inspectionSectionPassport",
-          sectionSnake: snake,
-          createdAt: Date.now(),
-        });
         pushMsg(t, "inspection", {
           id: keepId,
           role: "assistant",
@@ -560,6 +546,7 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread],
   );
+
 
   const showInspectionFullPassport = useCallback(() => {
     if (!thread) return;
@@ -3322,10 +3309,14 @@ export function ChatApp({ threadId }: Props) {
           currentStep === "legalMaterials" ||
           currentStep === "testDrive" ||
           currentStep === "result") &&
-          isStepFilled(currentStep, thread.draft) && (
+          (currentStep === "inspection" || isStepFilled(currentStep, thread.draft)) && (
             <button
               type="button"
               onClick={() => {
+                if (currentStep === "inspection") {
+                  showInspectionFullPassport();
+                  return;
+                }
                 const passportId = `passport-${currentStep}`;
                 updateThread(thread.id, (t) => {
                   t.messages[currentStep] = t.messages[currentStep].filter(
@@ -3341,13 +3332,15 @@ export function ChatApp({ threadId }: Props) {
                   });
                 });
               }}
-              aria-label="Паспорт шага"
-              title="Паспорт шага"
-              className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center justify-center"
+              aria-label="Паспорт"
+              title="Паспорт"
+              className="h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/80 flex items-center gap-1.5 px-2.5"
             >
               <ClipboardCheck className="h-4 w-4 text-emerald-400" />
+              <span className="text-xs">Паспорт</span>
             </button>
           )}
+
         <button
           type="button"
           onPointerDown={(e) => {
@@ -4088,12 +4081,8 @@ function MessageBubble({
             onNextElement={onNextElement ?? (() => {})}
           />
         )}
-        {msg.kind === "inspectionSectionPassport" && msg.sectionSnake && inspectionDraft && (
-          <InspectionSectionPassport
-            step={inspectionDraft}
-            sectionSnake={msg.sectionSnake as SectionSnake}
-          />
-        )}
+        
+
         {msg.kind === "inspectionUploadPrompt" && msg.sectionSnake && inspectionDraft && (
           <InspectionUploadPrompt
             sectionSnake={msg.sectionSnake as SectionSnake}

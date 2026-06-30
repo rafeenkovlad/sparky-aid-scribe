@@ -260,23 +260,8 @@ export function SectionPickerCard(props: {
           );
         })}
       </div>
-      {onShowFullPassport && (
-        <div className="mt-2 border-t border-white/[0.06] pt-2">
-          <button
-            type="button"
-            disabled={!interactive}
-            onClick={onShowFullPassport}
-            className={
-              "w-full rounded-lg px-3 py-2 text-[12px] font-medium transition-colors " +
-              (interactive
-                ? "bg-white/[0.04] hover:bg-white/[0.08] text-white/85"
-                : "bg-white/[0.02] text-white/40 cursor-default")
-            }
-          >
-            📋 Паспорт шага
-          </button>
-        </div>
-      )}
+
+
     </div>
   );
 }
