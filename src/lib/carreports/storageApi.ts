@@ -536,6 +536,7 @@ export async function submitReport(draft: ReportDraft): Promise<{
       return {
         remote: true,
         reportId: inner.reportNumber,
+        reportNumericId: inner.id,
         method: "Storage.PrepareSpecialistReport",
         uploadFilesCount: inner.uploadFiles?.length ?? 0,
         note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.${idHint}`,
