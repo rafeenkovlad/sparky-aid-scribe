@@ -2887,7 +2887,15 @@ export function ChatApp({ threadId }: Props) {
                   testDriveSteeringWheelIsWorkingProperly: true,
                   testDriveSuspensionInDriveIsWorkingProperly: true,
                   testDriveBrakesInDriveIsWorkingProperly: true,
+                  // Сброс всех тегов — раз нареканий нет.
+                  testDriveEngineTags: [],
+                  testDriveTransmissionTags: [],
+                  testDriveSteeringWheelTags: [],
+                  testDriveSuspensionInDriveTags: [],
+                  testDriveBrakesInDriveTags: [],
+                  testDriveTagTypes: {},
                 };
+
                 pushMsg(t, "testDrive", {
                   id: msgId(),
                   role: "assistant",
