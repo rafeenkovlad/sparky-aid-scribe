@@ -1942,8 +1942,11 @@ export function ChatApp({ threadId }: Props) {
         return;
       }
 
-      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера.
-      const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
+      // Шаг 2 — реальная выгрузка файлов через ObjectStorage multipart.
+      //   Prepare возвращает uploadFiles[] с финальными ключами; исходники
+      //   лежат во временном бакете (legalReviewStep.otherMaterials[].key).
+      const uploadFiles = (r as { uploadFiles?: Array<{ filename: string; key: string; type: string; stepType: string }> }).uploadFiles ?? [];
+      const total = Math.max(1, uploadFiles.length);
       updateThread(thread.id, (t) => {
         const m = t.messages.result.find((x) => x.id === progressId);
         if (m?.uploadProgress) {
@@ -1955,18 +1958,51 @@ export function ChatApp({ threadId }: Props) {
         }
       });
 
+      const reportNumber = String(r.reportId ?? "");
+      const tempByName = new Map<string, { key?: string; type?: string }>();
+      for (const lm of (getThread(thread.id) ?? thread).draft.legalReviewStep?.otherMaterials ?? []) {
+        if (lm.filename) tempByName.set(lm.filename, { key: lm.key, type: lm.type });
+      }
 
-      for (let i = 1; i <= total; i++) {
-        await new Promise((res) => setTimeout(res, 220));
-        const percent = Math.round((i / total) * 100);
+      const { uploadReportFileMultipart } = await import("@/lib/carreports/storageApi");
+      const uploadErrors: string[] = [];
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const f = uploadFiles[i];
+        const src = tempByName.get(f.filename);
+        const up = await uploadReportFileMultipart({
+          reportNumber,
+          filename: f.filename,
+          sourceKey: src?.key,
+          contentType: f.type === "document" ? "application/pdf" : undefined,
+        });
+        if (!up.ok) uploadErrors.push(`${f.filename}: ${up.note}`);
+        const done = i + 1;
+        const percent = Math.round((done / total) * 100);
         updateThread(thread.id, (t) => {
           const m = t.messages.result.find((x) => x.id === progressId);
           if (m?.uploadProgress) {
             m.uploadProgress.percent = percent;
-            m.uploadProgress.uploaded = i;
+            m.uploadProgress.uploaded = done;
           }
         });
       }
+
+      if (uploadErrors.length > 0) {
+        updateThread(thread.id, (t) => {
+          t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
+          pushMsg(t, "result", {
+            id: msgId(),
+            role: "assistant",
+            text:
+              "Не удалось выгрузить часть файлов: \n" +
+              uploadErrors.map((e) => `• ${e}`).join("\n") +
+              "\n\nПроверьте интернет-соединение и попробуйте ещё раз.",
+            createdAt: Date.now(),
+          });
+        });
+        return;
+      }
+
 
       // Шаг 3 — финализация отчёта.
       updateThread(thread.id, (t) => {
