@@ -1795,7 +1795,7 @@ export function ChatApp({ threadId }: Props) {
     // Сначала проверяем обязательные поля — нет смысла спрашивать
     // подтверждение, если выгрузка всё равно не пройдёт.
     const fresh0 = getThread(thread.id) ?? thread;
-    const missing = collectMissingForSummary(fresh0.draft);
+    const missing = collectMissingForSummary(fresh0.draft, { includeResult: true });
     if (missing.length > 0) {
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
