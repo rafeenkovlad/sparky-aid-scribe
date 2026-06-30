@@ -276,6 +276,7 @@ export const CLICHE_INSPECTION_PHOTO = (
   elements: Array<{ id: string; label: string; hint?: string }>,
   knownTags: Array<{ name: string; type?: string | null }>,
   existingNote?: string,
+  supportsPaintwork?: boolean,
 ) => {
   const elList = elements
     .map((el) => {
@@ -293,6 +294,19 @@ export const CLICHE_INSPECTION_PHOTO = (
         )
         .join("\n")
     : "  (каталог пуст — придумай короткие имена сам)";
+
+  const paintworkBlock = supportsPaintwork
+    ? `\n5) ЛКП (толщина окраса в микронах). На фото может быть виден экран
+   толщиномера лакокрасочного покрытия (цифровое значение в мкм / µm,
+   обычно 3 цифры: 80–400). Если значение видно — верни числа
+   paintworkThicknessFrom и paintworkThicknessTo. Если на фото несколько
+   замеров — From = минимум, To = максимум. Если один замер — From=To=это
+   число. Если толщиномера на фото НЕТ или цифры нечитаемы — НЕ возвращай
+   эти поля (бэк подставит дефолт 80–200).\n`
+    : "";
+  const paintworkSchema = supportsPaintwork
+    ? `,\n  "paintworkThicknessFrom": <число мкм или не возвращай поле>,\n  "paintworkThicknessTo": <число мкм или не возвращай поле>`
+    : "";
 
   return `${COMMON}
 
@@ -318,7 +332,7 @@ export const CLICHE_INSPECTION_PHOTO = (
 3) Подбери теги из каталога (приоритет — точное совпадение по смыслу). Если
    подходящего тега нет — придумай короткое имя (1–3 слова).
 4) Сформулируй заметку 1–2 предложения по делу: что видно, где, насколько критично.
-
+${paintworkBlock}
 Элементы раздела (используй ИМЕННО эти id; референс — после стрелки ↳):
 ${elList}
 
@@ -331,7 +345,7 @@ ${tagList}
   "noDamage": true|false,
   "seriousTags": ["имя_тега", ...],
   "nonSeriousTags": ["имя_тега", ...],
-  "note": "что видно на фото"
+  "note": "что видно на фото"${paintworkSchema}
 }
 Если дефектов нет — noDamage=true, оба массива тегов пустые.
 ${existingNote?.trim() ? `\nВАЖНО: к этому элементу уже есть СОХРАНЁННАЯ заметка эксперта:\n"""\n${existingNote.trim()}\n"""\nНовая заметка эксперта — это ДОПОЛНЕНИЕ, а не замена. В поле note верни ОБЪЕДИНЁННУЮ заметку: сохрани все факты из старой и добавь новые. Не выбрасывай детали из старой заметки. Если старая и новая описывают одно и то же — объедини без повторов.\n` : ""}
