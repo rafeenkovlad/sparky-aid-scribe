@@ -1204,8 +1204,6 @@ function InspectionTagPickerRow({
   const suggestions = tags.filter(
     (t) => !seriousSelected.has(t.id) && !minorSelected.has(t.id),
   );
-  const hasSelectedRemarks = selectedTags.length > 0 || pending.length > 0;
-
   return (
     <div className="space-y-1.5">
       <div className="text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium">
@@ -1380,6 +1378,7 @@ function RemarksPassportRow({
   const suggestions = tags.filter(
     (t) => !seriousSelected.has(t.id) && !minorSelected.has(t.id),
   );
+  const hasSelectedRemarks = selectedTags.length > 0 || pending.length > 0;
 
   return (
     <li
