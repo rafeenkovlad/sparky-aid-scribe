@@ -1866,15 +1866,19 @@ export function ChatApp({ threadId }: Props) {
     setBusy(true);
     const progressId = `finish-progress-${Date.now()}`;
     try {
-      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз
+      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз,
+      // и сразу показываем единый прогресс-бар (без текстовых «Шаг 1/Шаг 2»).
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
           (m) => m.kind !== "finishConfirm",
         );
         pushMsg(t, "result", {
-          id: msgId(),
+          id: progressId,
           role: "assistant",
-          text: "🔧 Шаг 1 — подготавливаю файлы к выгрузке…",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "preparing", percent: 0, uploaded: 0, total: 1, note: "Подготовка отчёта…" },
           createdAt: Date.now(),
         });
       });
@@ -1888,11 +1892,10 @@ export function ChatApp({ threadId }: Props) {
         const raw = r.note ?? "Не удалось подготовить отчёт.";
         const looksLikeBlank = /should not be blank|обязательн|необходимо|required|теги|tags?/i.test(raw);
         updateThread(thread.id, (t) => {
+          // убираем прогресс — будем показывать карточку с переходами
+          t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
           if (looksLikeBlank) {
             const miss = collectMissingForSummary(t.draft);
-            // Если локальный гейт ничего не нашёл, но сервер ругается —
-            // пробуем по ключевым словам понять, куда вести пользователя,
-            // чтобы он увидел кнопку перехода, а не просто текст.
             if (miss.length === 0) {
               const low = raw.toLowerCase();
               const guesses: Array<{ re: RegExp; item: { label: string; step: StepId; sectionSnake?: string } }> = [
@@ -1913,7 +1916,6 @@ export function ChatApp({ threadId }: Props) {
                 if (g.re.test(low)) miss.push(g.item);
               }
               if (miss.length === 0) {
-                // Совсем не угадали — ведём на тест-драйв как самый частый источник.
                 miss.push({ label: "Проверьте обязательные поля во всех шагах", step: "testDrive" });
               }
             }
@@ -1943,22 +1945,16 @@ export function ChatApp({ threadId }: Props) {
       // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера.
       const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
       updateThread(thread.id, (t) => {
-        pushMsg(t, "result", {
-          id: msgId(),
-          role: "assistant",
-          text: "📤 Шаг 2 — выгружаю файлы…",
-          createdAt: Date.now(),
-        });
-        pushMsg(t, "result", {
-          id: progressId,
-          role: "assistant",
-          text: "",
-          step: "result",
-          kind: "uploadProgress",
-          uploadProgress: { phase: "uploading", percent: 0, uploaded: 0, total },
-          createdAt: Date.now(),
-        });
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "uploading";
+          m.uploadProgress.percent = 0;
+          m.uploadProgress.uploaded = 0;
+          m.uploadProgress.total = total;
+          m.uploadProgress.note = undefined;
+        }
       });
+
 
       for (let i = 1; i <= total; i++) {
         await new Promise((res) => setTimeout(res, 220));
@@ -1972,18 +1968,17 @@ export function ChatApp({ threadId }: Props) {
         });
       }
 
+      // Шаг 3 — финализация отчёта.
       updateThread(thread.id, (t) => {
         const m = t.messages.result.find((x) => x.id === progressId);
         if (m?.uploadProgress) {
-          m.uploadProgress.phase = "done";
+          m.uploadProgress.phase = "finalizing";
           m.uploadProgress.percent = 100;
           m.uploadProgress.uploaded = total;
-          m.uploadProgress.reportId = r.reportId;
-          m.uploadProgress.note = `Файлы загружены (${total}/${total}).`;
+          m.uploadProgress.note = "Финализация отчёта…";
         }
       });
 
-      // Шаг 3 — финализация отчёта.
       const finalizeId = r.reportNumericId ?? r.reportId;
       let completeNote = "";
       if (finalizeId != null) {
@@ -1994,14 +1989,15 @@ export function ChatApp({ threadId }: Props) {
         }
       }
 
-      // Шаг 4 — финальное сообщение с кнопкой «Поделиться».
+      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться».
       updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
           text: completeNote
             ? `⚠️ Файлы выгружены, но финализация не удалась: ${completeNote}`
-            : `✅ Отчёт ${r.reportId ?? ""} успешно выгружен.`,
+            : "",
           step: "result",
           kind: "finishComplete",
           finishComplete: {
@@ -2013,6 +2009,7 @@ export function ChatApp({ threadId }: Props) {
           createdAt: Date.now(),
         });
       });
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
       updateThread(thread.id, (t) => {
@@ -4075,6 +4072,8 @@ function MessageBubble({
             const up = msg.uploadProgress!;
             const isErr = up.phase === "error";
             const isDone = up.phase === "done";
+            const isPrep = up.phase === "preparing";
+            const isFin = up.phase === "finalizing";
             const barColor = isErr
               ? "bg-rose-500"
               : isDone
@@ -4084,7 +4083,12 @@ function MessageBubble({
               ? "Ошибка выгрузки"
               : isDone
                 ? "Файлы выгружены"
-                : "Выгрузка файлов…";
+                : isPrep
+                  ? "Подготовка отчёта…"
+                  : isFin
+                    ? "Финализация отчёта…"
+                    : "Выгрузка файлов…";
+
             return (
               <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white space-y-2 min-w-[240px]">
                 <div className="flex items-center justify-between text-[12px] text-white/80">
