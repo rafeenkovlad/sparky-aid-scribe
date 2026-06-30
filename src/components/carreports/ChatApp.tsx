@@ -2998,7 +2998,7 @@ export function ChatApp({ threadId }: Props) {
         <button
           onClick={() => {
             if (currentStep === "result") {
-              void doFinish();
+              doFinishConfirm();
               return;
             }
             setAskMode(false);
