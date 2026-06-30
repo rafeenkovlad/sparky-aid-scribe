@@ -449,11 +449,12 @@ export function ChatApp({ threadId }: Props) {
     setComposer(restored);
     // При уходе из шага «Осмотр» выходим из фокуса фото, чтобы выбранный
     // элемент не «протекал» в другие шаги.
-    if (prevKey && !prevKey.endsWith(":inspection") ? false : prevKey !== null && currentStep !== "inspection") {
+    if (currentStep !== "inspection") {
       setPhotoFocusIdx(null);
       composerBackupRef.current = null;
     }
   }, [thread, currentStep, composer]);
+
 
 
   const lastOptionsMsgId = useMemo(() => {
