@@ -32,6 +32,7 @@ const REQUIRED_STEPS: { id: StepId; label: string }[] = [
   { id: "car", label: "Автомобиль" },
   { id: "docs", label: "Документы" },
   { id: "testDrive", label: "Тест-драйв" },
+  { id: "result", label: "Итог" },
 ];
 
 function shortHint(s: string | null, fallback: string): string {
