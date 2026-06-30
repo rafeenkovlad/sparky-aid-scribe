@@ -2937,6 +2937,19 @@ export function ChatApp({ threadId }: Props) {
                 }
               });
             }}
+            onPassportEdit={(template) => {
+              setComposer((prev) => (prev.trim() ? prev + "\n" + template : template));
+              setAskMode(false);
+              // Раскрываем композер — пользователь нажал «Редактировать» в паспорте.
+              requestAnimationFrame(() => {
+                const ta = textareaRef.current;
+                if (ta) {
+                  ta.focus();
+                  ta.setSelectionRange(ta.value.length, ta.value.length);
+                  ta.scrollTop = ta.scrollHeight;
+                }
+              });
+            }}
             onAdvance={advanceStep}
             onDocsAllMatch={() => {
               updateThread(thread.id, (t) => {
