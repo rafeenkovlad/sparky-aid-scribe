@@ -130,9 +130,9 @@ export function InspectionFullPassport({ step }: Props) {
                 <span className="text-white/70 font-medium text-[13px]">
                   {section.label}
                 </span>
-                {lkpEligible && (lkpFrom !== null || lkpTo !== null) && (
+                {lkpEligible && (
                   <span className="text-[11px] text-white/55 tabular-nums">
-                    ЛКП {lkpFrom ?? "—"}–{lkpTo ?? "—"} мкм
+                    ЛКП {lkpFrom ?? 80}–{lkpTo ?? 200} мкм
                   </span>
                 )}
               </div>
