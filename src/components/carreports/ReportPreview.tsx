@@ -1,5 +1,5 @@
 import { FLOW_STEPS } from "@/lib/carreports/flow";
-import { filledCount, isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
+import { isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
 import { Check, ChevronRight, Eye, FileText } from "lucide-react";
@@ -51,23 +51,50 @@ function summaryFor(step: StepId, t: Thread): string {
   }
 }
 
+function findUpload(t: Thread): { reportId?: string | number; at?: number } | null {
+  const msgs = t.messages.result ?? [];
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.kind === "finishComplete" && m.finishComplete) {
+      return { reportId: m.finishComplete.reportId, at: m.createdAt };
+    }
+  }
+  return null;
+}
+
+function fmtDate(ts: number): string {
+  try {
+    return new Date(ts).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
 export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
-  const filled = filledCount(thread.draft);
+  const uploaded = findUpload(thread);
+  const isUploaded = !!uploaded;
+  const titleText = isUploaded
+    ? `Отчёт${uploaded?.reportId ? ` №${uploaded.reportId}` : ""}${uploaded?.at ? ` · ${fmtDate(uploaded.at)}` : ""}`
+    : "Черновик отчёта";
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
         <FileText className="h-4 w-4 text-orange-400" />
-        <div className="text-sm font-medium">Черновик отчёта</div>
-        <div className="ml-auto text-xs text-white/60">{filled}/{FLOW_STEPS.length - 1} заполнено</div>
+        <div className="text-sm font-medium truncate">{titleText}</div>
       </div>
       {onOpenFullReport && (
         <div className="px-3 pt-3">
           <button
             onClick={onOpenFullReport}
-            className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors"
+            className={
+              "w-full rounded-xl text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors " +
+              (isUploaded
+                ? "bg-emerald-500 hover:bg-emerald-600"
+                : "bg-orange-500 hover:bg-orange-600")
+            }
           >
             <Eye className="h-4 w-4" />
-            Открыть полный отчёт
+            {isUploaded ? "Открыть отчёт" : "Предпросмотр"}
           </button>
         </div>
       )}
@@ -110,4 +137,3 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
       </div>
   );
 }
-
