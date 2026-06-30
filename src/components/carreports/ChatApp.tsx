@@ -4134,6 +4134,16 @@ function MessageBubble({
               })()}
               onGenerateNote={onGenerateInspectionNote}
               onEdit={onFillMissing}
+              onSetPaintwork={(from, to) => {
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
+                onMutateFindingAt?.(idx, (f) => {
+                  f.paintworkThicknessFrom = from;
+                  f.paintworkThicknessTo = to;
+                });
+              }}
             />
 
           )}
