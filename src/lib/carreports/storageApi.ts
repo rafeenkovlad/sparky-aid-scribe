@@ -612,8 +612,10 @@ export async function submitReport(draft: ReportDraft): Promise<{
         reportNumericId: inner.id,
         method: "Storage.PrepareSpecialistReport",
         uploadFilesCount: inner.uploadFiles?.length ?? 0,
+        uploadFiles: inner.uploadFiles ?? [],
         note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.${idHint}`,
       };
+
     }
     return { remote: false, note: "Ответ сервера без reportNumber." };
   } catch (e) {
