@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
@@ -222,7 +222,7 @@ function StepBody({
                   title="Удалить файл"
                   className="shrink-0 translate-y-0.5 h-5 w-5 rounded-full text-white/45 hover:text-white hover:bg-rose-500/70 flex items-center justify-center transition-colors"
                 >
-                  <X className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" />
                 </button>
               )}
             </li>
