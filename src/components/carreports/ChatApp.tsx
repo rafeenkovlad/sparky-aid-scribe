@@ -2995,6 +2995,7 @@ export function ChatApp({ threadId }: Props) {
             inspectionDraft={thread.draft.inspectionStep}
             inspectionCursor={cursor ?? undefined}
             onSelectSection={selectSection}
+            onShowInspectionFullPassport={showInspectionFullPassport}
             onSelectElement={selectElement}
             onSetVerdict={setVerdict}
             onToggleTag={toggleTagOnFinding}
@@ -3738,6 +3739,7 @@ interface BubbleProps {
   inspectionDraft?: import("@/lib/carreports/types").InspectionStep;
   inspectionCursor?: import("@/lib/carreports/inspectionState").InspectionCursor;
   onSelectSection?: (snake: SectionSnake) => void;
+  onShowInspectionFullPassport?: () => void;
   onSelectElement?: (elementId: string) => void;
   onSetVerdict?: (v: "ok" | "minor" | "serious") => void;
   onToggleTag?: (t: UserTag) => void;
@@ -3811,6 +3813,7 @@ function MessageBubble({
   inspectionDraft,
   inspectionCursor,
   onSelectSection,
+  onShowInspectionFullPassport,
   onSelectElement,
   onSetVerdict,
   onToggleTag,
@@ -4064,7 +4067,11 @@ function MessageBubble({
             currentSection={inspectionCursor?.section.snake}
             interactive
             onPick={onSelectSection ?? (() => {})}
+            onShowFullPassport={onShowInspectionFullPassport}
           />
+        )}
+        {msg.kind === "inspectionFullPassport" && inspectionDraft && (
+          <InspectionFullPassport step={inspectionDraft} />
         )}
         {msg.kind === "inspectionChips" && inspectionDraft && inspectionCursor && (
           <InspectionChipsCard
