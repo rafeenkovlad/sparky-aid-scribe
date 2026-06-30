@@ -40,10 +40,16 @@ function shortHint(s: string | null, fallback: string): string {
   return t.length > 90 ? t.slice(0, 87) + "…" : t;
 }
 
-export function collectMissingForSummary(d: ReportDraft): MissingSummaryItem[] {
+export function collectMissingForSummary(
+  d: ReportDraft,
+  opts: { includeResult?: boolean } = {},
+): MissingSummaryItem[] {
   const out: MissingSummaryItem[] = [];
 
   for (const s of REQUIRED_STEPS) {
+    // Шаг «Итог» (резюме/вердикт) проверяем только при финальной выгрузке,
+    // а не при генерации самого резюме — иначе получится замкнутый круг.
+    if (s.id === "result" && !opts.includeResult) continue;
     if (!isStepFilled(s.id, d)) {
       out.push({
         label: `${s.label}: ${shortHint(nextMissingPrompt(s.id, d), "заполните обязательные поля")}`,
