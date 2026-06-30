@@ -1324,7 +1324,7 @@ export function ChatApp({ threadId }: Props) {
 
   /** Пушит карточку‑proposal и запускает переформулировку. */
   const pushChatNoteProposal = useCallback(
-    (threadIdLocal: string, np: NotePatched) => {
+    (threadIdLocal: string, np: NotePatched, opts?: { autoApply?: boolean }) => {
       const step = stepForNoteRef(np.ref);
       const stableId = `note-proposal:${noteRefKey(np.ref)}`;
       updateThread(threadIdLocal, (t) => {
@@ -1378,16 +1378,25 @@ export function ChatApp({ threadId }: Props) {
             np.tagNames,
             np.originalText,
           );
-          patchNoteProposalMsg(threadIdLocal, step, stableId, {
-            ai: aiText,
-            loading: false,
-          });
+          if (opts?.autoApply && aiText) {
+            writeNoteToDraft(threadIdLocal, np.ref, aiText);
+            patchNoteProposalMsg(threadIdLocal, step, stableId, {
+              ai: aiText,
+              loading: false,
+              picked: "ai",
+            });
+          } else {
+            patchNoteProposalMsg(threadIdLocal, step, stableId, {
+              ai: aiText,
+              loading: false,
+            });
+          }
         } finally {
           noteReformInflight.current.delete(key);
         }
       })();
     },
-    [patchNoteProposalMsg],
+    [patchNoteProposalMsg, writeNoteToDraft],
   );
 
   const generateInspectionNote = useCallback(
@@ -1403,14 +1412,18 @@ export function ChatApp({ threadId }: Props) {
         .map((name) => name.trim())
         .filter((name, idx, arr) => name && arr.indexOf(name) === idx);
       if (!tagNames.length) return;
-      pushChatNoteProposal(thread.id, {
-        ref: { kind: "inspection", section: args.section, elementId: args.elementId },
-        scopeLabel: args.scopeLabel,
-        originalText:
-          args.originalText.trim() ||
-          `Замечания: ${tagNames.join(", ")}.`,
-        tagNames,
-      });
+      pushChatNoteProposal(
+        thread.id,
+        {
+          ref: { kind: "inspection", section: args.section, elementId: args.elementId },
+          scopeLabel: args.scopeLabel,
+          originalText:
+            args.originalText.trim() ||
+            `Замечания: ${tagNames.join(", ")}.`,
+          tagNames,
+        },
+        { autoApply: true },
+      );
     },
     [thread, pushChatNoteProposal],
   );
@@ -1524,13 +1537,20 @@ export function ChatApp({ threadId }: Props) {
       const p = m.noteProposal;
       out.push({
         payload: p,
-        onPickOriginal: () => acceptChatNoteOriginal(p.ref, p.original),
+        onPickOriginal: () => {
+          if (p.ref.kind === "inspection") {
+            writeNoteToDraft(thread!.id, p.ref, "");
+            dismissChatNoteProposal(p.ref);
+          } else {
+            acceptChatNoteOriginal(p.ref, p.original);
+          }
+        },
         onPickAi: () => regenerateChatNoteAi(p.ref),
         onDismiss: () => dismissChatNoteProposal(p.ref),
       });
     }
     return out;
-  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal]);
+  }, [currentStepMessages, acceptChatNoteOriginal, regenerateChatNoteAi, dismissChatNoteProposal, writeNoteToDraft, thread]);
 
   /** Скрываем отдельный пузырь noteProposal для testDrive/result, если в шаге
    *  есть stepPassport — там это уже отрисовано inline под исходной заметкой. */
