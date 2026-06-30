@@ -2663,6 +2663,24 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               }
+            } else if (stepForTask === "car" || stepForTask === "characteristics") {
+              // Вместо текстового «Зафиксировал по автомобилю…» —
+              // показываем паспорт авто (как в тест-драйве/итоге).
+              if (!isLastMessagePassport(t)) {
+                pushMsg(t, stepForTask, makeStepPassportMessage(stepForTask));
+              }
+              if (chips && chips.length) {
+                pushMsg(t, stepForTask, {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "",
+                  step: stepForTask,
+                  chips,
+                  optionsStep: stepForTask,
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
+              }
             } else {
               pushMsg(t, stepForTask, {
                 id: msgId(),
@@ -2676,6 +2694,7 @@ export function ChatApp({ threadId }: Props) {
                 createdAt: Date.now(),
               });
             }
+
           }
 
           const nextAsk = nextMissingPrompt(stepForTask, t.draft);
@@ -2913,6 +2932,19 @@ export function ChatApp({ threadId }: Props) {
               requestAnimationFrame(() => {
                 const ta = textareaRef.current;
                 if (ta) {
+                  ta.setSelectionRange(ta.value.length, ta.value.length);
+                  ta.scrollTop = ta.scrollHeight;
+                }
+              });
+            }}
+            onPassportEdit={(template) => {
+              setComposer((prev) => (prev.trim() ? prev + "\n" + template : template));
+              setAskMode(false);
+              // Раскрываем композер — пользователь нажал «Редактировать» в паспорте.
+              requestAnimationFrame(() => {
+                const ta = textareaRef.current;
+                if (ta) {
+                  ta.focus();
                   ta.setSelectionRange(ta.value.length, ta.value.length);
                   ta.scrollTop = ta.scrollHeight;
                 }
@@ -3289,7 +3321,7 @@ export function ChatApp({ threadId }: Props) {
                   role: "assistant",
                   text: "",
                   step: "car",
-                  kind: "passport",
+                  kind: "stepPassport",
                   createdAt: Date.now(),
                 });
               });
@@ -3742,6 +3774,8 @@ interface BubbleProps {
   onInspectionDateChange: (iso: string) => void;
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
+  /** Версия onFillMissing, которая дополнительно раскрывает композер. */
+  onPassportEdit?: (template: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
   onTestDriveAddTag?: (
@@ -3825,6 +3859,7 @@ function MessageBubble({
   onInspectionDateChange,
   draft,
   onFillMissing,
+  onPassportEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
   onTestDriveAddTag,
@@ -3931,7 +3966,7 @@ function MessageBubble({
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
             <DocsChecklist
               draft={draft}
-              onEdit={onFillMissing}
+              onEdit={onPassportEdit ?? onFillMissing}
               onAllMatch={onDocsAllMatch}
             />
             {msg.text && (
@@ -3944,7 +3979,7 @@ function MessageBubble({
           <StepPassport
             step={msg.step}
             draft={draft}
-            onEdit={onFillMissing}
+            onEdit={onPassportEdit ?? onFillMissing}
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}

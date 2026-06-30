@@ -63,7 +63,12 @@ export function StepPassport({
   onReformulateResultNote,
 }: Props) {
   const hideConfirm =
-    step === "legalMaterials" || step === "testDrive" || step === "result";
+    step === "legalMaterials" ||
+    step === "testDrive" ||
+    step === "result" ||
+    step === "car" ||
+    step === "characteristics";
+
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
       <div className="mb-2">
@@ -129,7 +134,26 @@ function StepBody({
   switch (step) {
     case "car":
     case "characteristics":
-      return <CarChecklist draft={draft} onFillMissing={onEdit} />;
+      return (
+        <div className="space-y-2">
+          <CarChecklist draft={draft} />
+          {onEdit && (
+            <div className="pt-2 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onEdit(buildCarEditTemplate(draft, step))}
+                aria-label="Редактировать"
+                title="Редактировать"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Редактировать
+              </button>
+            </div>
+          )}
+        </div>
+      );
+
     case "docs":
       return (
         <DocsChecklist
@@ -366,6 +390,37 @@ export function buildResultEditTemplate(r: ReportDraft["resultStep"]): string {
     verdict,
   ].join("\n");
 }
+
+/** Префилл композера для правки шага «Автомобиль/Характеристики». */
+export function buildCarEditTemplate(draft: ReportDraft, step: StepId): string {
+  const c = draft.carStep ?? {};
+  const ch = draft.characteristicsStep ?? {};
+  const lines: string[] = [
+    step === "characteristics" ? "Характеристики (правка):" : "Автомобиль (правка):",
+  ];
+  const push = (label: string, value: string | number | undefined | null) => {
+    if (value === undefined || value === null || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+  push("VIN", c.vin ?? (c.unreadableVin ? "нечитаемый" : ""));
+  push("Госномер", c.gosNumber ?? "");
+  push("Пробег", c.mileage ? `${c.mileage} км` : "");
+  push("Дата осмотра", c.dateInspection ?? "");
+  push("Город осмотра", c.cityInspection ?? "");
+  push("Ссылка", c.uriListing ?? "");
+  push("Марка", ch.brandName ?? "");
+  push("Модель", ch.modelCarName ?? "");
+  push("Поколение", ch.generationLabel ?? "");
+  push("Год", ch.year ?? "");
+  push("Двигатель", ch.engineType ?? "");
+  push("Объём", ch.engineVolume ? `${ch.engineVolume} л` : "");
+  push("КПП", ch.transmission ?? "");
+  push("Привод", ch.driveType ?? "");
+  push("Цвет", ch.color ?? "");
+  push("Комплектация", ch.equipment ?? "");
+  return lines.join("\n");
+}
+
 
 
 
