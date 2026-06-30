@@ -4072,6 +4072,8 @@ function MessageBubble({
             const up = msg.uploadProgress!;
             const isErr = up.phase === "error";
             const isDone = up.phase === "done";
+            const isPrep = up.phase === "preparing";
+            const isFin = up.phase === "finalizing";
             const barColor = isErr
               ? "bg-rose-500"
               : isDone
@@ -4081,7 +4083,12 @@ function MessageBubble({
               ? "Ошибка выгрузки"
               : isDone
                 ? "Файлы выгружены"
-                : "Выгрузка файлов…";
+                : isPrep
+                  ? "Подготовка отчёта…"
+                  : isFin
+                    ? "Финализация отчёта…"
+                    : "Выгрузка файлов…";
+
             return (
               <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white space-y-2 min-w-[240px]">
                 <div className="flex items-center justify-between text-[12px] text-white/80">
