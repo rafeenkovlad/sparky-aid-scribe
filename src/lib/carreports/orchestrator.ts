@@ -1588,7 +1588,12 @@ export async function reformulateNote(
   tagNames: string[],
   originalText: string,
 ): Promise<string | null> {
-  if (!originalText || !originalText.trim()) return null;
+  const sourceText = originalText?.trim()
+    ? originalText
+    : tagNames.length
+      ? "Сформируй краткую заметку по зафиксированным тегам."
+      : "";
+  if (!sourceText) return null;
   try {
     const { CLICHE_REFORMULATE_NOTE } = await import("./cliche");
     const key =
@@ -1596,8 +1601,8 @@ export async function reformulateNote(
         ? `${ref.kind}:${ref.section}:${ref.elementId}`
         : ref.kind;
     const id = aiChatIdFor(thread, `reformulate:${key}`);
-    const cliche = CLICHE_REFORMULATE_NOTE(stepLabel, scopeLabel, tagNames, originalText);
-    const res = await chatCompletions({ id, text: originalText, cliche, model: "gpt-5.4" });
+    const cliche = CLICHE_REFORMULATE_NOTE(stepLabel, scopeLabel, tagNames, sourceText);
+    const res = await chatCompletions({ id, text: sourceText, cliche, model: "gpt-5.4" });
     const raw = parseJsonResponse<{ note?: string }>(res.content) ?? {};
     const out = typeof raw.note === "string" ? raw.note.trim() : "";
     return out || null;
