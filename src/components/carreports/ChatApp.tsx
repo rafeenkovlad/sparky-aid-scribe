@@ -3558,7 +3558,10 @@ function MessageBubble({
               onChangePhotoIdx={(idx) => onElementFocusChangePhoto?.(idx)}
               onChangeElement={(elementId) => onElementFocusChangeElement?.(elementId)}
               onSetVerdict={(v) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => {
                   if (v === "ok") {
                     f.noDamage = true;
@@ -3571,17 +3574,26 @@ function MessageBubble({
                 });
               }}
               onToggleTag={(t) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 const bucket: "serious" | "non_serious" =
                   t.type === "serious" ? "serious" : "non_serious";
                 onMutateFindingAt?.(idx, (f) => toggleFindingTag(f, bucket, t.id));
               }}
               onAddPendingTag={(n, s) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
               }}
               onTogglePendingTag={(n, s) => {
-                const idx = msg.photoIdx as number;
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
                 onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
               }}
               onDeletePhoto={onElementFocusDeletePhoto}
@@ -3591,7 +3603,11 @@ function MessageBubble({
               onDismissNoteProposal={onElementFocusDismissNoteProposal}
               aiUpdating={!!elementFocusNoteProposal?.loading}
               chatNoteProposal={(() => {
-                const photo = inspectionDraft.photos[msg.photoIdx];
+                const idx =
+                  elementFocusPhotoIdx !== null && elementFocusPhotoIdx !== undefined
+                    ? elementFocusPhotoIdx
+                    : (msg.photoIdx as number);
+                const photo = inspectionDraft.photos[idx];
                 if (!photo) return undefined;
                 const sec = photo.section;
                 const elId =
