@@ -103,6 +103,11 @@ export interface InspectionElementFinding {
   pendingTagNames?: PendingTagName[];
   note?: string;
   audioNotes?: string[];
+  /** ЛКП (мкм): нижняя/верхняя граница диапазона толщины окраса.
+   *  Применимо к разделам кузова и силового каркаса. Если не задано — на бэк
+   *  уходит дефолт 80–200 (см. `storageApi.ts`). */
+  paintworkThicknessFrom?: number;
+  paintworkThicknessTo?: number;
 }
 
 export interface InspectionStep {
