@@ -3373,24 +3373,34 @@ export function ChatApp({ threadId }: Props) {
 
 
 
-        <button
-          onClick={() => {
-            if (currentStep === "result") {
-              doFinishConfirm();
-              return;
-            }
-            setAskMode(false);
-            advanceStep();
-          }}
-          disabled={busy && currentStep === "result"}
-          className="rounded-full bg-orange-500/90 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
-        >
-          {currentStep === "result" ? (
-            <><FileText className="h-3.5 w-3.5" /> Завершить</>
-          ) : (
-            <><ChevronRight className="h-3.5 w-3.5" /> Далее</>
-          )}
-        </button>
+        {(() => {
+          const finishAlreadySubmitted =
+            currentStep === "result" &&
+            (thread.messages.result ?? []).some((m) => m.kind === "finishComplete");
+          return (
+            <button
+              onClick={() => {
+                if (currentStep === "result") {
+                  if (finishAlreadySubmitted) return;
+                  doFinishConfirm();
+                  return;
+                }
+                setAskMode(false);
+                advanceStep();
+              }}
+              disabled={(busy || finishAlreadySubmitted) && currentStep === "result"}
+              title={finishAlreadySubmitted ? "Отчёт уже отправлен. Используйте «Повторить», если финализация не удалась." : undefined}
+              className="rounded-full bg-orange-500/90 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+            >
+              {currentStep === "result" ? (
+                <><FileText className="h-3.5 w-3.5" /> Завершить</>
+              ) : (
+                <><ChevronRight className="h-3.5 w-3.5" /> Далее</>
+              )}
+            </button>
+          );
+        })()}
+
 
         {hasCurrentStepDraft && (
           <button
