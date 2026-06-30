@@ -3321,7 +3321,7 @@ export function ChatApp({ threadId }: Props) {
                   role: "assistant",
                   text: "",
                   step: "car",
-                  kind: "passport",
+                  kind: "stepPassport",
                   createdAt: Date.now(),
                 });
               });
