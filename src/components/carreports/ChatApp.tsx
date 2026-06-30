@@ -3752,7 +3752,7 @@ function MessageBubble({
               </div>
             );
           })()
-
+        ) : (
           msg.text && (
             <>
               <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
