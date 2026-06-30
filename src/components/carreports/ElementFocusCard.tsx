@@ -80,13 +80,6 @@ export interface ElementFocusCardProps {
   onEdit?: (template: string) => void;
 }
 
-function mergeTags(...groups: UserTag[][]): UserTag[] {
-  const byId = new Map<number, UserTag>();
-  for (const group of groups) {
-    for (const tag of group) byId.set(tag.id, tag);
-  }
-  return [...byId.values()];
-}
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
   const {
@@ -186,16 +179,13 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           .map(Number)
           .filter((n) => Number.isFinite(n) && n > 0)
       : [];
-    const suggestionsPromise = pickerLoadTick > 0
+    const suggestionsPromise = pickerLoadTick > 0 || ids.length > 0
       ? loadSectionTags(sectionSnake, ids, true)
       : Promise.resolve([] as UserTag[]);
-    const selectedNamesPromise = ids.length
-      ? loadSectionTags(sectionSnake, undefined, true)
-      : Promise.resolve([] as UserTag[]);
-    Promise.all([suggestionsPromise, selectedNamesPromise])
-      .then(([suggestions, selectedNames]) => {
+    suggestionsPromise
+      .then((suggestions) => {
         if (!alive) return;
-        setTags(mergeTags(selectedNames, suggestions));
+        setTags(suggestions);
         setTagsLoading(false);
       })
       .catch((e: unknown) => {
@@ -205,6 +195,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
         setTags([]);
         setTagsLoading(false);
       });
+
     return () => {
       alive = false;
     };
