@@ -68,8 +68,24 @@ export interface ElementFocusCardProps {
     onPickAi: () => void;
     onDismiss: () => void;
   };
+  /** Запустить AI-генерацию заметки по выбранным замечаниям. */
+  onGenerateNote?: (args: {
+    section: SectionSnake;
+    elementId: string;
+    scopeLabel: string;
+    originalText: string;
+    tagNames: string[];
+  }) => void;
   /** Открыть редактор: префилл композера шаблоном правки этого элемента. */
   onEdit?: (template: string) => void;
+}
+
+function mergeTags(...groups: UserTag[][]): UserTag[] {
+  const byId = new Map<number, UserTag>();
+  for (const group of groups) {
+    for (const tag of group) byId.set(tag.id, tag);
+  }
+  return [...byId.values()];
 }
 
 export function ElementFocusCard(props: ElementFocusCardProps) {
@@ -89,6 +105,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     onDismissNoteProposal,
     aiUpdating,
     chatNoteProposal,
+    onGenerateNote,
     onEdit,
   } = props;
 
@@ -163,11 +180,22 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
-    const ids = selectedIdsKey ? selectedIdsKey.split(",").map(Number) : [];
-    loadSectionTags(sectionSnake, ids)
-      .then((list) => {
+    const ids = selectedIdsKey
+      ? selectedIdsKey
+          .split(",")
+          .map(Number)
+          .filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+    const suggestionsPromise = pickerOpenedOnce
+      ? loadSectionTags(sectionSnake, ids, true)
+      : Promise.resolve([] as UserTag[]);
+    const selectedNamesPromise = ids.length
+      ? loadSectionTags(sectionSnake, undefined, true)
+      : Promise.resolve([] as UserTag[]);
+    Promise.all([suggestionsPromise, selectedNamesPromise])
+      .then(([suggestions, selectedNames]) => {
         if (!alive) return;
-        setTags(list);
+        setTags(mergeTags(selectedNames, suggestions));
         setTagsLoading(false);
       })
       .catch((e: unknown) => {
@@ -251,19 +279,22 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     {
       label: "Замечания",
       filled: remarksCount > 0 || derivedVerdict === "ok",
-      value:
-        remarksCount > 0
-          ? String(remarksCount)
-          : derivedVerdict === "ok"
-            ? "нет"
-            : undefined,
-    },
-    {
-      label: "Заметка",
-      filled: hasNote,
-      value: hasNote ? "есть" : undefined,
+      value: derivedVerdict === "ok" && remarksCount === 0 ? "нет" : undefined,
     },
   ];
+
+  const activeChatNoteProposal =
+    chatNoteProposal &&
+    chatNoteProposal.payload.ref.kind === "inspection" &&
+    chatNoteProposal.payload.ref.section === sectionSnake &&
+    chatNoteProposal.payload.ref.elementId === elementId
+      ? chatNoteProposal
+      : undefined;
+
+  const selectedRemarkNames = [
+    ...tags.filter((t) => sIds.has(t.id) || nsIds.has(t.id)).map((t) => t.name),
+    ...pending.map((p) => p.name),
+  ].filter((name) => name.trim());
 
   const filledCount = passportRows.filter((r) => r.filled).length;
   const allFilled = filledCount === passportRows.length;
@@ -456,37 +487,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
                 />
               );
             }
-            if (it.label === "Заметка") {
-              const canGenerate = remarksCount > 0;
-              return (
-                <NotePassportRow
-                  key={it.label}
-                  item={it}
-                  updating={!!aiUpdating}
-                  flashing={flashed.has(it.label)}
-                  canGenerate={canGenerate}
-                  onGenerate={
-                    canGenerate && onEdit
-                      ? () =>
-                          onEdit(
-                            buildNoteGenerateTemplate({
-                              sectionLabel: section?.label ?? sectionSnake,
-                              elementLabel,
-                              serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
-                              seriousPending: pending
-                                .filter((p) => p.severity === "serious")
-                                .map((p) => p.name),
-                              minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
-                              minorPending: pending
-                                .filter((p) => p.severity !== "serious")
-                                .map((p) => p.name),
-                            }),
-                          )
-                      : undefined
-                  }
-                />
-              );
-            }
             return (
               <PassportRow
                 key={it.label}
@@ -504,26 +504,46 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
 
 
         {/* Заметка эксперта — длинный текст, отображаем в конце для удобного чтения */}
-        {finding?.note?.trim() && (
+        {(finding?.note?.trim() || activeChatNoteProposal) && (
           <div className="pt-3 border-t border-white/[0.06]">
-            <div className="text-[10px] uppercase tracking-[0.1em] text-white/40 font-medium mb-1.5">
-              Заметка
-            </div>
-            <div className="text-[13.5px] leading-relaxed text-white/85 whitespace-pre-wrap">
-              {finding.note}
-            </div>
-            {chatNoteProposal &&
-              chatNoteProposal.payload.ref.kind === "inspection" &&
-              chatNoteProposal.payload.ref.section === sectionSnake &&
-              chatNoteProposal.payload.ref.elementId === elementId && (
-                <NoteProposalInline
-                  payload={chatNoteProposal.payload}
-                  onPickOriginal={chatNoteProposal.onPickOriginal}
-                  onPickAi={chatNoteProposal.onPickAi}
-                  onDismiss={chatNoteProposal.onDismiss}
-                />
-              )}
+            {finding?.note?.trim() && (
+              <div className="text-[13.5px] leading-relaxed text-white/85 whitespace-pre-wrap">
+                {finding.note}
+              </div>
+            )}
+            {activeChatNoteProposal && (
+              <NoteProposalInline
+                payload={activeChatNoteProposal.payload}
+                onPickOriginal={activeChatNoteProposal.onPickOriginal}
+                onPickAi={activeChatNoteProposal.onPickAi}
+                onDismiss={activeChatNoteProposal.onDismiss}
+              />
+            )}
           </div>
+        )}
+
+        {remarksCount > 0 && onGenerateNote && (
+          <button
+            type="button"
+            onClick={() =>
+              onGenerateNote({
+                section: sectionSnake,
+                elementId,
+                scopeLabel: `Осмотр · ${section?.label ?? sectionSnake} · ${elementLabel}`,
+                originalText: finding?.note?.trim() ?? "",
+                tagNames: selectedRemarkNames,
+              })
+            }
+            disabled={activeChatNoteProposal?.payload.loading}
+            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-400/10 hover:bg-sky-400/15 text-sky-100 disabled:opacity-50 text-[12px] font-medium px-3 py-1.5 transition-colors"
+          >
+            {activeChatNoteProposal?.payload.loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            Сгенерировать AI замечание
+          </button>
         )}
 
         {/* Нижние кнопки — как в тест-драйве */}
