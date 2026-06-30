@@ -3253,7 +3253,7 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             onFinishContinue={() => void doFinish()}
-            onRetryFinalize={(id) => void doRetryFinalize(id)}
+            onRetryFinalize={(id, num) => void doRetryFinalize(id, num)}
 
             onReformulateResultNote={(kind) => {
               if (!thread) return;
