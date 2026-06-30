@@ -279,30 +279,32 @@ function StepBody({
         const p = findProposal(noteProposals, (r2) => r2.kind === kind);
         return (
           <div className={kind === "resultVerdict" ? "pt-2 border-t border-white/5" : undefined}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-[10px] uppercase tracking-wide text-white/40">{label}</div>
-              {!p && onReformulateResultNote && (
-                <button
-                  type="button"
-                  onClick={() => onReformulateResultNote(kind)}
-                  aria-label="Переформулировать через ИИ"
-                  title="Переформулировать через ИИ"
-                  className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sky-200 hover:text-sky-100 hover:bg-white/10 transition-colors"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+            <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">{label}</div>
             <div className="text-white/85 whitespace-pre-wrap">{text}</div>
-            {p && (
+            {p ? (
               <NoteProposalInline
                 payload={p.payload}
                 onPickOriginal={p.onPickOriginal}
                 onPickAi={p.onPickAi}
                 onDismiss={p.onDismiss}
               />
+            ) : (
+              onReformulateResultNote && (
+                <div className="mt-1.5 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onReformulateResultNote(kind)}
+                    aria-label="Переформулировать через ИИ"
+                    title="Переформулировать через ИИ"
+                    className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sky-200 hover:text-sky-100 hover:bg-white/10 transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )
             )}
           </div>
+
         );
       };
       return (
