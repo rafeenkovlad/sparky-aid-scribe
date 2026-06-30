@@ -519,6 +519,7 @@ export function ChatApp({ threadId }: Props) {
     (snake: SectionSnake) => {
       if (!thread) return;
       updateThread(thread.id, (t) => {
+        const passportId = `insp-passport-${snake}`;
         const promptId = `insp-prompt-${snake}`;
         const collageId = `insp-collage-${snake}`;
         const hasPhotos = t.draft.inspectionStep.photos.some(
@@ -527,10 +528,23 @@ export function ChatApp({ threadId }: Props) {
         const keepId = hasPhotos ? collageId : promptId;
         const list = t.messages.inspection;
         for (let i = list.length - 1; i >= 0; i -= 1) {
-          if (list[i].id === promptId || list[i].id === collageId) {
+          if (
+            list[i].id === promptId ||
+            list[i].id === collageId ||
+            list[i].id === passportId
+          ) {
             list.splice(i, 1);
           }
         }
+        pushMsg(t, "inspection", {
+          id: passportId,
+          role: "assistant",
+          text: "",
+          step: "inspection",
+          kind: "inspectionSectionPassport",
+          sectionSnake: snake,
+          createdAt: Date.now(),
+        });
         pushMsg(t, "inspection", {
           id: keepId,
           role: "assistant",
