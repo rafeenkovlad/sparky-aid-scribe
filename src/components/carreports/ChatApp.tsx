@@ -1200,6 +1200,8 @@ export function ChatApp({ threadId }: Props) {
             if (sSet.size || nsSet.size || (f.pendingTagNames?.length ?? 0) > 0) {
               f.noDamage = false;
             }
+            if (r.paintworkThicknessFrom != null) f.paintworkThicknessFrom = r.paintworkThicknessFrom;
+            if (r.paintworkThicknessTo != null) f.paintworkThicknessTo = r.paintworkThicknessTo;
             appliedSerious = [...sSet];
             appliedNonSerious = [...nsSet];
             appliedPending = [...existing];
