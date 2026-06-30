@@ -283,7 +283,7 @@ export interface ChatMessage {
     | "finishComplete";
   /** payload for kind=uploadProgress — финальная выгрузка отчёта */
   uploadProgress?: {
-    phase: "uploading" | "done" | "error";
+    phase: "preparing" | "uploading" | "finalizing" | "done" | "error";
     percent: number;
     uploaded?: number;
     total?: number;
