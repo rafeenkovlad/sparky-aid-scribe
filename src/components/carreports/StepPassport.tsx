@@ -44,7 +44,10 @@ interface Props {
   }>;
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
+  /** Удалить файл доп. материалов (шаг legalMaterials). */
+  onDeleteLegalMaterial?: (idx: number) => void;
 }
+
 
 
 /**
