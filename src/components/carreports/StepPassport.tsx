@@ -391,6 +391,37 @@ export function buildResultEditTemplate(r: ReportDraft["resultStep"]): string {
   ].join("\n");
 }
 
+/** Префилл композера для правки шага «Автомобиль/Характеристики». */
+export function buildCarEditTemplate(draft: ReportDraft, step: StepId): string {
+  const c = draft.carStep ?? {};
+  const ch = draft.characteristicsStep ?? {};
+  const lines: string[] = [
+    step === "characteristics" ? "Характеристики (правка):" : "Автомобиль (правка):",
+  ];
+  const push = (label: string, value: string | number | undefined | null) => {
+    if (value === undefined || value === null || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+  push("VIN", c.vin ?? (c.unreadableVin ? "нечитаемый" : ""));
+  push("Госномер", c.gosNumber ?? "");
+  push("Пробег", c.mileage ? `${c.mileage} км` : "");
+  push("Дата осмотра", c.dateInspection ?? "");
+  push("Город осмотра", c.cityInspection ?? "");
+  push("Ссылка", c.uriListing ?? "");
+  push("Марка", ch.brandName ?? "");
+  push("Модель", ch.modelCarName ?? "");
+  push("Поколение", ch.generationLabel ?? "");
+  push("Год", ch.year ?? "");
+  push("Двигатель", ch.engineType ?? "");
+  push("Объём", ch.engineVolume ? `${ch.engineVolume} л` : "");
+  push("КПП", ch.transmission ?? "");
+  push("Привод", ch.driveType ?? "");
+  push("Цвет", ch.color ?? "");
+  push("Комплектация", ch.equipment ?? "");
+  return lines.join("\n");
+}
+
+
 
 
 /** Строка категории тест-драйва: чипы (только issue-теги) + дропдаун. */
