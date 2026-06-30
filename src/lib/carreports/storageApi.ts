@@ -462,6 +462,7 @@ export interface PrepareReportResult {
 export async function submitReport(draft: ReportDraft): Promise<{
   remote: boolean;
   reportId?: string | number;
+  reportNumericId?: number;
   method?: string;
   uploadFilesCount?: number;
   note?: string;
@@ -535,6 +536,7 @@ export async function submitReport(draft: ReportDraft): Promise<{
       return {
         remote: true,
         reportId: inner.reportNumber,
+        reportNumericId: inner.id,
         method: "Storage.PrepareSpecialistReport",
         uploadFilesCount: inner.uploadFiles?.length ?? 0,
         note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.${idHint}`,
@@ -552,3 +554,22 @@ export async function submitReport(draft: ReportDraft): Promise<{
     return { remote: false, note: `Отправка не удалась: ${msg}` };
   }
 }
+
+/**
+ * Finalize report after files are uploaded → Storage.CompleteSpecialistReport.
+ * `reportId` is the numeric `id` returned by PrepareSpecialistReport (preferred)
+ * or the reportNumber as a fallback.
+ */
+export async function completeReport(reportId: string | number): Promise<{
+  remote: boolean;
+  note?: string;
+}> {
+  try {
+    await rpc("Storage.CompleteSpecialistReport", { id: reportId });
+    return { remote: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { remote: false, note: msg };
+  }
+}
+

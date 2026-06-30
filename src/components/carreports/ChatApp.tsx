@@ -76,7 +76,7 @@ import {
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
-import { Sparkles, FileText } from "lucide-react";
+import { Sparkles, FileText, Share2 } from "lucide-react";
 
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -1748,15 +1748,43 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
 
-  // «Завершить» на шаге Итог: пошагово оформляем выгрузку отчёта.
-  //  1) подготовка файлов  (Storage.PrepareSpecialistReport — submitReport)
-  //  2) собственно выгрузка — показываем прогресс-бар по числу файлов
+  // «Завершить» на шаге Итог — сперва показываем подтверждение, что после
+  // выгрузки отчёт уже нельзя будет редактировать. Кнопка «Продолжить»
+  // внутри сообщения запускает doFinish().
+  const doFinishConfirm = useCallback(() => {
+    if (!thread || busy) return;
+    updateThread(thread.id, (t) => {
+      // не плодим дубликаты подтверждения
+      t.messages.result = t.messages.result.filter(
+        (m) => m.kind !== "finishConfirm",
+      );
+      pushMsg(t, "result", {
+        id: msgId(),
+        role: "assistant",
+        text: "После выгрузки отчёт нельзя будет отредактировать. Продолжить?",
+        step: "result",
+        kind: "finishConfirm",
+        createdAt: Date.now(),
+      });
+    });
+  }, [thread, busy]);
+
+  // Пошаговая выгрузка отчёта:
+  //  1) Storage.PrepareSpecialistReport (submitReport) — создаёт черновик
+  //     и возвращает список файлов для загрузки.
+  //  2) загрузка файлов — отображаем прогресс-бар по числу файлов.
+  //  3) Storage.CompleteSpecialistReport — фиксируем отчёт.
+  //  4) сообщение «Отчёт успешно выгружен» с кнопкой «Поделиться».
   const doFinish = useCallback(async () => {
     if (!thread || busy) return;
     setBusy(true);
     const progressId = `finish-progress-${Date.now()}`;
     try {
+      // скрываем карточку подтверждения, чтобы пользователь не нажал ещё раз
       updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter(
+          (m) => m.kind !== "finishConfirm",
+        );
         pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
@@ -1779,8 +1807,7 @@ export function ChatApp({ threadId }: Props) {
         return;
       }
 
-      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера
-      // (uploadFiles из Storage.PrepareSpecialistReport).
+      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера.
       const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
       updateThread(thread.id, (t) => {
         pushMsg(t, "result", {
@@ -1800,8 +1827,6 @@ export function ChatApp({ threadId }: Props) {
         });
       });
 
-      // Анимируем прогресс — файлы уже залиты во временное хранилище ранее,
-      // тут отображаем шаги фиксации отчёта на сервере.
       for (let i = 1; i <= total; i++) {
         await new Promise((res) => setTimeout(res, 220));
         const percent = Math.round((i / total) * 100);
@@ -1821,8 +1846,39 @@ export function ChatApp({ threadId }: Props) {
           m.uploadProgress.percent = 100;
           m.uploadProgress.uploaded = total;
           m.uploadProgress.reportId = r.reportId;
-          m.uploadProgress.note = `Отчёт ${r.reportId ?? ""} выгружен.`;
+          m.uploadProgress.note = `Файлы загружены (${total}/${total}).`;
         }
+      });
+
+      // Шаг 3 — финализация отчёта.
+      const finalizeId = r.reportNumericId ?? r.reportId;
+      let completeNote = "";
+      if (finalizeId != null) {
+        const { completeReport } = await import("@/lib/carreports/storageApi");
+        const c = await completeReport(finalizeId);
+        if (!c.remote) {
+          completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
+        }
+      }
+
+      // Шаг 4 — финальное сообщение с кнопкой «Поделиться».
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: completeNote
+            ? `⚠️ Файлы выгружены, но финализация не удалась: ${completeNote}`
+            : `✅ Отчёт ${r.reportId ?? ""} успешно выгружен.`,
+          step: "result",
+          kind: "finishComplete",
+          finishComplete: {
+            reportId: r.reportId,
+            shareUrl: r.reportId
+              ? `https://app.carreports.ru/r/${r.reportId}`
+              : undefined,
+          },
+          createdAt: Date.now(),
+        });
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
@@ -1844,6 +1900,7 @@ export function ChatApp({ threadId }: Props) {
       setBusy(false);
     }
   }, [thread, busy]);
+
 
 
 
@@ -2813,6 +2870,7 @@ export function ChatApp({ threadId }: Props) {
                 requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
               }
             }}
+            onFinishContinue={() => void doFinish()}
             onReformulateResultNote={(kind) => {
               if (!thread) return;
               const r = thread.draft.resultStep ?? {};
@@ -2941,7 +2999,7 @@ export function ChatApp({ threadId }: Props) {
         <button
           onClick={() => {
             if (currentStep === "result") {
-              void doFinish();
+              doFinishConfirm();
               return;
             }
             setAskMode(false);
@@ -3549,6 +3607,8 @@ interface BubbleProps {
   hasStepPassport?: boolean;
   /** Прыжок на шаг (и опционально сразу выбрать раздел осмотра). */
   onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
+  /** Подтверждение «Продолжить» в карточке завершения отчёта. */
+  onFinishContinue?: () => void;
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
@@ -3601,6 +3661,7 @@ function MessageBubble({
   stepNoteProposals,
   hasStepPassport,
   onJumpToMissing,
+  onFinishContinue,
   onReformulateResultNote,
 }: BubbleProps) {
 
@@ -3714,6 +3775,59 @@ function MessageBubble({
               ))}
             </div>
           </div>
+
+        ) : msg.kind === "finishConfirm" ? (
+          <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-amber-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+            <div className="whitespace-pre-wrap text-white/85">
+              {msg.text || "После выгрузки отчёт нельзя будет отредактировать. Продолжить?"}
+            </div>
+            <button
+              type="button"
+              onClick={() => onFinishContinue?.()}
+              className="w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[13px] font-medium px-3 py-2 transition"
+            >
+              Продолжить
+            </button>
+          </div>
+
+        ) : msg.kind === "finishComplete" ? (
+          (() => {
+            const fc = msg.finishComplete ?? {};
+            const shareUrl = fc.shareUrl;
+            const onShare = async () => {
+              if (!shareUrl) return;
+              const data = {
+                title: "Отчёт об осмотре",
+                text: fc.reportId ? `Отчёт ${fc.reportId}` : "Отчёт",
+                url: shareUrl,
+              };
+              try {
+                if (typeof navigator !== "undefined" && "share" in navigator) {
+                  await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share(data);
+                  return;
+                }
+              } catch { /* fallback ниже */ }
+              try {
+                await navigator.clipboard?.writeText(shareUrl);
+              } catch { /* ignore */ }
+            };
+            return (
+              <div className="rounded-2xl rounded-tl-md bg-emerald-500/10 border border-emerald-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+                <div className="whitespace-pre-wrap text-white/90">
+                  {msg.text || "✅ Отчёт успешно выгружен."}
+                </div>
+                {shareUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void onShare()}
+                    className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Поделиться
+                  </button>
+                )}
+              </div>
+            );
+          })()
 
         ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
           (() => {
