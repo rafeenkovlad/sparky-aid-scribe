@@ -5,6 +5,23 @@ import { INSPECTION_SECTIONS } from "./inspectionSections";
 import { sectionProgress } from "./inspectionState";
 import type { ReportDraft, StepId } from "./types";
 
+/** Обязательные разделы осмотра (нужно загрузить хотя бы 1 медиа). */
+const REQUIRED_INSPECTION_SNAKES: string[] = [
+  "body",
+  "interior",
+  "under_hood",
+  "glass",
+];
+
+const REQUIRED_INSPECTION_LABELS: Record<string, string> = {
+  body: "Кузов",
+  interior: "Салон",
+  under_hood: "Подкапотное",
+  glass: "Остекление",
+};
+
+
+
 
 export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   if (!d) return false;
@@ -27,11 +44,11 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
     case "inspection": {
       const ins = d.inspectionStep;
       if (!ins?.touched) return false;
-      // Считаем шаг готовым, когда у каждого раздела есть хотя бы 1 finding,
-      // или явно отмечены все элементы хотя бы одного раздела как "ок".
-      // Здесь — мягкий критерий: каждый раздел затронут.
-      return INSPECTION_SECTIONS.every(
-        (s) => sectionProgress(ins, s).filled > 0,
+      // Раздел считается заполненным, если в него загружены медиафайлы
+      // (хотя бы одно фото/видео). Заполнять каждый элемент не нужно.
+      // Обязательны только разделы: кузов, салон, подкапотное, остекление.
+      return REQUIRED_INSPECTION_SNAKES.every((snake) =>
+        (ins.photos ?? []).some((p) => p.section === snake),
       );
     }
 
@@ -91,13 +108,15 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
     }
     case "inspection": {
       const ins = d.inspectionStep;
-      if (!ins?.touched) return "Выберите раздел и элемент, поставьте вердикт или опишите состояние.";
-      // Подсказываем первый раздел без findings.
-      const empty = INSPECTION_SECTIONS.find(
-        (s) => sectionProgress(ins, s).filled === 0,
+      if (!ins?.touched)
+        return "Загрузите фото или видео по каждому обязательному разделу: кузов, салон, подкапотное, остекление.";
+      const missing = REQUIRED_INSPECTION_SNAKES.filter(
+        (snake) => !(ins.photos ?? []).some((p) => p.section === snake),
       );
-      if (empty)
-        return `Осталось пройти раздел «${empty.label}» (${empty.elements.length} элементов).`;
+      if (missing.length) {
+        const labels = missing.map((s) => `«${REQUIRED_INSPECTION_LABELS[s]}»`).join(", ");
+        return `Добавьте медиафайлы в ${missing.length > 1 ? "разделы" : "раздел"} ${labels}.`;
+      }
       return null;
     }
 
@@ -156,11 +175,10 @@ export function remainingFieldLabels(id: StepId, d: ReportDraft): string[] {
     }
     case "inspection": {
       const ins = d.inspectionStep ?? { sectionNotes: {}, photos: [] };
-      const empty = INSPECTION_SECTIONS.filter(
-        (s) => sectionProgress(ins, s).filled === 0,
+      const missing = REQUIRED_INSPECTION_SNAKES.filter(
+        (snake) => !(ins.photos ?? []).some((p) => p.section === snake),
       );
-      if (empty.length) out.push(`разделов без записей: ${empty.length}`);
-      if ((ins.photos?.length ?? 0) === 0) out.push("фото");
+      for (const s of missing) out.push(REQUIRED_INSPECTION_LABELS[s].toLowerCase());
       break;
     }
 

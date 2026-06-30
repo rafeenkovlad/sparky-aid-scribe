@@ -76,8 +76,21 @@ export function collectMissingForSummary(d: ReportDraft): MissingSummaryItem[] {
     }
   }
 
-  // Осмотр: записи не требуются. Если раздел не заполнен записями —
-  // по умолчанию считаем его «без повреждений», подтверждения не нужны.
+  // Осмотр: в обязательных разделах должны быть медиафайлы (хотя бы 1 фото/видео).
+  // Записи (теги, заметки) не обязательны — пустой раздел трактуется как «без повреждений».
+  const ins = d.inspectionStep;
+  for (const s of REQUIRED_INSPECTION_SECTIONS) {
+    const hasMedia = (ins?.photos ?? []).some((p) => p.section === s.snake);
+    if (!hasMedia) {
+      out.push({
+        label: `Осмотр: добавьте фото/видео в раздел «${s.label}»`,
+        step: "inspection",
+        sectionSnake: s.snake,
+      });
+    }
+  }
 
   return out;
 }
+
+
