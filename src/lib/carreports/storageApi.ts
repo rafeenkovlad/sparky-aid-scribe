@@ -470,14 +470,24 @@ export interface PrepareReportResult {
  * Submit draft → Storage.PrepareSpecialistReport. Returns a remote id (the
  * `reportNumber`) on success or a fallback note on failure.
  */
+export interface PrepareUploadFile {
+  filename: string;
+  /** Финальный ключ S3 (в бакете отчётов), куда нужно положить файл. */
+  key: string;
+  type: string;
+  stepType: string;
+}
+
 export async function submitReport(draft: ReportDraft): Promise<{
   remote: boolean;
   reportId?: string | number;
   reportNumericId?: number;
   method?: string;
   uploadFilesCount?: number;
+  uploadFiles?: PrepareUploadFile[];
   note?: string;
 }> {
+
   try {
     // 0) Resolve any pendingTagNames → real tag ids via Storage.AddUserTag.
     //    Mutates `draft.inspectionStep.findings` in place: created ids are
@@ -602,8 +612,10 @@ export async function submitReport(draft: ReportDraft): Promise<{
         reportNumericId: inner.id,
         method: "Storage.PrepareSpecialistReport",
         uploadFilesCount: inner.uploadFiles?.length ?? 0,
+        uploadFiles: inner.uploadFiles ?? [],
         note: `Черновик создан: ${inner.reportNumber}. Файлы для загрузки: ${inner.uploadFiles?.length ?? 0}.${idHint}`,
       };
+
     }
     return { remote: false, note: "Ответ сервера без reportNumber." };
   } catch (e) {
@@ -632,7 +644,102 @@ export async function completeReport(reportId: string | number): Promise<{
     return { remote: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { remote: false, note: msg };
+    // 5xx от апстрима возвращается как HTML — не показываем пользователю.
+    const friendly = /HTTP 5\d\d|Bad gateway|<html|<!DOCTYPE/i.test(msg)
+      ? "Сервис временно недоступен, попробуйте ещё раз через минуту."
+      : msg;
+    return { remote: false, note: friendly };
   }
 }
+
+/**
+ * Загружает один файл из temp/ в финальный ключ отчёта через multipart upload:
+ *   1) ObjectStorage.InitiateMultipartUpload → uploadId
+ *   2) скачиваем исходный файл из temp/ (ObjectStorage.GetTemporaryViewUrlBucketTemp)
+ *   3) ObjectStorage.GetPartUploadUrl(partNumber=1) → presigned PUT
+ *   4) PUT bytes → читаем ETag из ответа S3
+ *   5) ObjectStorage.CompleteMultipartUpload({ parts: [{PartNumber, ETag}] })
+ *
+ * Для PDF/документов <5 ГБ достаточно одной части (multipart-ограничение S3
+ * «≥5 MB на часть, кроме последней» не нарушается, т.к. часть единственная).
+ */
+export async function uploadReportFileMultipart(opts: {
+  reportNumber: string;
+  filename: string;
+  /** Ключ исходного файла во временном бакете (например `temp/foo.pdf`). */
+  sourceKey?: string;
+  contentType?: string;
+}): Promise<{ ok: true } | { ok: false; note: string }> {
+  const { reportNumber, filename } = opts;
+  const basename = (opts.sourceKey ?? filename).split("/").pop() ?? filename;
+  let uploadId: string | undefined;
+  try {
+    // 1) инициируем multipart на сервере отчётов
+    const init = await rpc<{ uploadId: string; key: string }>(
+      "ObjectStorage.InitiateMultipartUpload",
+      { reportNumber, filename },
+    );
+    uploadId = init.uploadId;
+    if (!uploadId) {
+      return { ok: false, note: "Не получен uploadId от ObjectStorage." };
+    }
+
+    // 2) забираем байты исходника из temp/
+    const view = await rpc<{ url?: string }>(
+      "ObjectStorage.GetTemporaryViewUrlBucketTemp",
+      { filename: basename, expiresInSeconds: 3600 },
+    );
+    if (!view.url) {
+      return { ok: false, note: "Не получен URL временного файла." };
+    }
+    const blob = await (await fetch(view.url)).blob();
+
+    // 3) пресайн PUT на одну часть
+    const part = await rpc<{ url: string; partNumber: number }>(
+      "ObjectStorage.GetPartUploadUrl",
+      { reportNumber, filename, uploadId, partNumber: 1 },
+    );
+
+    // 4) загружаем в S3
+    const putRes = await fetch(part.url, {
+      method: "PUT",
+      headers: opts.contentType
+        ? { "Content-Type": opts.contentType }
+        : undefined,
+      body: blob,
+    });
+    if (!putRes.ok) {
+      return { ok: false, note: `S3 PUT ${putRes.status}` };
+    }
+    const etag = putRes.headers.get("ETag") ?? putRes.headers.get("etag");
+    if (!etag) {
+      return { ok: false, note: "S3 не вернул ETag (проверьте CORS expose ETag)." };
+    }
+
+    // 5) завершаем multipart
+    await rpc("ObjectStorage.CompleteMultipartUpload", {
+      reportNumber,
+      filename,
+      uploadId,
+      parts: [{ PartNumber: 1, ETag: etag.replace(/"/g, "") }],
+    });
+    return { ok: true };
+  } catch (e) {
+    // best-effort abort, чтобы не оставить «висящие» части в S3
+    if (uploadId) {
+      try {
+        await rpc("ObjectStorage.AbortMultipartUpload", {
+          reportNumber,
+          filename,
+          uploadId,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, note: msg };
+  }
+}
+
 
