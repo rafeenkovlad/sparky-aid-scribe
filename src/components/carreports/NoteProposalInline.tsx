@@ -36,24 +36,23 @@ export function NoteProposalInline({ payload, onPickOriginal, onPickAi }: Props)
     );
   }
 
-  // Идёт генерация AI-версии — слева пометка «AI‑версия», справа спиннер на месте кнопки возврата.
+  // Идёт генерация AI-версии — только спиннер, без пометки «AI‑версия».
   if (loading) {
     return (
-      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-sky-200/80">
-        <Sparkles className="h-3 w-3" />
-        <span>AI‑версия</span>
+      <div className="mt-1.5 flex items-center justify-end">
         <button
           type="button"
           disabled
           aria-label="Готовлю AI‑версию заметки"
           title="Готовлю AI‑версию заметки"
-          className="ml-auto inline-flex items-center justify-center h-6 w-6 rounded-md text-white/55"
+          className="inline-flex items-center justify-center h-6 w-6 rounded-md text-white/55"
         >
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         </button>
       </div>
     );
   }
+
 
 
   // AI-версия готова, ещё не применяли — иконка с лого ИИ справа.
