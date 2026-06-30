@@ -271,6 +271,7 @@ export interface ChatMessage {
     | "missingFields"
     | "inspectionSectionPicker"
     | "inspectionSectionPassport"
+    | "inspectionFullPassport"
     | "inspectionChips"
     | "inspectionUploadPrompt"
     | "inspectionCollage"

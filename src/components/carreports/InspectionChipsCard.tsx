@@ -207,8 +207,9 @@ export function SectionPickerCard(props: {
   currentSection?: SectionSnake;
   interactive: boolean;
   onPick: (s: SectionSnake) => void;
+  onShowFullPassport?: () => void;
 }) {
-  const { ins, currentSection, interactive, onPick } = props;
+  const { ins, currentSection, interactive, onPick, onShowFullPassport } = props;
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 px-2 py-2">
       <div className="px-1.5 pb-1.5 text-[11px] uppercase tracking-wide text-white/45">
@@ -259,6 +260,23 @@ export function SectionPickerCard(props: {
           );
         })}
       </div>
+      {onShowFullPassport && (
+        <div className="mt-2 border-t border-white/[0.06] pt-2">
+          <button
+            type="button"
+            disabled={!interactive}
+            onClick={onShowFullPassport}
+            className={
+              "w-full rounded-lg px-3 py-2 text-[12px] font-medium transition-colors " +
+              (interactive
+                ? "bg-white/[0.04] hover:bg-white/[0.08] text-white/85"
+                : "bg-white/[0.02] text-white/40 cursor-default")
+            }
+          >
+            📋 Паспорт шага
+          </button>
+        </div>
+      )}
     </div>
   );
 }
