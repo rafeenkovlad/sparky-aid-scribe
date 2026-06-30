@@ -4033,7 +4033,9 @@ function MessageBubble({
   hasStepPassport,
   onJumpToMissing,
   onFinishContinue,
+  onRetryFinalize,
   onReformulateResultNote,
+
 }: BubbleProps) {
 
 
