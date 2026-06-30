@@ -301,6 +301,8 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
         noSeriousDamageTags: f.noSeriousDamageTagIds,
         note: f.note,
         audioNotes: f.audioNotes,
+        paintworkThicknessFrom: f.paintworkThicknessFrom,
+        paintworkThicknessTo: f.paintworkThicknessTo,
       }),
     );
     sec[el.collection] = arr;
