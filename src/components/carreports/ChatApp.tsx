@@ -2120,7 +2120,7 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
   // Повторная финализация без перевыгрузки файлов — кнопка «Повторить» в карточке.
-  const doRetryFinalize = useCallback(async (finalizeId: string | number) => {
+  const doRetryFinalize = useCallback(async (finalizeId: string | number, numericId?: string | number) => {
     if (!thread || busy) return;
     setBusy(true);
     const progressId = `retry-finalize-${Date.now()}`;
