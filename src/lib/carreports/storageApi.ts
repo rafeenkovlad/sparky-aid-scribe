@@ -640,16 +640,29 @@ export async function completeReport(reportId: string | number): Promise<{
   note?: string;
 }> {
   try {
-    await rpc("Storage.CompleteSpecialistReport", { reportNumber: String(reportId) });
+    const r = await rpc<{ success?: boolean; errors?: Array<{ error?: string; message?: string }> } | undefined>(
+      "Storage.CompleteSpecialistReport",
+      { reportNumber: String(reportId) },
+    );
+    const success = r?.success;
+    const innerErrs = Array.isArray(r?.errors) ? r!.errors! : [];
+    if (success === false || innerErrs.length > 0) {
+      const code = innerErrs[0]?.error ?? innerErrs[0]?.message ?? "unknown";
+      const friendly =
+        code === "no_files"
+          ? "В отчёте нет ни одного файла. Добавьте фото/документы и попробуйте снова."
+          : `Не удалось завершить отчёт: ${code}`;
+      return { remote: false, note: friendly };
+    }
     return { remote: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // 5xx от апстрима возвращается как HTML — не показываем пользователю.
     const friendly = /HTTP 5\d\d|Bad gateway|<html|<!DOCTYPE/i.test(msg)
       ? "Сервис временно недоступен, попробуйте ещё раз через минуту."
       : msg;
     return { remote: false, note: friendly };
   }
+
 }
 
 
