@@ -97,3 +97,81 @@ export function aiChatIdFor(thread: { aiChatIds: Record<string, number> }, key: 
   thread.aiChatIds[key] = id;
   return id;
 }
+
+export interface ChatHistoryMessage {
+  role?: string;
+  content?: string;
+  text?: string;
+  createdAt?: string | number;
+}
+
+export interface ChatHistoryItem {
+  id: number;
+  messages: ChatHistoryMessage[];
+}
+
+/**
+ * AiQueue.GetChatHistories — returns messages by chat ids (only the caller's
+ * own, filtered server-side by JWT userId). Tolerant to several response shapes.
+ */
+export async function getChatHistories(ids: number[]): Promise<ChatHistoryItem[]> {
+  const token = getToken();
+  if (!token) throw new ApiError("Не указан токен.", 401);
+  const unique = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
+  if (unique.length === 0) return [];
+
+  const body = {
+    id: Math.floor(Math.random() * 0x7fffffff),
+    method: "AiQueue.GetChatHistories",
+    params: { ids: unique },
+  };
+  const res = await fetch(AI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new ApiError(`AI: HTTP ${res.status} ${t.slice(0, 200)}`, res.status);
+  }
+  const json = (await res.json()) as {
+    error?: { code: number; message: string };
+    errors?: { message?: string } | Array<{ message?: string }>;
+    result?: unknown;
+  };
+  if (json.error) throw new ApiError(`AI: ${json.error.message}`, undefined, json.error.code);
+  const errObj = Array.isArray(json.errors) ? json.errors[0] : json.errors;
+  if (errObj && errObj.message) throw new ApiError(`AI: ${errObj.message}`, 401);
+
+  const r = json.result as unknown;
+  const out: ChatHistoryItem[] = [];
+  const pushItem = (id: unknown, messages: unknown) => {
+    const nid = typeof id === "number" ? id : Number(id);
+    if (!Number.isFinite(nid)) return;
+    if (!Array.isArray(messages)) return;
+    out.push({ id: nid, messages: messages as ChatHistoryMessage[] });
+  };
+
+  if (Array.isArray(r)) {
+    for (const it of r as Array<Record<string, unknown>>) {
+      pushItem(it.id ?? it.chatId, it.messages ?? it.history);
+    }
+  } else if (r && typeof r === "object") {
+    const obj = r as Record<string, unknown>;
+    const list = (obj.histories ?? obj.items ?? obj.chats) as unknown;
+    if (Array.isArray(list)) {
+      for (const it of list as Array<Record<string, unknown>>) {
+        pushItem(it.id ?? it.chatId, it.messages ?? it.history);
+      }
+    } else {
+      // map shape { "<id>": [messages...] }
+      for (const [k, v] of Object.entries(obj)) pushItem(k, v);
+    }
+  }
+  return out;
+}
+
