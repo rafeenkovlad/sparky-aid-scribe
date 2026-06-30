@@ -294,6 +294,264 @@ async function handleTestDriveEdit(
   };
 }
 
+/**
+ * Парсит шаблон правки одного элемента осмотра и применяет diff:
+ * — удалённые серверные теги (по имени) → Storage.RemoveUserTag + удаление id из finding;
+ * — новые теги → нормализация через CLICHE_NORMALIZE_TAGS (правка опечаток
+ *   и сокращение длинных формулировок) + Storage.AddUserTag с типом
+ *   (severity берётся из той строки, в которой пользователь оставил тег);
+ * — заметка заменяется целиком;
+ * — вердикт восстанавливается из строки «Состояние» / наличия тегов.
+ */
+async function handleInspectionEdit(
+  thread: Thread,
+  text: string,
+): Promise<{
+  patch: Partial<ReportDraft>;
+  reply: string;
+  chips?: ChatChip[];
+  notePatched?: NotePatched;
+}> {
+  const ins = thread.draft.inspectionStep;
+  const headerMatch = text.match(
+    /^\s*Осмотр\s*\(правка\)\s*\[section=([a-z_]+)\s*,\s*element=([a-zA-Z0-9_-]+)\]/i,
+  );
+  if (!headerMatch) {
+    return { patch: {}, reply: "Не удалось распознать заголовок правки." };
+  }
+  const sectionSnake = headerMatch[1] as SectionSnake;
+  const elementId = headerMatch[2];
+  const section = getSection(sectionSnake);
+  if (!section) {
+    return { patch: {}, reply: "Неизвестный раздел осмотра." };
+  }
+  const element =
+    section.elements.find((el) => el.id === elementId) ?? section.elements[0];
+
+  // Парсим строки шаблона.
+  const lines = text.split(/\r?\n/);
+  const parseLine = (label: string) => {
+    for (const ln of lines) {
+      const m = ln.match(new RegExp(`^\\s*${label}\\s*:\\s*(.*)$`, "i"));
+      if (m) return m[1].trim();
+    }
+    return "";
+  };
+  const splitList = (s: string): string[] =>
+    s
+      .split(",")
+      .map((x) => x.trim())
+      .filter((x) => x && x !== "—");
+
+  const verdictRaw = parseLine("Состояние");
+  const seriousNames = splitList(parseLine("Серьёзные"));
+  const minorNames = splitList(parseLine("Мелкие"));
+  // Заметка может быть многострочной — берём всё после «Заметка:».
+  let note = "";
+  const noteIdx = lines.findIndex((l) => /^\s*Заметка\s*:/i.test(l));
+  if (noteIdx >= 0) {
+    const head = lines[noteIdx].replace(/^\s*Заметка\s*:\s*/i, "");
+    const tail = lines.slice(noteIdx + 1).join("\n");
+    note = (head + (tail ? "\n" + tail : "")).trim();
+  }
+
+  const key = findingKey(sectionSnake, element.id);
+  const prevFindings = ins.findings ?? {};
+  const prev: InspectionElementFinding =
+    prevFindings[key] ?? { section: sectionSnake, elementId: element.id };
+
+  // Каталог раздела — для резолва имён в id и наоборот.
+  const catalogue = await loadSectionTags(sectionSnake);
+  const byId = new Map(catalogue.map((t) => [t.id, t]));
+  const norm = (s: string) => s.trim().toLowerCase();
+  const byName = new Map(catalogue.map((t) => [norm(t.name), t]));
+
+  // Прежние имена тегов (server + pending) с тяжестью.
+  const prevSerious: string[] = [];
+  const prevMinor: string[] = [];
+  for (const id of prev.seriousDamageTagIds ?? []) {
+    const t = byId.get(id);
+    if (t) prevSerious.push(t.name);
+  }
+  for (const id of prev.noSeriousDamageTagIds ?? []) {
+    const t = byId.get(id);
+    if (t) prevMinor.push(t.name);
+  }
+  for (const p of prev.pendingTagNames ?? []) {
+    (p.severity === "serious" ? prevSerious : prevMinor).push(p.name);
+  }
+
+  // Diff по нормализованным именам — отдельно для каждой тяжести.
+  const diff = (
+    oldNames: string[],
+    newNames: string[],
+  ): { kept: Set<string>; added: string[]; removed: string[] } => {
+    const oldSet = new Set(oldNames.map(norm));
+    const newSet = new Set(newNames.map(norm));
+    const kept = new Set<string>();
+    const added: string[] = [];
+    const removed: string[] = [];
+    for (const n of newNames) {
+      if (oldSet.has(norm(n))) kept.add(norm(n));
+      else added.push(n);
+    }
+    for (const o of oldNames) {
+      if (!newSet.has(norm(o))) removed.push(o);
+    }
+    return { kept, added, removed };
+  };
+  const sDiff = diff(prevSerious, seriousNames);
+  const mDiff = diff(prevMinor, minorNames);
+
+  // Удалённые серверные теги — снимаем через Storage.RemoveUserTag.
+  const idsToRemove: number[] = [];
+  for (const name of [...sDiff.removed, ...mDiff.removed]) {
+    const t = byName.get(norm(name));
+    if (t?.id) idsToRemove.push(t.id);
+  }
+  if (idsToRemove.length) {
+    void (async () => {
+      const { removeUserTag } = await import("./inspectionTags");
+      for (const id of idsToRemove) {
+        try {
+          await removeUserTag(id);
+        } catch {
+          /* ignore */
+        }
+      }
+    })();
+  }
+
+  // Нормализуем новые теги (опечатки + длина), затем создаём через AddUserTag.
+  // Тип (severity) берём из строки шаблона — игнорируем классификацию ИИ.
+  async function normalizeNew(
+    raws: string[],
+    label: string,
+  ): Promise<string[]> {
+    if (!raws.length) return [];
+    try {
+      const { CLICHE_NORMALIZE_TAGS } = await import("./cliche");
+      const id = aiChatIdFor(
+        thread,
+        `normalize-tags:inspection:${sectionSnake}:${label}:${Date.now().toString(36)}`,
+      );
+      const res = await chatCompletions({
+        id,
+        text: raws.join("\n"),
+        cliche: CLICHE_NORMALIZE_TAGS(label, raws),
+      });
+      const parsed = parseJsonResponse<{ tags?: unknown }>(res.content) ?? {};
+      const arr = Array.isArray(parsed.tags) ? (parsed.tags as unknown[]) : [];
+      return raws.map((raw, i) => {
+        const x = arr[i];
+        if (x && typeof x === "object") {
+          const name = (x as { name?: unknown }).name;
+          if (typeof name === "string" && name.trim()) return name.trim();
+        }
+        if (typeof x === "string" && x.trim()) return x.trim();
+        return raw;
+      });
+    } catch {
+      return raws.slice();
+    }
+  }
+
+  const [sNorm, mNorm] = await Promise.all([
+    normalizeNew(sDiff.added, "Серьёзные"),
+    normalizeNew(mDiff.added, "Мелкие"),
+  ]);
+
+  // Собираем итоговые наборы id + pending.
+  const nextSIds = new Set<number>(prev.seriousDamageTagIds ?? []);
+  const nextNsIds = new Set<number>(prev.noSeriousDamageTagIds ?? []);
+  for (const id of idsToRemove) {
+    nextSIds.delete(id);
+    nextNsIds.delete(id);
+  }
+  // Pending сохраняем только то, что осталось (kept).
+  const keptPending: PendingTagName[] = [];
+  for (const p of prev.pendingTagNames ?? []) {
+    const set = p.severity === "serious" ? sDiff.kept : mDiff.kept;
+    if (set.has(norm(p.name))) keptPending.push(p);
+  }
+
+  // Добавляем нормализованные новые теги: пробуем AddUserTag, при неудаче — pending.
+  for (const name of sNorm) {
+    const id = await resolveOrCreateTagId(catalogue, sectionSnake, name, "serious");
+    if (id) nextSIds.add(id);
+    else if (!keptPending.some((p) => norm(p.name) === norm(name)))
+      keptPending.push({ name, severity: "serious" });
+  }
+  for (const name of mNorm) {
+    const id = await resolveOrCreateTagId(catalogue, sectionSnake, name, "non_serious");
+    if (id) nextNsIds.add(id);
+    else if (!keptPending.some((p) => norm(p.name) === norm(name)))
+      keptPending.push({ name, severity: "non_serious" });
+  }
+
+  // Вердикт: «Без замечаний» → noDamage=true; иначе — false если есть теги.
+  const totalTags =
+    nextSIds.size + nextNsIds.size + keptPending.length;
+  let noDamage: boolean | undefined;
+  if (/без\s+замечан/i.test(verdictRaw) && totalTags === 0) noDamage = true;
+  else if (totalTags > 0) noDamage = false;
+  else noDamage = prev.noDamage;
+
+  const nextFinding: InspectionElementFinding = {
+    section: sectionSnake,
+    elementId: element.id,
+    ...(noDamage !== undefined ? { noDamage } : {}),
+    ...(nextSIds.size ? { seriousDamageTagIds: [...nextSIds] } : {}),
+    ...(nextNsIds.size ? { noSeriousDamageTagIds: [...nextNsIds] } : {}),
+    ...(keptPending.length ? { pendingTagNames: keptPending } : {}),
+    ...(note ? { note } : {}),
+  };
+  const nextFindings = { ...prevFindings, [key]: nextFinding };
+
+  // notePatched, если заметка изменилась — для UI-предложения переформулировать.
+  const prevNote = prev.note ?? "";
+  const tagNames: string[] = [];
+  for (const id of nextFinding.seriousDamageTagIds ?? []) {
+    const t = byId.get(id);
+    if (t) tagNames.push(t.name);
+  }
+  for (const id of nextFinding.noSeriousDamageTagIds ?? []) {
+    const t = byId.get(id);
+    if (t) tagNames.push(t.name);
+  }
+  for (const p of nextFinding.pendingTagNames ?? []) tagNames.push(p.name);
+  const notePatched: NotePatched | undefined =
+    note && note.trim() && note !== prevNote
+      ? {
+          ref: { kind: "inspection", section: sectionSnake, elementId: element.id },
+          scopeLabel: `Осмотр · ${section.label} · ${element.label}`,
+          originalText: note,
+          tagNames,
+        }
+      : undefined;
+
+  const addedCount = sNorm.length + mNorm.length;
+  const removedCount = idsToRemove.length;
+  const parts: string[] = [];
+  if (addedCount) parts.push(`добавлено тегов: ${addedCount}`);
+  if (removedCount) parts.push(`удалено тегов: ${removedCount}`);
+  const summary = parts.length ? ` (${parts.join(", ")})` : "";
+
+  return {
+    patch: {
+      inspectionStep: {
+        ...ins,
+        findings: nextFindings,
+        touched: true,
+        currentSection: sectionSnake,
+        currentElementId: element.id,
+      },
+    },
+    reply: `Правка элемента «${element.label}» применена${summary}.`,
+    ...(notePatched ? { notePatched } : {}),
+  };
+}
+
 /** Run extraction for a step and return the patch + a short assistant reply. */
 export async function extractForStep(
   step: StepId,
@@ -313,6 +571,13 @@ export async function extractForStep(
   // resolves tag names against the server section catalogue, stores both the
   // legacy free-form note and structured findings.
   if (step === "inspection") {
+    // Структурированный режим правки: пользователь нажал «Редактировать» в
+    // паспорте элемента осмотра. Парсим детерминированно, считаем diff,
+    // удалённые теги снимаем через Storage.RemoveUserTag, новые —
+    // нормализуем (опечатки/длина) и создаём через Storage.AddUserTag.
+    if (/^\s*Осмотр\s*\(правка\)\s*\[section=/i.test(text)) {
+      return handleInspectionEdit(thread, text);
+    }
     const ins = thread.draft.inspectionStep;
     // Resolve cursor → active section + element. Legacy fallback via ZONE_TO_SECTION.
     let sectionSnake: SectionSnake =

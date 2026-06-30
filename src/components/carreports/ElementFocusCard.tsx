@@ -327,6 +327,8 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               type="button"
               onClick={() =>
                 onEdit(buildElementEditTemplate({
+                  sectionSnake,
+                  elementId,
                   sectionLabel: section?.label ?? sectionSnake,
                   elementLabel,
                   verdictLabel: derivedVerdict !== null ? verdictLabel : null,
@@ -558,6 +560,8 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               onClick={() =>
                 onEdit(
                   buildElementEditTemplate({
+                    sectionSnake,
+                    elementId,
                     sectionLabel: section?.label ?? sectionSnake,
                     elementLabel,
                     verdictLabel: derivedVerdict !== null ? verdictLabel : null,
@@ -1291,6 +1295,8 @@ function InspectionTagPickerRow({
 
 /** Префилл композера для правки одного элемента осмотра. */
 export function buildElementEditTemplate(args: {
+  sectionSnake: string;
+  elementId: string;
   sectionLabel: string;
   elementLabel: string;
   verdictLabel: string | null;
@@ -1304,7 +1310,7 @@ export function buildElementEditTemplate(args: {
   const serious = join([...args.serious, ...args.seriousPending]);
   const minor = join([...args.minor, ...args.minorPending]);
   return [
-    `Осмотр (правка) — ${args.sectionLabel} / ${args.elementLabel}:`,
+    `Осмотр (правка) [section=${args.sectionSnake}, element=${args.elementId}] — ${args.sectionLabel} / ${args.elementLabel}:`,
     `Состояние: ${args.verdictLabel ?? "—"}`,
     `Серьёзные: ${serious || "—"}`,
     `Мелкие: ${minor || "—"}`,
