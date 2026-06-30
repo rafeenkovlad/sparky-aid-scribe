@@ -1407,11 +1407,10 @@ function RemarksPassportRow({
         </span>
         <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
-            <button
+              <button
               type="button"
               aria-label="Добавить замечание"
               title="Добавить замечание"
-              disabled={tagsLoading || !!tagsError}
               className="ml-1 inline-flex items-center justify-center rounded-full border border-dashed border-white/25 text-white/60 hover:text-white hover:border-white/40 h-[22px] w-[22px] transition-colors disabled:opacity-40"
             >
               {tagsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
@@ -1422,9 +1421,16 @@ function RemarksPassportRow({
             sideOffset={4}
             className="w-64 max-h-72 overflow-auto p-1 bg-neutral-900 border border-white/10 text-white"
           >
-            {suggestions.length === 0 ? (
+            {tagsLoading && (
+              <div className="px-2 py-1.5 text-[12px] text-white/60">Загрузка…</div>
+            )}
+            {tagsError && (
+              <div className="px-2 py-1.5 text-[12px] text-rose-300">{tagsError}</div>
+            )}
+            {!tagsLoading && !tagsError && suggestions.length === 0 ? (
               <div className="px-2 py-1.5 text-[12px] text-white/50">Нет подходящих тегов</div>
-            ) : (
+            ) : null}
+            {!tagsLoading && !tagsError && suggestions.length > 0 && (
               <ul className="space-y-0.5">
                 {suggestions.map((t) => (
                   <li key={t.id}>
@@ -1451,10 +1457,6 @@ function RemarksPassportRow({
           </PopoverContent>
         </Popover>
       </div>
-
-      {tagsError && (
-        <div className="pl-5 mt-1 text-[11px] text-rose-200/80">{tagsError}</div>
-      )}
 
       {(selectedTags.length > 0 || pending.length > 0) && (
         <div className="pl-5 mt-1 flex flex-wrap items-center gap-1">
