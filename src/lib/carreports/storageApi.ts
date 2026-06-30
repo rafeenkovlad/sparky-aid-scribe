@@ -640,7 +640,7 @@ export async function completeReport(reportId: string | number): Promise<{
   note?: string;
 }> {
   try {
-    await rpc("Storage.CompleteSpecialistReport", { id: reportId });
+    await rpc("Storage.CompleteSpecialistReport", { reportNumber: String(reportId) });
     return { remote: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
