@@ -313,46 +313,16 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
       {/* Паспорт-стайл шапка */}
       <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.06]">
         <div className="flex items-baseline justify-between mb-0.5 gap-2">
-          {onEdit ? (
-            <button
-              type="button"
-              onClick={() =>
-                onEdit(buildElementEditTemplate({
-                  sectionSnake,
-                  elementId,
-                  sectionLabel: section?.label ?? sectionSnake,
-                  elementLabel,
-                  verdictLabel: derivedVerdict !== null ? verdictLabel : null,
-                  serious: tags.filter((t) => sIds.has(t.id)).map((t) => t.name),
-                  seriousPending: pending.filter((p) => p.severity === "serious").map((p) => p.name),
-                  minor: tags.filter((t) => nsIds.has(t.id)).map((t) => t.name),
-                  minorPending: pending.filter((p) => p.severity !== "serious").map((p) => p.name),
-                  note: finding?.note ?? "",
-                }))
-              }
-              className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5 hover:text-white transition-colors"
-              title="Открыть редактор в композере"
-            >
-              Паспорт элемента
-              <Pencil className="h-3 w-3 text-white/40" />
-              {aiUpdating && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  ИИ обновляет…
-                </span>
-              )}
-            </button>
-          ) : (
-            <span className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5">
-              Паспорт элемента
-              {aiUpdating && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  ИИ обновляет…
-                </span>
-              )}
-            </span>
-          )}
+          <span className="text-white/70 font-medium text-[13px] inline-flex items-center gap-1.5">
+            Паспорт элемента
+            {aiUpdating && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-normal text-orange-300/80">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                ИИ обновляет…
+              </span>
+            )}
+          </span>
+
           <span
             className={
               "text-[11px] tabular-nums shrink-0 " +
