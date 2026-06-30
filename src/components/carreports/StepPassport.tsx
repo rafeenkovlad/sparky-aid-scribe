@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
