@@ -1058,6 +1058,8 @@ export function ChatApp({ threadId }: Props) {
           noSeriousTagIds: number[];
           pendingTags: PendingTagName[];
           note: string;
+          paintworkThicknessFrom?: number;
+          paintworkThicknessTo?: number;
         };
         const needVisionForElement = !elIdInitial && !!photoFocus.url;
         if (needVisionForElement) {
@@ -1088,6 +1090,8 @@ export function ChatApp({ threadId }: Props) {
             noSeriousTagIds: v.noSeriousTagIds,
             pendingTags: v.pendingTags,
             note: v.note,
+            paintworkThicknessFrom: v.paintworkThicknessFrom,
+            paintworkThicknessTo: v.paintworkThicknessTo,
           };
           resultElementId = v.elementId;
         } else {
