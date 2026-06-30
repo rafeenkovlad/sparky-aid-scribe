@@ -2689,7 +2689,7 @@ export function ChatApp({ threadId }: Props) {
         </div>
 
         <div className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/80 tabular-nums">
-          {filled}/{FLOW_STEPS.length - 1}
+          {filled}/{FLOW_STEPS.length}
         </div>
         <Sheet open={draftOpen} onOpenChange={setDraftOpen}>
           <SheetTrigger asChild>
