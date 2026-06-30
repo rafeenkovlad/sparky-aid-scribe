@@ -649,8 +649,35 @@ export async function completeReport(reportId: string | number): Promise<{
       ? "Сервис временно недоступен, попробуйте ещё раз через минуту."
       : msg;
     return { remote: false, note: friendly };
+}
+
+/**
+ * Получить публичную ссылку для шаринга отчёта.
+ * `reportId` — числовой id из PrepareSpecialistReport (НЕ reportNumber).
+ */
+export async function createShareUrl(reportId: string | number): Promise<{
+  url?: string;
+  note?: string;
+}> {
+  try {
+    const r = await rpc<{ result?: { url?: string; shareUrl?: string } } | { url?: string; shareUrl?: string }>(
+      "Storage.CreateSpecialistReportShareUrl",
+      { reportId: typeof reportId === "string" ? Number(reportId) || reportId : reportId },
+    );
+    const inner = (r as { result?: { url?: string; shareUrl?: string } }).result ?? (r as { url?: string; shareUrl?: string });
+    const url = inner?.url ?? inner?.shareUrl;
+    if (url) return { url };
+    return { note: "Сервер не вернул ссылку." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const friendly = /HTTP 5\d\d|Bad gateway|<html|<!DOCTYPE/i.test(msg)
+      ? "Сервис временно недоступен, попробуйте ещё раз через минуту."
+      : msg;
+    return { note: friendly };
   }
 }
+
+
 
 /**
  * Загружает один файл в финальный ключ отчёта через S3 multipart upload.
