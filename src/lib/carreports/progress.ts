@@ -5,6 +5,23 @@ import { INSPECTION_SECTIONS } from "./inspectionSections";
 import { sectionProgress } from "./inspectionState";
 import type { ReportDraft, StepId } from "./types";
 
+/** Обязательные разделы осмотра (нужно загрузить хотя бы 1 медиа). */
+const REQUIRED_INSPECTION_SNAKES: string[] = [
+  "body",
+  "interior",
+  "under_hood",
+  "glass",
+];
+
+const REQUIRED_INSPECTION_LABELS: Record<string, string> = {
+  body: "Кузов",
+  interior: "Салон",
+  under_hood: "Подкапотное",
+  glass: "Остекление",
+};
+
+
+
 
 export function isStepFilled(id: StepId, d: ReportDraft): boolean {
   if (!d) return false;
