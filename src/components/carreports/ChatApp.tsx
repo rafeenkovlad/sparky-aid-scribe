@@ -3660,6 +3660,7 @@ function MessageBubble({
   stepNoteProposals,
   hasStepPassport,
   onJumpToMissing,
+  onFinishContinue,
   onReformulateResultNote,
 }: BubbleProps) {
 
