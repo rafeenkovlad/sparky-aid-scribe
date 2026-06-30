@@ -2055,13 +2055,17 @@ export function ChatApp({ threadId }: Props) {
       let completeNote = "";
       if (finalizeId != null) {
         const { completeReport } = await import("@/lib/carreports/storageApi");
-        const c = await completeReport(finalizeId);
-        if (!c.remote) {
+        // авто-ретрай 3 раза с бэк-оффом — 502/таймаут от апстрима часто транзиентны
+        const delays = [0, 1500, 4000];
+        for (let attempt = 0; attempt < delays.length; attempt++) {
+          if (delays[attempt] > 0) await new Promise((res) => setTimeout(res, delays[attempt]));
+          const c = await completeReport(finalizeId);
+          if (c.remote) { completeNote = ""; break; }
           completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
         }
       }
 
-      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться».
+      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться» / «Повторить».
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
@@ -2074,13 +2078,15 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId: r.reportId,
-            shareUrl: r.reportId
+            shareUrl: !completeNote && r.reportId
               ? `https://app.carreports.ru/r/${r.reportId}`
               : undefined,
+            retryFinalizeId: completeNote ? finalizeId : undefined,
           },
           createdAt: Date.now(),
         });
       });
+
 
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
