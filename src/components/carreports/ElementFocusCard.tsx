@@ -152,7 +152,14 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   // Тик, который обновляется при смене токена / каталога — заставляет перезапросить теги.
   const [tokenTick, setTokenTick] = useState(0);
   useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
+  // Бампим при первом открытии поповера «+», чтобы лениво подгрузить теги.
+  const [pickerOpenedOnce, setPickerOpenedOnce] = useState(false);
+  const reloadTags = useCallback(() => setPickerOpenedOnce(true), []);
   useEffect(() => {
+    // До первого открытия поповера выбора тегов не дёргаем сервер — но если
+    // у элемента уже есть выбранные теги (например, после восстановления
+    // черновика), нужно отрисовать их подписи, поэтому загружаем сразу.
+    if (!pickerOpenedOnce && !selectedIdsKey) return;
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
@@ -173,7 +180,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake, tokenTick, selectedIdsKey]);
+  }, [sectionSnake, tokenTick, selectedIdsKey, pickerOpenedOnce]);
 
   // Порядок ответа сервера = приоритет релевантности; выбранные → остальные.
   const sortByRelevance = useCallback(
@@ -445,6 +452,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
                   onTogglePending={(name, severity) => onTogglePendingTag(name, severity)}
                   tagsLoading={tagsLoading}
                   tagsError={tagsError}
+                  onOpenPicker={reloadTags}
                 />
               );
             }
@@ -1322,6 +1330,7 @@ function RemarksPassportRow({
   onTogglePending,
   tagsLoading,
   tagsError,
+  onOpenPicker,
 }: {
   item: { label: string; filled: boolean; value?: string };
   updating?: boolean;
@@ -1334,8 +1343,13 @@ function RemarksPassportRow({
   onTogglePending: (name: string, severity: "serious" | "non_serious") => void;
   tagsLoading: boolean;
   tagsError: string | null;
+  onOpenPicker?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) onOpenPicker?.();
+  };
   const chipCls = (type: string | null) =>
     type === "serious"
       ? "border-rose-400/30 bg-rose-500/10 text-rose-100"
@@ -1373,7 +1387,7 @@ function RemarksPassportRow({
         >
           {item.value ?? "—"}
         </span>
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
             <button
               type="button"
