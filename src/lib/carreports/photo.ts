@@ -293,22 +293,27 @@ export function classifyFile(file: { name?: string; type?: string }): "image" | 
 }
 
 /**
- * Универсальная загрузка произвольного файла во временное объектное хранилище.
- * Не сжимает и не конвертирует — отправляет файл как есть с его MIME-типом.
- * Возвращает имя на сервере, presigned GET URL и S3-ключ.
+ * Универсальная подготовка произвольного файла для прикрепления к отчёту.
+ *
+ *  • Фото — пережимаем до ≤2 МБ и сразу заливаем в temp-бакет: их нужно
+ *    показывать в превью и отдавать в AI по URL.
+ *  • Видео и документы — НЕ сжимаем и НЕ заливаем заранее. Только сохраняем
+ *    байты в IndexedDB и возвращаем `localFileId` + `pending: true`. Реальная
+ *    загрузка произойдёт по нажатию «Завершить» — multipart-частями прямо в
+ *    финальный ключ отчёта, минуя temp-бакет.
  */
 export async function uploadFile(file: File): Promise<{
   filename: string;
-  url: string;
+  url?: string;
   key?: string;
   type: "image" | "video" | "document";
   size: number;
   mimeType: string;
+  localFileId?: string;
+  pending?: boolean;
 }> {
   const kind = classifyFile(file);
 
-  // Картинки (включая HEIC/HEIF) — конвертируем в JPEG и ужимаем до ≤2МБ,
-  // чтобы укладываться в лимит бакета temp-carreports-files.
   if (kind === "image") {
     const prepared = await preparePhoto(file);
     const mime = prepared.blob.type || "image/jpeg";
@@ -323,31 +328,28 @@ export async function uploadFile(file: File): Promise<{
     };
   }
 
-
+  // Видео / документы — храним локально по ссылке на blob; в S3 уйдёт
+  // multipart'ом при финализации отчёта.
   const contentType = file.type || "application/octet-stream";
   const safeBase = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^\w.-]+/g, "_");
   const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? "").toLowerCase();
   const filename = `${safeBase}_${Date.now()}${ext}`;
-  if (file.size > MAX_BYTES) {
-    const mb = (file.size / 1024 / 1024).toFixed(1);
-    throw new ApiError(
-      `Файл слишком большой (${mb} МБ). Лимит — 2 МБ. Сожмите или загрузите по частям.`,
-      413,
-    );
+  const localFileId = newPhotoId();
+  try {
+    await putPhoto(localFileId, file);
+  } catch {
+    /* best-effort: in-memory fallback внутри putPhoto */
   }
-  const up = await uploadTemporary(
-    { filename, blob: file, dataUrl: "" },
-    { contentType },
-  );
   return {
-    filename: up.filename,
-    url: up.url,
-    key: up.key,
+    filename,
     type: kind,
     size: file.size,
     mimeType: contentType,
+    localFileId,
+    pending: true,
   };
 }
+
 
 
 /**
