@@ -42,7 +42,10 @@ interface Props {
     onPickAi: () => void;
     onDismiss: () => void;
   }>;
+  /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
+
 
 /**
  * Универсальная карточка-«паспорт заполненности» шага.
