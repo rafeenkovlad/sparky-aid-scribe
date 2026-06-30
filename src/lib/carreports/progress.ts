@@ -27,11 +27,11 @@ export function isStepFilled(id: StepId, d: ReportDraft): boolean {
     case "inspection": {
       const ins = d.inspectionStep;
       if (!ins?.touched) return false;
-      // Считаем шаг готовым, когда у каждого раздела есть хотя бы 1 finding,
-      // или явно отмечены все элементы хотя бы одного раздела как "ок".
-      // Здесь — мягкий критерий: каждый раздел затронут.
-      return INSPECTION_SECTIONS.every(
-        (s) => sectionProgress(ins, s).filled > 0,
+      // Раздел считается заполненным, если в него загружены медиафайлы
+      // (хотя бы одно фото/видео). Заполнять каждый элемент не нужно.
+      // Обязательны только разделы: кузов, салон, подкапотное, остекление.
+      return REQUIRED_INSPECTION_SNAKES.every((snake) =>
+        (ins.photos ?? []).some((p) => p.section === snake),
       );
     }
 
