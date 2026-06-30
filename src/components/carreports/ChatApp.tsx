@@ -2940,18 +2940,21 @@ export function ChatApp({ threadId }: Props) {
 
         <button
           onClick={() => {
+            if (currentStep === "result") {
+              void doFinish();
+              return;
+            }
             setAskMode(false);
             advanceStep();
           }}
-          className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+          disabled={busy && currentStep === "result"}
+          className="rounded-full bg-orange-500/90 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           {currentStep === "result" ? (
-            <><FileText className="h-3.5 w-3.5" /> Завершить и выгрузить</>
+            <><FileText className="h-3.5 w-3.5" /> Завершить</>
           ) : (
             <><CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее</>
           )}
-
-
         </button>
 
         {hasCurrentStepDraft && (
