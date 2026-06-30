@@ -1846,7 +1846,7 @@ export function ChatApp({ threadId }: Props) {
     // пользователю ни о чём не говорит. Показываем то же сообщение, что и
     // для AI-резюме, с кнопками перехода в нужный шаг/раздел.
     const fresh0 = getThread(thread.id) ?? thread;
-    const missing = collectMissingForSummary(fresh0.draft);
+    const missing = collectMissingForSummary(fresh0.draft, { includeResult: true });
     if (missing.length > 0) {
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
