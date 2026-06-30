@@ -457,6 +457,15 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               />
             );
           })}
+          {(sectionSnake === "body" || sectionSnake === "body_reinforcement") && (
+            <PaintworkPassportRow
+              from={finding?.paintworkThicknessFrom ?? 80}
+              to={finding?.paintworkThicknessTo ?? 200}
+              updating={!!aiUpdating}
+              flashing={flashed.has("ЛКП")}
+              onChange={(from, to) => onSetPaintwork?.(from, to)}
+            />
+          )}
         </ul>
       </div>
 
