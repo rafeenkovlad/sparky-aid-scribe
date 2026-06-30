@@ -40,6 +40,7 @@ import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
 import { InspectionSectionPassport } from "./InspectionSectionPassport";
+import { InspectionFullPassport } from "./InspectionFullPassport";
 import { NoteProposalCard } from "./NoteProposalCard";
 
 
@@ -559,6 +560,25 @@ export function ChatApp({ threadId }: Props) {
     },
     [thread],
   );
+
+  const showInspectionFullPassport = useCallback(() => {
+    if (!thread) return;
+    updateThread(thread.id, (t) => {
+      const list = t.messages.inspection;
+      // Удаляем предыдущий общий паспорт, чтобы не дублировался.
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        if (list[i].kind === "inspectionFullPassport") list.splice(i, 1);
+      }
+      pushMsg(t, "inspection", {
+        id: `insp-full-passport-${Date.now()}`,
+        role: "assistant",
+        text: "",
+        step: "inspection",
+        kind: "inspectionFullPassport",
+        createdAt: Date.now(),
+      });
+    });
+  }, [thread]);
 
 
   const selectSection = useCallback(
