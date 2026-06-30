@@ -520,29 +520,27 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           </div>
         )}
 
-        {remarksCount > 0 && onGenerateNote && (
-          <button
-            type="button"
-            onClick={() =>
-              onGenerateNote({
-                section: sectionSnake,
-                elementId,
-                scopeLabel: `Осмотр · ${section?.label ?? sectionSnake} · ${elementLabel}`,
-                originalText: finding?.note?.trim() ?? "",
-                tagNames: selectedRemarkNames,
-              })
-            }
-            disabled={activeChatNoteProposal?.payload.loading}
-            className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-400/10 hover:bg-sky-400/15 text-sky-100 disabled:opacity-50 text-[12px] font-medium px-3 py-1.5 transition-colors"
-          >
-            {activeChatNoteProposal?.payload.loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
+        {remarksCount > 0 &&
+          onGenerateNote &&
+          !finding?.note?.trim() &&
+          !activeChatNoteProposal && (
+            <button
+              type="button"
+              onClick={() =>
+                onGenerateNote({
+                  section: sectionSnake,
+                  elementId,
+                  scopeLabel: `Осмотр · ${section?.label ?? sectionSnake} · ${elementLabel}`,
+                  originalText: finding?.note?.trim() ?? "",
+                  tagNames: selectedRemarkNames,
+                })
+              }
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-400/10 hover:bg-sky-400/15 text-sky-100 text-[12px] font-medium px-3 py-1.5 transition-colors"
+            >
               <Sparkles className="h-3.5 w-3.5" />
-            )}
-            Сгенерировать ИИ замечание
-          </button>
-        )}
+              Сгенерировать ИИ замечание
+            </button>
+          )}
 
         {/* Нижние кнопки — как в тест-драйве */}
         <div className="pt-2 flex items-center gap-1.5">
