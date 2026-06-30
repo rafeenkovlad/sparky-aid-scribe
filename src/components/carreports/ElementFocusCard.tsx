@@ -152,7 +152,14 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   // Тик, который обновляется при смене токена / каталога — заставляет перезапросить теги.
   const [tokenTick, setTokenTick] = useState(0);
   useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
+  // Бампим при первом открытии поповера «+», чтобы лениво подгрузить теги.
+  const [pickerOpenedOnce, setPickerOpenedOnce] = useState(false);
+  const reloadTags = useCallback(() => setPickerOpenedOnce(true), []);
   useEffect(() => {
+    // До первого открытия поповера выбора тегов не дёргаем сервер — но если
+    // у элемента уже есть выбранные теги (например, после восстановления
+    // черновика), нужно отрисовать их подписи, поэтому загружаем сразу.
+    if (!pickerOpenedOnce && !selectedIdsKey) return;
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
@@ -173,7 +180,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake, tokenTick, selectedIdsKey]);
+  }, [sectionSnake, tokenTick, selectedIdsKey, pickerOpenedOnce]);
 
   // Порядок ответа сервера = приоритет релевантности; выбранные → остальные.
   const sortByRelevance = useCallback(
