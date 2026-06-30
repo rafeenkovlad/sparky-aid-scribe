@@ -2883,10 +2883,11 @@ export function ChatApp({ threadId }: Props) {
             onFillMissing={(template) => {
               setComposer((prev) => (prev.trim() ? prev + "\n" + template : template));
               setAskMode(false);
+              // Не вызываем .focus() — это раскрыло бы композер. Пользователь
+              // сам тапнет по полю, когда захочет редактировать.
               requestAnimationFrame(() => {
                 const ta = textareaRef.current;
                 if (ta) {
-                  ta.focus();
                   ta.setSelectionRange(ta.value.length, ta.value.length);
                   ta.scrollTop = ta.scrollHeight;
                 }
