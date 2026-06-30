@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
@@ -42,7 +42,10 @@ interface Props {
     onPickAi: () => void;
     onDismiss: () => void;
   }>;
+  /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
+
 
 /**
  * Универсальная карточка-«паспорт заполненности» шага.
@@ -57,6 +60,7 @@ export function StepPassport({
   onTestDriveAllOk,
   onTestDriveAddTag,
   noteProposals,
+  onReformulateResultNote,
 }: Props) {
   const hideConfirm =
     step === "legalMaterials" || step === "testDrive" || step === "result";
@@ -75,8 +79,10 @@ export function StepPassport({
           onTestDriveAllOk={onTestDriveAllOk}
           onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
+          onReformulateResultNote={onReformulateResultNote}
         />
       </div>
+
 
       {onConfirm && !hideConfirm && (
         <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-end gap-2">
@@ -107,6 +113,7 @@ function StepBody({
   onTestDriveAllOk,
   onTestDriveAddTag,
   noteProposals,
+  onReformulateResultNote,
 }: {
   step: StepId;
   draft: ReportDraft;
@@ -115,8 +122,10 @@ function StepBody({
   onTestDriveAllOk?: () => void;
   onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   noteProposals?: Props["noteProposals"];
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 
 }) {
+
   switch (step) {
     case "car":
     case "characteristics":
@@ -262,42 +271,45 @@ function StepBody({
     }
     case "result": {
       const r = draft.resultStep ?? {};
+      const renderResultNote = (
+        kind: "resultSummary" | "resultVerdict",
+        label: string,
+        text: string,
+      ) => {
+        const p = findProposal(noteProposals, (r2) => r2.kind === kind);
+        return (
+          <div className={kind === "resultVerdict" ? "pt-2 border-t border-white/5" : undefined}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] uppercase tracking-wide text-white/40">{label}</div>
+              {!p && onReformulateResultNote && (
+                <button
+                  type="button"
+                  onClick={() => onReformulateResultNote(kind)}
+                  aria-label="Переформулировать через ИИ"
+                  title="Переформулировать через ИИ"
+                  className="inline-flex items-center justify-center h-6 w-6 rounded-md text-sky-200 hover:text-sky-100 hover:bg-white/10 transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="text-white/85 whitespace-pre-wrap">{text}</div>
+            {p && (
+              <NoteProposalInline
+                payload={p.payload}
+                onPickOriginal={p.onPickOriginal}
+                onPickAi={p.onPickAi}
+                onDismiss={p.onDismiss}
+              />
+            )}
+          </div>
+        );
+      };
       return (
         <div className="space-y-2 text-[13px] leading-tight">
-          {r.summaryInspectionNote && (
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Резюме</div>
-              <div className="text-white/85 whitespace-pre-wrap">{r.summaryInspectionNote}</div>
-              {(() => {
-                const p = findProposal(noteProposals, (r2) => r2.kind === "resultSummary");
-                return p ? (
-                  <NoteProposalInline
-                    payload={p.payload}
-                    onPickOriginal={p.onPickOriginal}
-                    onPickAi={p.onPickAi}
-                    onDismiss={p.onDismiss}
-                  />
-                ) : null;
-              })()}
-            </div>
-          )}
-          {r.resultSpecialistNote && (
-            <div className="pt-2 border-t border-white/5">
-              <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">Вердикт</div>
-              <div className="text-white/85 whitespace-pre-wrap">{r.resultSpecialistNote}</div>
-              {(() => {
-                const p = findProposal(noteProposals, (r2) => r2.kind === "resultVerdict");
-                return p ? (
-                  <NoteProposalInline
-                    payload={p.payload}
-                    onPickOriginal={p.onPickOriginal}
-                    onPickAi={p.onPickAi}
-                    onDismiss={p.onDismiss}
-                  />
-                ) : null;
-              })()}
-            </div>
-          )}
+          {r.summaryInspectionNote && renderResultNote("resultSummary", "Резюме", r.summaryInspectionNote)}
+          {r.resultSpecialistNote && renderResultNote("resultVerdict", "Вердикт", r.resultSpecialistNote)}
+
           {onEdit && (r.summaryInspectionNote || r.resultSpecialistNote) && (
             <div className="pt-2 flex items-center gap-1.5">
               <button

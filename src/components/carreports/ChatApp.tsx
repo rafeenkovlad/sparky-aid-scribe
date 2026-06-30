@@ -2719,8 +2719,24 @@ export function ChatApp({ threadId }: Props) {
                 requestAnimationFrame(() => selectSection(snake as Parameters<typeof selectSection>[0]));
               }
             }}
+            onReformulateResultNote={(kind) => {
+              if (!thread) return;
+              const r = thread.draft.resultStep ?? {};
+              const originalText =
+                (kind === "resultSummary"
+                  ? r.summaryInspectionNote
+                  : r.resultSpecialistNote) ?? "";
+              if (!originalText.trim()) return;
+              pushChatNoteProposal(thread.id, {
+                ref: { kind },
+                scopeLabel: kind === "resultSummary" ? "Резюме" : "Вердикт",
+                originalText,
+                tagNames: [],
+              });
+            }}
 
           />
+
 
         ))}
 
@@ -3429,7 +3445,10 @@ interface BubbleProps {
   hasStepPassport?: boolean;
   /** Прыжок на шаг (и опционально сразу выбрать раздел осмотра). */
   onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
+  /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
+
 
 function MessageBubble({
   msg,
@@ -3478,7 +3497,9 @@ function MessageBubble({
   stepNoteProposals,
   hasStepPassport,
   onJumpToMissing,
+  onReformulateResultNote,
 }: BubbleProps) {
+
 
 
   if (msg.role === "user") {
@@ -3562,7 +3583,9 @@ function MessageBubble({
             noteProposals={stepNoteProposals?.filter(
               (p) => stepForNoteRef(p.payload.ref) === msg.step,
             )}
+            onReformulateResultNote={onReformulateResultNote}
           />
+
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
           // Карточка переформулировки не показывается отдельным пузырём —
           // она рисуется inline (под исходной заметкой в паспорте шага или
