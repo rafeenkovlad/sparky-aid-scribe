@@ -1690,6 +1690,27 @@ export function ChatApp({ threadId }: Props) {
 
   const doGenSummary = useCallback(async () => {
     if (!thread || busy) return;
+    // Gate: проверяем обязательные поля каждого шага. Если что-то
+    // не заполнено — резюме не запускаем, показываем сообщение с
+    // кнопками перехода в нужный шаг (и сразу в нужный раздел осмотра).
+    const fresh0 = getThread(thread.id) ?? thread;
+    const missing = collectMissingForSummary(fresh0.draft);
+    if (missing.length > 0) {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text:
+            "Резюме нельзя собрать — не заполнены обязательные поля. " +
+            "Перейдите по кнопкам и допишите недостающее, затем нажмите «AI-резюме» снова.",
+          step: "result",
+          kind: "missingFields",
+          missingFields: missing,
+          createdAt: Date.now(),
+        });
+      });
+      return;
+    }
     setBusy(true);
     updateThread(thread.id, (t) => {
       pushMsg(t, "result", {
