@@ -657,15 +657,19 @@ export function ChatApp({ threadId }: Props) {
           cursor.section.snake,
           el.id,
           (f) => {
-            if (!f.noDamage && !(f.seriousDamageTagIds?.length) && !(f.noSeriousDamageTagIds?.length)) {
-              f.noDamage = true;
-            }
+            // «Без замечаний» — обнуляем все теги и проставляем флаг.
+            f.seriousDamageTagIds = [];
+            f.noSeriousDamageTagIds = [];
+            f.pendingTags = [];
+            f.note = "";
+            f.noDamage = true;
           },
         );
       }
       t.draft.inspectionStep.touched = true;
     });
   }, [thread, cursor]);
+
 
   const goNextElement = useCallback(() => {
     if (!thread || !cursor) return;
