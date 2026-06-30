@@ -102,7 +102,7 @@ export function StepPassport({
             onClick={onConfirm}
             className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[12px] font-medium px-3 py-1.5 flex items-center gap-1.5 transition-colors"
           >
-            Всё верно, далее <ChevronRight className="h-3.5 w-3.5" />
+            Далее <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
