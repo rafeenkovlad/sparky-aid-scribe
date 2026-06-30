@@ -31,6 +31,7 @@ import logo from "@/assets/cr-logo.png";
 import assistantAvatar from "@/assets/cr-assistant-vindiesel.jpg";
 import { TokenDialog } from "./TokenDialog";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
+import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { ReportPreview } from "./ReportPreview";
 import { FullReportView } from "./FullReportView";
 import { InspectionDateField } from "./InspectionDateField";
@@ -2712,6 +2713,8 @@ export function ChatApp({ threadId }: Props) {
           </SheetContent>
         </Sheet>
       </header>
+
+      <PWAInstallBanner />
 
       {/* Messages */}
       <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
