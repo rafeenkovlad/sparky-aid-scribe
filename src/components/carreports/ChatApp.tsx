@@ -2441,12 +2441,16 @@ export function ChatApp({ threadId }: Props) {
 
       const batchStatusId = msgId();
       const renderBatchStatus = () => {
-        // «В очереди» — только ещё не начатые файлы; текущий «в работе»
-        // показываем отдельной строкой и не учитываем в счётчике очереди.
+        // Считаем фактическое состояние: один файл всегда «в работе»,
+        // пока остаются необработанные (очередь sequential — параллелизма нет).
+        const remaining = total - done;
+        const inQueue = Math.max(0, remaining - 1);
         const parts: string[] = [];
-        if (running) parts.push(`🔄 Обработка: ${running}`);
-        if (queuedNames.length > 0) {
-          parts.push(`⏳ В очереди: ${queuedNames.length}`);
+        if (remaining > 0) {
+          parts.push(`🔄 Обработка: ${running ?? "подготовка…"}`);
+        }
+        if (inQueue > 0) {
+          parts.push(`⏳ В очереди: ${inQueue}`);
         }
         return parts.join("\n") || "🔄 Обработка…";
       };
