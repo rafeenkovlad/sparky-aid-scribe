@@ -2135,7 +2135,7 @@ export function ChatApp({ threadId }: Props) {
         const c = await completeReport(finalizeId);
         if (c.remote) {
           completeNote = "";
-          reportId = c.reportId ?? finalizeId;
+          reportId = finalizeId;
           break;
         }
         completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
