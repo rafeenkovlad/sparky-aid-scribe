@@ -4081,7 +4081,7 @@ function MessageBubble({
             onNextElement={onNextElement ?? (() => {})}
           />
         )}
-        {msg.kind === "inspectionSectionPassport" && null}
+        
 
         {msg.kind === "inspectionUploadPrompt" && msg.sectionSnake && inspectionDraft && (
           <InspectionUploadPrompt
