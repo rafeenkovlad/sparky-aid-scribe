@@ -76,7 +76,7 @@ import {
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
-import { Sparkles } from "lucide-react";
+import { Sparkles, FileText } from "lucide-react";
 
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -2845,10 +2845,11 @@ export function ChatApp({ threadId }: Props) {
           className="rounded-full bg-orange-500/90 hover:bg-orange-500 text-white text-xs font-medium px-3 py-1.5 flex items-center gap-1"
         >
           {currentStep === "result" ? (
-            <>📄 Предварительный просмотр отчёта</>
+            <><FileText className="h-3.5 w-3.5" /> Предпросмотр</>
           ) : (
             <><CheckCheck className="h-3.5 w-3.5" /> Всё верно, далее</>
           )}
+
         </button>
 
         {hasCurrentStepDraft && (
