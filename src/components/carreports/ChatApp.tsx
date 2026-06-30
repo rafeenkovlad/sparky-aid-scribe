@@ -2051,7 +2051,8 @@ export function ChatApp({ threadId }: Props) {
         }
       });
 
-      const finalizeId = r.reportNumericId ?? r.reportId;
+      const finalizeId = r.reportId; // reportNumber для CompleteSpecialistReport
+      const numericId = r.reportNumericId; // числовой id для CreateShareUrl
       let completeNote = "";
       if (finalizeId != null) {
         const { completeReport } = await import("@/lib/carreports/storageApi");
@@ -2063,6 +2064,14 @@ export function ChatApp({ threadId }: Props) {
           if (c.remote) { completeNote = ""; break; }
           completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
         }
+      }
+
+      // Получаем публичную ссылку для шаринга.
+      let shareUrl: string | undefined;
+      if (!completeNote && numericId != null) {
+        const { createShareUrl } = await import("@/lib/carreports/storageApi");
+        const s = await createShareUrl(numericId);
+        shareUrl = s.url;
       }
 
       // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться» / «Повторить».
@@ -2078,14 +2087,15 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId: r.reportId,
-            shareUrl: !completeNote && r.reportId
-              ? `https://app.carreports.ru/r/${r.reportId}`
-              : undefined,
+            shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
+            retryNumericId: completeNote ? numericId : undefined,
           },
+
           createdAt: Date.now(),
         });
       });
+
 
 
     } catch (e) {
@@ -2110,7 +2120,7 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
   // Повторная финализация без перевыгрузки файлов — кнопка «Повторить» в карточке.
-  const doRetryFinalize = useCallback(async (finalizeId: string | number) => {
+  const doRetryFinalize = useCallback(async (finalizeId: string | number, numericId?: string | number) => {
     if (!thread || busy) return;
     setBusy(true);
     const progressId = `retry-finalize-${Date.now()}`;
@@ -2140,6 +2150,12 @@ export function ChatApp({ threadId }: Props) {
         }
         completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
       }
+      let shareUrl: string | undefined;
+      if (!completeNote && numericId != null) {
+        const { createShareUrl } = await import("@/lib/carreports/storageApi");
+        const s = await createShareUrl(numericId);
+        shareUrl = s.url;
+      }
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
@@ -2150,12 +2166,14 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId,
-            shareUrl: !completeNote && reportId ? `https://app.carreports.ru/r/${reportId}` : undefined,
+            shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
+            retryNumericId: completeNote ? numericId : undefined,
           },
           createdAt: Date.now(),
         });
       });
+
     } finally {
       setBusy(false);
     }
@@ -3235,7 +3253,7 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             onFinishContinue={() => void doFinish()}
-            onRetryFinalize={(id) => void doRetryFinalize(id)}
+            onRetryFinalize={(id, num) => void doRetryFinalize(id, num)}
 
             onReformulateResultNote={(kind) => {
               if (!thread) return;
@@ -3978,7 +3996,7 @@ interface BubbleProps {
   /** Подтверждение «Продолжить» в карточке завершения отчёта. */
   onFinishContinue?: () => void;
   /** Повторить финализацию отчёта после неудачной попытки. */
-  onRetryFinalize?: (finalizeId: string | number) => void;
+  onRetryFinalize?: (finalizeId: string | number, numericId?: string | number) => void;
 
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
@@ -4207,7 +4225,7 @@ function MessageBubble({
                 {retryId != null && (
                   <button
                     type="button"
-                    onClick={() => onRetryFinalize?.(retryId)}
+                    onClick={() => onRetryFinalize?.(retryId, fc.retryNumericId)}
                     className="w-full rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Повторить

@@ -302,6 +302,9 @@ export interface ChatMessage {
     shareUrl?: string;
     /** если задано — финализация не удалась, показать кнопку «Повторить» */
     retryFinalizeId?: string | number;
+    /** числовой id отчёта — нужен для CreateSpecialistReportShareUrl на ретрае */
+    retryNumericId?: string | number;
+
   };
 
   /** payload for kind=missingFields — required-field gate before AI summary */
