@@ -1856,12 +1856,39 @@ export function ChatApp({ threadId }: Props) {
         updateThread(thread.id, (t) => {
           if (looksLikeBlank) {
             const miss = collectMissingForSummary(t.draft);
+            // Если локальный гейт ничего не нашёл, но сервер ругается —
+            // пробуем по ключевым словам понять, куда вести пользователя,
+            // чтобы он увидел кнопку перехода, а не просто текст.
+            if (miss.length === 0) {
+              const low = raw.toLowerCase();
+              const guesses: Array<{ re: RegExp; item: { label: string; step: StepId; sectionSnake?: string } }> = [
+                { re: /трансмисси|кпп|коробк/, item: { label: "Тест-драйв: укажите теги для «трансмиссия»", step: "testDrive" } },
+                { re: /двигател|engine/, item: { label: "Тест-драйв: укажите теги для «двигатель»", step: "testDrive" } },
+                { re: /руль|steering/, item: { label: "Тест-драйв: укажите теги для «руль»", step: "testDrive" } },
+                { re: /подвеск|suspension/, item: { label: "Тест-драйв: укажите теги для «подвеска»", step: "testDrive" } },
+                { re: /тормоз|brake/, item: { label: "Тест-драйв: укажите теги для «тормоза»", step: "testDrive" } },
+                { re: /vin|пробег|госномер|город|дата осмотра|марк|модел/, item: { label: "Автомобиль: заполните обязательные поля", step: "car" } },
+                { re: /документ|птс|стс|собственник/, item: { label: "Документы: заполните обязательные поля", step: "docs" } },
+                { re: /кузов/, item: { label: "Осмотр: раздел «Кузов»", step: "inspection", sectionSnake: "body" } },
+                { re: /салон/, item: { label: "Осмотр: раздел «Салон»", step: "inspection", sectionSnake: "interior" } },
+                { re: /подкапот/, item: { label: "Осмотр: раздел «Подкапотное»", step: "inspection", sectionSnake: "under_hood" } },
+                { re: /остекл|стекл/, item: { label: "Осмотр: раздел «Остекление»", step: "inspection", sectionSnake: "glass" } },
+                { re: /резюме|вердикт|итог/, item: { label: "Итог: заполните резюме и вердикт", step: "result" } },
+              ];
+              for (const g of guesses) {
+                if (g.re.test(low)) miss.push(g.item);
+              }
+              if (miss.length === 0) {
+                // Совсем не угадали — ведём на тест-драйв как самый частый источник.
+                miss.push({ label: "Проверьте обязательные поля во всех шагах", step: "testDrive" });
+              }
+            }
             pushMsg(t, "result", {
               id: msgId(),
               role: "assistant",
               text:
-                "Не получится выгрузить отчёт — на сервере не приняты обязательные поля. " +
-                "Проверьте, что во всех шагах заполнены обязательные данные, и попробуйте снова.",
+                "Не получится выгрузить отчёт — остались незаполненные обязательные поля. " +
+                "Перейдите по кнопкам ниже и допишите недостающее, затем снова нажмите «Завершить».",
               step: "result",
               kind: "missingFields",
               missingFields: miss,
