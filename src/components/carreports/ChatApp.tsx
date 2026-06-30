@@ -2623,6 +2623,7 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusAddPendingTag={photoAddPendingTag}
             onElementFocusDeletePhoto={deletePhotoFocus}
             onMutateFindingAt={mutateFindingAt}
+            onGenerateInspectionNote={generateInspectionNote}
             elementFocusNoteProposal={noteProposal}
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
@@ -3326,6 +3327,13 @@ interface BubbleProps {
     idx: number,
     mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
   ) => void;
+  onGenerateInspectionNote?: (args: {
+    section: SectionSnake;
+    elementId: string;
+    scopeLabel: string;
+    originalText: string;
+    tagNames: string[];
+  }) => void;
   elementFocusNoteProposal?: NoteProposalT | null;
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
@@ -3379,6 +3387,7 @@ function MessageBubble({
   onElementFocusAddPendingTag,
   onElementFocusDeletePhoto,
   onMutateFindingAt,
+  onGenerateInspectionNote,
   elementFocusNoteProposal,
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
@@ -3596,6 +3605,7 @@ function MessageBubble({
                 );
                 return found;
               })()}
+              onGenerateNote={onGenerateInspectionNote}
               onEdit={onFillMissing}
             />
 
