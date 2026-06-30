@@ -1291,6 +1291,8 @@ function InspectionTagPickerRow({
 
 /** Префилл композера для правки одного элемента осмотра. */
 export function buildElementEditTemplate(args: {
+  sectionSnake: string;
+  elementId: string;
   sectionLabel: string;
   elementLabel: string;
   verdictLabel: string | null;
@@ -1304,7 +1306,7 @@ export function buildElementEditTemplate(args: {
   const serious = join([...args.serious, ...args.seriousPending]);
   const minor = join([...args.minor, ...args.minorPending]);
   return [
-    `Осмотр (правка) — ${args.sectionLabel} / ${args.elementLabel}:`,
+    `Осмотр (правка) [section=${args.sectionSnake}, element=${args.elementId}] — ${args.sectionLabel} / ${args.elementLabel}:`,
     `Состояние: ${args.verdictLabel ?? "—"}`,
     `Серьёзные: ${serious || "—"}`,
     `Мелкие: ${minor || "—"}`,
