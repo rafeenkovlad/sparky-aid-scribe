@@ -1,8 +1,11 @@
 // AI-powered report summary generator.
-// Builds a Russian prompt from the current draft and calls carreports
-// AiQueue.ChatCompletions to produce a concise, human-readable conclusion.
+//
+// Собирает ВСЕ чаты по этому отчёту (id хранятся на бэкенде ограниченное
+// время) методом AiQueue.GetChatHistories, склеивает их в единый
+// транскрипт и просит модель в роли автоэксперта с 30-летним стажем
+// сформировать итоговое резюме + вердикт.
 
-import { chatCompletions, aiChatIdFor } from "./aiApi";
+import { chatCompletions, aiChatIdFor, getChatHistories, type ChatHistoryItem } from "./aiApi";
 import { INSPECTION_ZONES, zoneById } from "./inspectionZones";
 import type { ReportDraft, Thread } from "./types";
 
@@ -13,15 +16,36 @@ export interface GeneratedSummary {
   verdict?: string;
   model: string;
   latencyMs: number;
+  /** how many chat histories were fetched from backend */
+  chatsUsed: number;
 }
 
-const SYSTEM_PROMPT_RU = [
-  "Ты — автоэксперт carreports. На основе черновых заметок осмотра",
-  "сформируй короткое профессиональное резюме отчёта для покупателя.",
-  "Стиль: деловой, без воды, без эмодзи. 5–9 предложений.",
-  "В конце добавь ОТДЕЛЬНОЙ строкой:",
-  "ВЕРДИКТ: <одна фраза — рекомендация или отказ, при необходимости с торгом>.",
-].join(" ");
+const SUMMARY_CLICHE = `Ты — независимый автоэксперт carreports с 30-летним
+стажем подбора и диагностики автомобилей с пробегом. Работаешь от лица
+покупателя: трезво, без рекламы продавца, без воды и без эмодзи.
+
+Тебе дают: (1) структурированный черновик отчёта по шагам и (2) полные
+транскрипты всех ИИ-чатов, которые велись во время осмотра (распознавание
+фото, классификация по элементам, переформулировки заметок, нормализация
+тегов и т.п.). В транскриптах могут быть служебные JSON-ответы — извлекай
+из них факты (зона, элемент, теги, серьёзность, заметки), а сами JSON в
+ответе НЕ цитируй.
+
+Сформируй итоговое резюме для покупателя:
+— 6–10 предложений деловым языком;
+— перечисли ключевые находки по группам: кузов и ЛКП, салон, техника
+  (двигатель/трансмиссия/подвеска), документы, поведение на тест-драйве;
+— отдельно выдели СЕРЬЁЗНЫЕ дефекты (коррозия сквозная, перекрас, замена
+  силового, ДТП, неисправности агрегатов, расхождения с ПТС/СТС);
+— мелкие косметические замечания — одной строкой обобщённо;
+— если каких-то данных нет — не выдумывай, просто пропусти.
+
+В САМОМ КОНЦЕ добавь ОТДЕЛЬНОЙ строкой:
+ВЕРДИКТ: <одна фраза — рекомендую к покупке / рекомендую с торгом N руб /
+не рекомендую — с короткой причиной>.
+
+Отвечай только текстом резюме на русском. Без markdown-заголовков и
+без префиксов вроде «Резюме:».`;
 
 function summarizeDraft(d: ReportDraft): string {
   const lines: string[] = [];
@@ -73,14 +97,6 @@ function summarizeDraft(d: ReportDraft): string {
     lines.push(`Тест-драйв: ${d.testDriveStep.notes.trim()}`);
   }
 
-  if (d.resultStep.summaryInspectionNote?.trim()) {
-    lines.push("");
-    lines.push(`Предыдущее резюме специалиста: ${d.resultStep.summaryInspectionNote.trim()}`);
-  }
-  if (d.resultStep.resultSpecialistNote?.trim()) {
-    lines.push(`Предыдущий вердикт: ${d.resultStep.resultSpecialistNote.trim()}`);
-  }
-
   return lines.join("\n");
 }
 
@@ -92,26 +108,74 @@ function splitVerdict(text: string): { summary: string; verdict?: string } {
   return { summary, verdict };
 }
 
-export async function generateSummary(thread: Thread): Promise<GeneratedSummary> {
-  const id = aiChatIdFor(thread, "summary");
-  const draftText = summarizeDraft(thread.draft);
-  const userText =
-    SYSTEM_PROMPT_RU +
-    "\n\n---\n" +
-    "Черновые данные осмотра:\n" +
-    draftText +
-    "\n---\nСоставь резюме и вердикт.";
+const MAX_TRANSCRIPT_CHARS = 60_000;
 
+function formatHistories(thread: Thread, histories: ChatHistoryItem[]): string {
+  // обратный индекс id → ключ назначения чата (что именно этот id делал)
+  const idToKey = new Map<number, string>();
+  for (const [key, id] of Object.entries(thread.aiChatIds)) idToKey.set(id, key);
+
+  const parts: string[] = [];
+  let total = 0;
+  for (const h of histories) {
+    const purpose = idToKey.get(h.id) ?? `chat:${h.id}`;
+    parts.push(`\n=== Чат ${h.id} · ${purpose} ===`);
+    for (const m of h.messages ?? []) {
+      const role = (m.role ?? "?").toString();
+      const text = (m.content ?? m.text ?? "").toString().trim();
+      if (!text) continue;
+      const line = `[${role}] ${text}`;
+      parts.push(line);
+      total += line.length;
+      if (total > MAX_TRANSCRIPT_CHARS) {
+        parts.push("…(транскрипт обрезан по лимиту)");
+        return parts.join("\n");
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+export async function generateSummary(thread: Thread): Promise<GeneratedSummary> {
+  const ids = Object.values(thread.aiChatIds ?? {}).filter(
+    (n): n is number => typeof n === "number" && n > 0,
+  );
+
+  // Подтягиваем транскрипты всех чатов отчёта. Если бэкенд их уже
+  // выселил по TTL — не падаем, идём с одним черновиком.
+  let histories: ChatHistoryItem[] = [];
+  try {
+    histories = await getChatHistories(ids);
+  } catch {
+    histories = [];
+  }
+
+  const draftText = summarizeDraft(thread.draft);
+  const transcript = histories.length ? formatHistories(thread, histories) : "(чатов нет)";
+
+  const userText =
+    "СТРУКТУРИРОВАННЫЙ ЧЕРНОВИК ОТЧЁТА:\n" +
+    draftText +
+    "\n\nТРАНСКРИПТЫ ВСЕХ ИИ-ЧАТОВ ПО ЭТОМУ ОТЧЁТУ:\n" +
+    transcript +
+    "\n\nСформируй итоговое резюме и вердикт по правилам выше.";
+
+  const summaryChatId = aiChatIdFor(thread, "summary");
   const r = await chatCompletions({
-    id,
+    id: summaryChatId,
     text: userText,
-    cliche: "",
+    cliche: SUMMARY_CLICHE,
   });
   const raw = (r.content ?? "").trim();
   if (!raw) throw new Error("AI вернул пустой ответ");
   const { summary, verdict } = splitVerdict(raw);
-  return { summary, verdict, model: r.model, latencyMs: r.latencyMs };
+  return {
+    summary,
+    verdict,
+    model: r.model,
+    latencyMs: r.latencyMs,
+    chatsUsed: histories.length,
+  };
 }
 
-// Note: zoneById re-exported for callers that want labels.
 export { zoneById };
