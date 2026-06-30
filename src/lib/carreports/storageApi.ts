@@ -470,14 +470,24 @@ export interface PrepareReportResult {
  * Submit draft → Storage.PrepareSpecialistReport. Returns a remote id (the
  * `reportNumber`) on success or a fallback note on failure.
  */
+export interface PrepareUploadFile {
+  filename: string;
+  /** Финальный ключ S3 (в бакете отчётов), куда нужно положить файл. */
+  key: string;
+  type: string;
+  stepType: string;
+}
+
 export async function submitReport(draft: ReportDraft): Promise<{
   remote: boolean;
   reportId?: string | number;
   reportNumericId?: number;
   method?: string;
   uploadFilesCount?: number;
+  uploadFiles?: PrepareUploadFile[];
   note?: string;
 }> {
+
   try {
     // 0) Resolve any pendingTagNames → real tag ids via Storage.AddUserTag.
     //    Mutates `draft.inspectionStep.findings` in place: created ids are
