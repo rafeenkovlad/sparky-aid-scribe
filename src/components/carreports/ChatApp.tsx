@@ -1754,6 +1754,29 @@ export function ChatApp({ threadId }: Props) {
   // внутри сообщения запускает doFinish().
   const doFinishConfirm = useCallback(() => {
     if (!thread || busy) return;
+    // Сначала проверяем обязательные поля — нет смысла спрашивать
+    // подтверждение, если выгрузка всё равно не пройдёт.
+    const fresh0 = getThread(thread.id) ?? thread;
+    const missing = collectMissingForSummary(fresh0.draft);
+    if (missing.length > 0) {
+      updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter(
+          (m) => m.kind !== "finishConfirm",
+        );
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text:
+            "Не получится выгрузить отчёт — остались незаполненные обязательные поля. " +
+            "Перейдите по кнопкам ниже и допишите недостающее, затем снова нажмите «Завершить».",
+          step: "result",
+          kind: "missingFields",
+          missingFields: missing,
+          createdAt: Date.now(),
+        });
+      });
+      return;
+    }
     updateThread(thread.id, (t) => {
       // не плодим дубликаты подтверждения
       t.messages.result = t.messages.result.filter(
