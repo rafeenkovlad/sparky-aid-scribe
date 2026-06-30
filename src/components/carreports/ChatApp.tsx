@@ -4225,7 +4225,7 @@ function MessageBubble({
                 {retryId != null && (
                   <button
                     type="button"
-                    onClick={() => onRetryFinalize?.(retryId)}
+                    onClick={() => onRetryFinalize?.(retryId, fc.retryNumericId)}
                     className="w-full rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Повторить
