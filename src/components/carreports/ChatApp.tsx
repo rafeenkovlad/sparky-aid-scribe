@@ -1412,14 +1412,18 @@ export function ChatApp({ threadId }: Props) {
         .map((name) => name.trim())
         .filter((name, idx, arr) => name && arr.indexOf(name) === idx);
       if (!tagNames.length) return;
-      pushChatNoteProposal(thread.id, {
-        ref: { kind: "inspection", section: args.section, elementId: args.elementId },
-        scopeLabel: args.scopeLabel,
-        originalText:
-          args.originalText.trim() ||
-          `Замечания: ${tagNames.join(", ")}.`,
-        tagNames,
-      });
+      pushChatNoteProposal(
+        thread.id,
+        {
+          ref: { kind: "inspection", section: args.section, elementId: args.elementId },
+          scopeLabel: args.scopeLabel,
+          originalText:
+            args.originalText.trim() ||
+            `Замечания: ${tagNames.join(", ")}.`,
+          tagNames,
+        },
+        { autoApply: true },
+      );
     },
     [thread, pushChatNoteProposal],
   );
