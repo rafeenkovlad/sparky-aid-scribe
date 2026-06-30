@@ -3469,6 +3469,7 @@ function MessageBubble({
   onChatNoteDismiss,
   stepNoteProposals,
   hasStepPassport,
+  onJumpToMissing,
 }: BubbleProps) {
 
 
