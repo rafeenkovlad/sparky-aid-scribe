@@ -13,7 +13,6 @@ export const FLOW_STEPS: readonly StepDef[] = [
   { id: "legalMaterials", label: "Дополнительные материалы", short: "Материалы" },
   { id: "testDrive", label: "Тест-драйв", short: "Тест" },
   { id: "result", label: "Итог", short: "Итог" },
-  { id: "submit", label: "Отправка", short: "Отправка" },
 ] as const;
 
 
