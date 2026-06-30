@@ -3988,7 +3988,9 @@ function MessageBubble({
               (p) => stepForNoteRef(p.payload.ref) === msg.step,
             )}
             onReformulateResultNote={onReformulateResultNote}
+            onDeleteLegalMaterial={onDeleteLegalMaterial}
           />
+
 
         ) : msg.kind === "noteProposal" && msg.noteProposal ? (
           // Карточка переформулировки не показывается отдельным пузырём —

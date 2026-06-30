@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { NoteProposalPayload, NoteRef, ReportDraft, StepId } from "@/lib/carreports/types";
 import { stepById } from "@/lib/carreports/flow";
@@ -44,7 +44,10 @@ interface Props {
   }>;
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
+  /** Удалить файл доп. материалов (шаг legalMaterials). */
+  onDeleteLegalMaterial?: (idx: number) => void;
 }
+
 
 
 /**
@@ -61,7 +64,9 @@ export function StepPassport({
   onTestDriveAddTag,
   noteProposals,
   onReformulateResultNote,
+  onDeleteLegalMaterial,
 }: Props) {
+
   const hideConfirm =
     step === "legalMaterials" ||
     step === "testDrive" ||
@@ -85,7 +90,9 @@ export function StepPassport({
           onTestDriveAddTag={onTestDriveAddTag}
           noteProposals={noteProposals}
           onReformulateResultNote={onReformulateResultNote}
+          onDeleteLegalMaterial={onDeleteLegalMaterial}
         />
+
       </div>
 
 
@@ -119,6 +126,7 @@ function StepBody({
   onTestDriveAddTag,
   noteProposals,
   onReformulateResultNote,
+  onDeleteLegalMaterial,
 }: {
   step: StepId;
   draft: ReportDraft;
@@ -128,8 +136,9 @@ function StepBody({
   onTestDriveAddTag?: (catKey: TestDriveTagCatKey, tag: UserTag) => void;
   noteProposals?: Props["noteProposals"];
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
-
+  onDeleteLegalMaterial?: (idx: number) => void;
 }) {
+
 
   switch (step) {
     case "car":
@@ -205,11 +214,23 @@ function StepBody({
               <span className="text-white/40 tabular-nums">
                 {f.size ? `${Math.round(f.size / 1024)} КБ` : f.type}
               </span>
+              {onDeleteLegalMaterial && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteLegalMaterial(i)}
+                  aria-label="Удалить файл"
+                  title="Удалить файл"
+                  className="shrink-0 translate-y-0.5 h-5 w-5 rounded-full text-white/45 hover:text-white hover:bg-rose-500/70 flex items-center justify-center transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
       );
     }
+
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       if (td.notDone) return <div className="text-white/70 text-[13px]">Тест-драйв не проводился.</div>;
