@@ -560,6 +560,8 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               onClick={() =>
                 onEdit(
                   buildElementEditTemplate({
+                    sectionSnake,
+                    elementId,
                     sectionLabel: section?.label ?? sectionSnake,
                     elementLabel,
                     verdictLabel: derivedVerdict !== null ? verdictLabel : null,
