@@ -1324,7 +1324,7 @@ export function ChatApp({ threadId }: Props) {
 
   /** Пушит карточку‑proposal и запускает переформулировку. */
   const pushChatNoteProposal = useCallback(
-    (threadIdLocal: string, np: NotePatched) => {
+    (threadIdLocal: string, np: NotePatched, opts?: { autoApply?: boolean }) => {
       const step = stepForNoteRef(np.ref);
       const stableId = `note-proposal:${noteRefKey(np.ref)}`;
       updateThread(threadIdLocal, (t) => {
@@ -1378,16 +1378,25 @@ export function ChatApp({ threadId }: Props) {
             np.tagNames,
             np.originalText,
           );
-          patchNoteProposalMsg(threadIdLocal, step, stableId, {
-            ai: aiText,
-            loading: false,
-          });
+          if (opts?.autoApply && aiText) {
+            writeNoteToDraft(threadIdLocal, np.ref, aiText);
+            patchNoteProposalMsg(threadIdLocal, step, stableId, {
+              ai: aiText,
+              loading: false,
+              picked: "ai",
+            });
+          } else {
+            patchNoteProposalMsg(threadIdLocal, step, stableId, {
+              ai: aiText,
+              loading: false,
+            });
+          }
         } finally {
           noteReformInflight.current.delete(key);
         }
       })();
     },
-    [patchNoteProposalMsg],
+    [patchNoteProposalMsg, writeNoteToDraft],
   );
 
   const generateInspectionNote = useCallback(
