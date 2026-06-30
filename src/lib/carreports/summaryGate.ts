@@ -51,20 +51,8 @@ export function collectMissingForSummary(d: ReportDraft): MissingSummaryItem[] {
     }
   }
 
-  // Осмотр: обязательны разделы кузов / салон / подкапотное / остекление.
-  const ins = d.inspectionStep;
-  for (const req of REQUIRED_INSPECTION_SECTIONS) {
-    const sec = INSPECTION_SECTIONS.find((x) => x.snake === req.snake);
-    if (!sec) continue;
-    const p = sectionProgress(ins, sec);
-    if (p.filled === 0) {
-      out.push({
-        label: `Осмотр · ${req.label} — нет ни одной записи`,
-        step: "inspection",
-        sectionSnake: req.snake,
-      });
-    }
-  }
+  // Осмотр: записи не требуются. Если раздел не заполнен записями —
+  // по умолчанию считаем его «без повреждений», подтверждения не нужны.
 
   return out;
 }
