@@ -78,6 +78,8 @@ export interface ElementFocusCardProps {
   }) => void;
   /** Открыть редактор: префилл композера шаблоном правки этого элемента. */
   onEdit?: (template: string) => void;
+  /** Изменить диапазон ЛКП (мкм) для текущего элемента. */
+  onSetPaintwork?: (from: number, to: number) => void;
 }
 
 
