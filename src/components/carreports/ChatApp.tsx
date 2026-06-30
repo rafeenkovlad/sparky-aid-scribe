@@ -3419,6 +3419,8 @@ interface BubbleProps {
     onDismiss: () => void;
   }>;
   hasStepPassport?: boolean;
+  /** Прыжок на шаг (и опционально сразу выбрать раздел осмотра). */
+  onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
 }
 
 function MessageBubble({
