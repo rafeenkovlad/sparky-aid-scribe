@@ -3429,7 +3429,10 @@ interface BubbleProps {
   hasStepPassport?: boolean;
   /** Прыжок на шаг (и опционально сразу выбрать раздел осмотра). */
   onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
+  /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
+  onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
+
 
 function MessageBubble({
   msg,
