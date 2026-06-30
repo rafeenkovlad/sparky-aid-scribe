@@ -170,13 +170,13 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   const [tokenTick, setTokenTick] = useState(0);
   useEffect(() => subscribeToken(() => setTokenTick((t) => t + 1)), []);
   // Бампим при первом открытии поповера «+», чтобы лениво подгрузить теги.
-  const [pickerOpenedOnce, setPickerOpenedOnce] = useState(false);
-  const reloadTags = useCallback(() => setPickerOpenedOnce(true), []);
+  const [pickerLoadTick, setPickerLoadTick] = useState(0);
+  const reloadTags = useCallback(() => setPickerLoadTick((n) => n + 1), []);
   useEffect(() => {
     // До первого открытия поповера выбора тегов не дёргаем сервер — но если
     // у элемента уже есть выбранные теги (например, после восстановления
     // черновика), нужно отрисовать их подписи, поэтому загружаем сразу.
-    if (!pickerOpenedOnce && !selectedIdsKey) return;
+    if (pickerLoadTick === 0 && !selectedIdsKey) return;
     let alive = true;
     setTagsLoading(true);
     setTagsError(null);
@@ -186,7 +186,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
           .map(Number)
           .filter((n) => Number.isFinite(n) && n > 0)
       : [];
-    const suggestionsPromise = pickerOpenedOnce
+    const suggestionsPromise = pickerLoadTick > 0
       ? loadSectionTags(sectionSnake, ids, true)
       : Promise.resolve([] as UserTag[]);
     const selectedNamesPromise = ids.length
@@ -208,7 +208,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     return () => {
       alive = false;
     };
-  }, [sectionSnake, tokenTick, selectedIdsKey, pickerOpenedOnce]);
+  }, [sectionSnake, tokenTick, selectedIdsKey, pickerLoadTick]);
 
   // Порядок ответа сервера = приоритет релевантности; выбранные → остальные.
   const sortByRelevance = useCallback(
@@ -271,8 +271,6 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
   // ─── Паспортная сводка по элементу (как «Паспорт авто» в 1 шаге) ──────
   const seriousCount = sIds.size + pending.filter((p) => p.severity === "serious").length;
   const minorCount = nsIds.size + pending.filter((p) => p.severity !== "serious").length;
-  const hasNote = !!finding?.note?.trim();
-
   const remarksCount = seriousCount + minorCount;
   const passportRows: { label: string; filled: boolean; value?: string }[] = [
     { label: "Элемент", filled: true, value: elementLabel },
