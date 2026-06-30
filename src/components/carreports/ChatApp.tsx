@@ -841,10 +841,15 @@ export function ChatApp({ threadId }: Props) {
 
 
   /** Мутация finding текущего фото в фокус-режиме. */
-  const mutatePhotoFinding = useCallback(
-    (mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void) => {
-      if (photoFocusIdx === null || !thread) return;
-      const idx = photoFocusIdx;
+  // Мутирует finding фото по конкретному индексу. Без явного idx использует
+  // глобальный photoFocusIdx (полноэкранный фокус). Inline-карточки в ленте
+  // чата передают собственный idx, иначе клики по тегам в них уходят в null.
+  const mutateFindingAt = useCallback(
+    (
+      idx: number,
+      mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
+    ) => {
+      if (!thread) return;
       updateThread(thread.id, (t) => {
         const p = t.draft.inspectionStep.photos[idx];
         if (!p) return;
@@ -854,8 +859,17 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.touched = true;
       });
     },
-    [photoFocusIdx, thread, defaultElementIdFor],
+    [thread, defaultElementIdFor],
   );
+
+  const mutatePhotoFinding = useCallback(
+    (mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void) => {
+      if (photoFocusIdx === null) return;
+      mutateFindingAt(photoFocusIdx, mutate);
+    },
+    [photoFocusIdx, mutateFindingAt],
+  );
+
 
   const photoChangeElement = useCallback(
     (elementId: string) => {
@@ -2583,6 +2597,7 @@ export function ChatApp({ threadId }: Props) {
             onElementFocusToggleTag={photoToggleTag}
             onElementFocusAddPendingTag={photoAddPendingTag}
             onElementFocusDeletePhoto={deletePhotoFocus}
+            onMutateFindingAt={mutateFindingAt}
             elementFocusNoteProposal={noteProposal}
             onElementFocusPickNoteOriginal={pickNoteOriginal}
             onElementFocusPickNoteAi={pickNoteAi}
@@ -3280,6 +3295,12 @@ interface BubbleProps {
   onElementFocusToggleTag?: (t: UserTag) => void;
   onElementFocusAddPendingTag?: (name: string, severity: "serious" | "non_serious") => void;
   onElementFocusDeletePhoto?: () => void;
+  /** Прямая мутация finding фото по индексу — для inline-карточек чата,
+   *  у которых нет глобального photoFocusIdx. */
+  onMutateFindingAt?: (
+    idx: number,
+    mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
+  ) => void;
   elementFocusNoteProposal?: NoteProposalT | null;
   onElementFocusPickNoteOriginal?: () => void;
   onElementFocusPickNoteAi?: () => void;
@@ -3332,6 +3353,7 @@ function MessageBubble({
   onElementFocusToggleTag,
   onElementFocusAddPendingTag,
   onElementFocusDeletePhoto,
+  onMutateFindingAt,
   elementFocusNoteProposal,
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
@@ -3501,10 +3523,33 @@ function MessageBubble({
               }
               onChangePhotoIdx={(idx) => onElementFocusChangePhoto?.(idx)}
               onChangeElement={(elementId) => onElementFocusChangeElement?.(elementId)}
-              onSetVerdict={(v) => onElementFocusSetVerdict?.(v)}
-              onToggleTag={(t) => onElementFocusToggleTag?.(t)}
-              onAddPendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
-              onTogglePendingTag={(n, s) => onElementFocusAddPendingTag?.(n, s)}
+              onSetVerdict={(v) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => {
+                  if (v === "ok") {
+                    f.noDamage = true;
+                    f.seriousDamageTagIds = [];
+                    f.noSeriousDamageTagIds = [];
+                    f.pendingTagNames = [];
+                  } else {
+                    f.noDamage = false;
+                  }
+                });
+              }}
+              onToggleTag={(t) => {
+                const idx = msg.photoIdx as number;
+                const bucket: "serious" | "non_serious" =
+                  t.type === "serious" ? "serious" : "non_serious";
+                onMutateFindingAt?.(idx, (f) => toggleFindingTag(f, bucket, t.id));
+              }}
+              onAddPendingTag={(n, s) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
+              }}
+              onTogglePendingTag={(n, s) => {
+                const idx = msg.photoIdx as number;
+                onMutateFindingAt?.(idx, (f) => togglePendingTag(f, n, s));
+              }}
               onDeletePhoto={onElementFocusDeletePhoto}
               noteProposal={elementFocusNoteProposal ?? null}
               onPickNoteOriginal={onElementFocusPickNoteOriginal}
