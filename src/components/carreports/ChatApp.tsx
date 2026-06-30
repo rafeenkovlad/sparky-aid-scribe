@@ -1537,7 +1537,14 @@ export function ChatApp({ threadId }: Props) {
       const p = m.noteProposal;
       out.push({
         payload: p,
-        onPickOriginal: () => acceptChatNoteOriginal(p.ref, p.original),
+        onPickOriginal: () => {
+          if (p.ref.kind === "inspection") {
+            writeNoteToDraft(thread!.id, p.ref, "");
+            dismissChatNoteProposal(p.ref);
+          } else {
+            acceptChatNoteOriginal(p.ref, p.original);
+          }
+        },
         onPickAi: () => regenerateChatNoteAi(p.ref),
         onDismiss: () => dismissChatNoteProposal(p.ref),
       });
