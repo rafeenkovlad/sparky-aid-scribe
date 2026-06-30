@@ -108,13 +108,15 @@ export function nextMissingPrompt(id: StepId, d: ReportDraft): string | null {
     }
     case "inspection": {
       const ins = d.inspectionStep;
-      if (!ins?.touched) return "Выберите раздел и элемент, поставьте вердикт или опишите состояние.";
-      // Подсказываем первый раздел без findings.
-      const empty = INSPECTION_SECTIONS.find(
-        (s) => sectionProgress(ins, s).filled === 0,
+      if (!ins?.touched)
+        return "Загрузите фото или видео по каждому обязательному разделу: кузов, салон, подкапотное, остекление.";
+      const missing = REQUIRED_INSPECTION_SNAKES.filter(
+        (snake) => !(ins.photos ?? []).some((p) => p.section === snake),
       );
-      if (empty)
-        return `Осталось пройти раздел «${empty.label}» (${empty.elements.length} элементов).`;
+      if (missing.length) {
+        const labels = missing.map((s) => `«${REQUIRED_INSPECTION_LABELS[s]}»`).join(", ");
+        return `Добавьте медиафайлы в ${missing.length > 1 ? "разделы" : "раздел"} ${labels}.`;
+      }
       return null;
     }
 
