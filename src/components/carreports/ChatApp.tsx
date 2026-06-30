@@ -79,7 +79,7 @@ import {
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
-import { Sparkles, FileText, Share2, ChevronRight } from "lucide-react";
+import { Sparkles, FileText, Share2, ChevronRight, RotateCcw } from "lucide-react";
 
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -2055,13 +2055,17 @@ export function ChatApp({ threadId }: Props) {
       let completeNote = "";
       if (finalizeId != null) {
         const { completeReport } = await import("@/lib/carreports/storageApi");
-        const c = await completeReport(finalizeId);
-        if (!c.remote) {
+        // авто-ретрай 3 раза с бэк-оффом — 502/таймаут от апстрима часто транзиентны
+        const delays = [0, 1500, 4000];
+        for (let attempt = 0; attempt < delays.length; attempt++) {
+          if (delays[attempt] > 0) await new Promise((res) => setTimeout(res, delays[attempt]));
+          const c = await completeReport(finalizeId);
+          if (c.remote) { completeNote = ""; break; }
           completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
         }
       }
 
-      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться».
+      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться» / «Повторить».
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
@@ -2074,13 +2078,15 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId: r.reportId,
-            shareUrl: r.reportId
+            shareUrl: !completeNote && r.reportId
               ? `https://app.carreports.ru/r/${r.reportId}`
               : undefined,
+            retryFinalizeId: completeNote ? finalizeId : undefined,
           },
           createdAt: Date.now(),
         });
       });
+
 
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
@@ -2102,6 +2108,60 @@ export function ChatApp({ threadId }: Props) {
       setBusy(false);
     }
   }, [thread, busy]);
+
+  // Повторная финализация без перевыгрузки файлов — кнопка «Повторить» в карточке.
+  const doRetryFinalize = useCallback(async (finalizeId: string | number) => {
+    if (!thread || busy) return;
+    setBusy(true);
+    const progressId = `retry-finalize-${Date.now()}`;
+    try {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: progressId,
+          role: "assistant",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "finalizing", percent: 100, uploaded: 1, total: 1, note: "Повторная финализация…" },
+          createdAt: Date.now(),
+        });
+      });
+      const { completeReport } = await import("@/lib/carreports/storageApi");
+      const delays = [0, 1500, 4000];
+      let completeNote = "";
+      let reportId: string | number | undefined;
+      for (let attempt = 0; attempt < delays.length; attempt++) {
+        if (delays[attempt] > 0) await new Promise((res) => setTimeout(res, delays[attempt]));
+        const c = await completeReport(finalizeId);
+        if (c.remote) {
+          completeNote = "";
+          reportId = finalizeId;
+          break;
+        }
+        completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
+      }
+      updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: completeNote ? `⚠️ Финализация снова не удалась: ${completeNote}` : "",
+          step: "result",
+          kind: "finishComplete",
+          finishComplete: {
+            reportId,
+            shareUrl: !completeNote && reportId ? `https://app.carreports.ru/r/${reportId}` : undefined,
+            retryFinalizeId: completeNote ? finalizeId : undefined,
+          },
+          createdAt: Date.now(),
+        });
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+
 
 
 
@@ -3175,6 +3235,8 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             onFinishContinue={() => void doFinish()}
+            onRetryFinalize={(id) => void doRetryFinalize(id)}
+
             onReformulateResultNote={(kind) => {
               if (!thread) return;
               const r = thread.draft.resultStep ?? {};
@@ -3915,6 +3977,9 @@ interface BubbleProps {
   onJumpToMissing?: (step: StepId, sectionSnake?: string) => void;
   /** Подтверждение «Продолжить» в карточке завершения отчёта. */
   onFinishContinue?: () => void;
+  /** Повторить финализацию отчёта после неудачной попытки. */
+  onRetryFinalize?: (finalizeId: string | number) => void;
+
   /** Запустить ИИ-переформулировку для шага «Итог» (резюме/вердикт). */
   onReformulateResultNote?: (kind: "resultSummary" | "resultVerdict") => void;
 }
@@ -3970,7 +4035,9 @@ function MessageBubble({
   hasStepPassport,
   onJumpToMissing,
   onFinishContinue,
+  onRetryFinalize,
   onReformulateResultNote,
+
 }: BubbleProps) {
 
 
@@ -4121,8 +4188,10 @@ function MessageBubble({
                 await navigator.clipboard?.writeText(shareUrl);
               } catch { /* ignore */ }
             };
+            const retryId = fc.retryFinalizeId;
+            const isError = !!retryId;
             return (
-              <div className="rounded-2xl rounded-tl-md bg-emerald-500/10 border border-emerald-400/30 text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px]">
+              <div className={`rounded-2xl rounded-tl-md border text-sm px-3 py-2.5 text-white space-y-2.5 max-w-[320px] ${isError ? "bg-rose-500/10 border-rose-400/30" : "bg-emerald-500/10 border-emerald-400/30"}`}>
                 <div className="whitespace-pre-wrap text-white/90">
                   {msg.text || "✅ Отчёт успешно выгружен."}
                 </div>
@@ -4135,9 +4204,19 @@ function MessageBubble({
                     <Share2 className="h-3.5 w-3.5" /> Поделиться
                   </button>
                 )}
+                {retryId != null && (
+                  <button
+                    type="button"
+                    onClick={() => onRetryFinalize?.(retryId)}
+                    className="w-full rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-[13px] font-medium px-3 py-2 transition flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Повторить
+                  </button>
+                )}
               </div>
             );
           })()
+
 
         ) : msg.kind === "uploadProgress" && msg.uploadProgress ? (
           (() => {
