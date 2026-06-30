@@ -2663,6 +2663,24 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               }
+            } else if (stepForTask === "car" || stepForTask === "characteristics") {
+              // Вместо текстового «Зафиксировал по автомобилю…» —
+              // показываем паспорт авто (как в тест-драйве/итоге).
+              if (!isLastMessagePassport(t)) {
+                pushMsg(t, stepForTask, makeStepPassportMessage(stepForTask));
+              }
+              if (chips && chips.length) {
+                pushMsg(t, stepForTask, {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "",
+                  step: stepForTask,
+                  chips,
+                  optionsStep: stepForTask,
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
+              }
             } else {
               pushMsg(t, stepForTask, {
                 id: msgId(),
@@ -2676,6 +2694,7 @@ export function ChatApp({ threadId }: Props) {
                 createdAt: Date.now(),
               });
             }
+
           }
 
           const nextAsk = nextMissingPrompt(stepForTask, t.draft);
