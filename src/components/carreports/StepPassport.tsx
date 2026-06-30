@@ -214,11 +214,23 @@ function StepBody({
               <span className="text-white/40 tabular-nums">
                 {f.size ? `${Math.round(f.size / 1024)} КБ` : f.type}
               </span>
+              {onDeleteLegalMaterial && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteLegalMaterial(i)}
+                  aria-label="Удалить файл"
+                  title="Удалить файл"
+                  className="shrink-0 translate-y-0.5 h-5 w-5 rounded-full text-white/45 hover:text-white hover:bg-rose-500/70 flex items-center justify-center transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
       );
     }
+
     case "testDrive": {
       const td = draft.testDriveStep ?? {};
       if (td.notDone) return <div className="text-white/70 text-[13px]">Тест-драйв не проводился.</div>;
