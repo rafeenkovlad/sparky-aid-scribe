@@ -3243,7 +3243,7 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               });
-              textareaRef.current?.focus();
+              // Карандаш не должен раскрывать композер — не фокусируем textarea.
             }}
             aria-label="Нужно изменить"
             title="Нужно изменить"
