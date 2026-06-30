@@ -3235,6 +3235,8 @@ export function ChatApp({ threadId }: Props) {
               }
             }}
             onFinishContinue={() => void doFinish()}
+            onRetryFinalize={(id) => void doRetryFinalize(id)}
+
             onReformulateResultNote={(kind) => {
               if (!thread) return;
               const r = thread.draft.resultStep ?? {};
