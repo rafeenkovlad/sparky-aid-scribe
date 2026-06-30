@@ -3979,7 +3979,7 @@ function MessageBubble({
           <StepPassport
             step={msg.step}
             draft={draft}
-            onEdit={onFillMissing}
+            onEdit={onPassportEdit ?? onFillMissing}
             onConfirm={onAdvance}
             onDocsAllMatch={onDocsAllMatch}
             onTestDriveAllOk={onTestDriveAllOk}
