@@ -2586,18 +2586,39 @@ export function ChatApp({ threadId }: Props) {
         updateThread(threadIdLocal, (t) => {
           Object.assign(t.draft, patch);
           if (reply) {
-            pushMsg(t, stepForTask, {
-              id: msgId(),
-              role: "assistant",
-              text: reply,
-              step: stepForTask,
-              ...(attachments && attachments.length ? { attachments } : {}),
-              ...(chips && chips.length
-                ? { chips, optionsStep: stepForTask, selectedChipValues: [] }
-                : {}),
-              createdAt: Date.now(),
-            });
+            if (stepForTask === "testDrive") {
+              // Вместо текстового резюме показываем паспорт тест-драйва,
+              // как в шаге «Итог». Чипы прокидываем отдельным сообщением.
+              if (!isLastMessagePassport(t)) {
+                pushMsg(t, "testDrive", makeStepPassportMessage("testDrive"));
+              }
+              if (chips && chips.length) {
+                pushMsg(t, "testDrive", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "",
+                  step: "testDrive",
+                  chips,
+                  optionsStep: "testDrive",
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
+              }
+            } else {
+              pushMsg(t, stepForTask, {
+                id: msgId(),
+                role: "assistant",
+                text: reply,
+                step: stepForTask,
+                ...(attachments && attachments.length ? { attachments } : {}),
+                ...(chips && chips.length
+                  ? { chips, optionsStep: stepForTask, selectedChipValues: [] }
+                  : {}),
+                createdAt: Date.now(),
+              });
+            }
           }
+
           const nextAsk = nextMissingPrompt(stepForTask, t.draft);
           const remaining = remainingFieldLabels(stepForTask, t.draft);
           const remainingHint = remaining.length
