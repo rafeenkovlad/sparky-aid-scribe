@@ -2089,7 +2089,9 @@ export function ChatApp({ threadId }: Props) {
             reportId: r.reportId,
             shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
+            retryNumericId: completeNote ? numericId : undefined,
           },
+
           createdAt: Date.now(),
         });
       });
