@@ -3966,7 +3966,7 @@ function MessageBubble({
           <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
             <DocsChecklist
               draft={draft}
-              onEdit={onFillMissing}
+              onEdit={onPassportEdit ?? onFillMissing}
               onAllMatch={onDocsAllMatch}
             />
             {msg.text && (
