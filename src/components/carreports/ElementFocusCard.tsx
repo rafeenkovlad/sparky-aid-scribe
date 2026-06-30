@@ -540,7 +540,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            Сгенерировать AI замечание
+            Сгенерировать ИИ замечание
           </button>
         )}
 
@@ -1204,6 +1204,7 @@ function InspectionTagPickerRow({
   const suggestions = tags.filter(
     (t) => !seriousSelected.has(t.id) && !minorSelected.has(t.id),
   );
+  const hasSelectedRemarks = selectedTags.length > 0 || pending.length > 0;
 
   return (
     <div className="space-y-1.5">
@@ -1403,7 +1404,7 @@ function RemarksPassportRow({
             (item.filled ? "text-white/85" : "text-white/30")
           }
         >
-          {item.value ?? "—"}
+          {hasSelectedRemarks ? null : (item.value ?? "—")}
         </span>
         <Popover open={open} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
