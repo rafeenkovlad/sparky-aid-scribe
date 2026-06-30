@@ -339,6 +339,19 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
 
 }
 
+/** Префилл композера для правки шага «Итог»: резюме и вердикт двумя секциями. */
+export function buildResultEditTemplate(r: ReportDraft["resultStep"]): string {
+  const summary = (r?.summaryInspectionNote ?? "").trim();
+  const verdict = (r?.resultSpecialistNote ?? "").trim();
+  return [
+    "Итог (правка):",
+    "Резюме:",
+    summary,
+    "",
+    "Вердикт:",
+    verdict,
+  ].join("\n");
+
 /** Строка категории тест-драйва: чипы (только issue-теги) + дропдаун. */
 function TestDriveCategoryRow({
   label,
