@@ -1795,7 +1795,7 @@ export function ChatApp({ threadId }: Props) {
     // Сначала проверяем обязательные поля — нет смысла спрашивать
     // подтверждение, если выгрузка всё равно не пройдёт.
     const fresh0 = getThread(thread.id) ?? thread;
-    const missing = collectMissingForSummary(fresh0.draft);
+    const missing = collectMissingForSummary(fresh0.draft, { includeResult: true });
     if (missing.length > 0) {
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
@@ -1846,7 +1846,7 @@ export function ChatApp({ threadId }: Props) {
     // пользователю ни о чём не говорит. Показываем то же сообщение, что и
     // для AI-резюме, с кнопками перехода в нужный шаг/раздел.
     const fresh0 = getThread(thread.id) ?? thread;
-    const missing = collectMissingForSummary(fresh0.draft);
+    const missing = collectMissingForSummary(fresh0.draft, { includeResult: true });
     if (missing.length > 0) {
       updateThread(thread.id, (t) => {
         t.messages.result = t.messages.result.filter(
@@ -3383,6 +3383,12 @@ export function ChatApp({ threadId }: Props) {
             (thread.messages.result ?? []).some((m) => m.kind === "finishComplete");
           return (
             <button
+              onPointerDown={(e) => {
+                // Не даём фокусу уйти на textarea/композер при тапе кнопки
+                // (особенно на мобильных, где это раскрывает клавиатуру).
+                e.preventDefault();
+                textareaRef.current?.blur();
+              }}
               onClick={() => {
                 if (currentStep === "result") {
                   if (finishAlreadySubmitted) return;
