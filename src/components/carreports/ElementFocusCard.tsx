@@ -1563,7 +1563,12 @@ function PaintworkPassportRow({
   };
 
   const filled = from > 0 && to > 0;
-  return (
+  const renderRow = (
+    label: string,
+    value: string,
+    setValue: (v: string) => void,
+    onCommit: () => void,
+  ) => (
     <li
       className={
         "flex items-center gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
@@ -1577,38 +1582,28 @@ function PaintworkPassportRow({
       ) : (
         <span className="h-3 w-3 shrink-0 rounded-full border border-white/15" />
       )}
-      <span className="shrink-0 text-white/55">ЛКП, мкм</span>
+      <span className="shrink-0 text-white/55">{label}</span>
       <span className="flex-1 border-b border-dashed border-white/5" />
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={2000}
-          value={localFrom}
-          onChange={(e) => setLocalFrom(e.target.value)}
-          onBlur={() => commit(localFrom, localTo)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="w-12 text-right tabular-nums bg-white/[0.04] border border-white/10 rounded px-1 py-[1px] text-[12px] text-white/90 focus:outline-none focus:border-orange-400/50"
-        />
-        <span className="text-white/40 text-[12px]">–</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={2000}
-          value={localTo}
-          onChange={(e) => setLocalTo(e.target.value)}
-          onBlur={() => commit(localFrom, localTo)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-          className="w-12 text-right tabular-nums bg-white/[0.04] border border-white/10 rounded px-1 py-[1px] text-[12px] text-white/90 focus:outline-none focus:border-orange-400/50"
-        />
-      </div>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={2000}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="w-14 text-right tabular-nums bg-white/[0.04] border border-white/10 rounded px-1 py-[1px] text-[12px] text-white/90 focus:outline-none focus:border-orange-400/50"
+      />
     </li>
+  );
+  return (
+    <>
+      {renderRow("ЛКП от, мкм", localFrom, setLocalFrom, () => commit(localFrom, localTo))}
+      {renderRow("ЛКП до, мкм", localTo, setLocalTo, () => commit(localFrom, localTo))}
+    </>
   );
 }
 
