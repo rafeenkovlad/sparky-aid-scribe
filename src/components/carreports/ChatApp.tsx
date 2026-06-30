@@ -3774,6 +3774,8 @@ interface BubbleProps {
   onInspectionDateChange: (iso: string) => void;
   draft?: import("@/lib/carreports/types").ReportDraft;
   onFillMissing?: (template: string) => void;
+  /** Версия onFillMissing, которая дополнительно раскрывает композер. */
+  onPassportEdit?: (template: string) => void;
   onDocsAllMatch?: () => void;
   onTestDriveAllOk?: () => void;
   onTestDriveAddTag?: (
