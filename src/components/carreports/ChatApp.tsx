@@ -1748,6 +1748,107 @@ export function ChatApp({ threadId }: Props) {
   }, [thread, busy]);
 
 
+  // «Завершить» на шаге Итог: пошагово оформляем выгрузку отчёта.
+  //  1) подготовка файлов  (Storage.PrepareSpecialistReport — submitReport)
+  //  2) собственно выгрузка — показываем прогресс-бар по числу файлов
+  const doFinish = useCallback(async () => {
+    if (!thread || busy) return;
+    setBusy(true);
+    const progressId = `finish-progress-${Date.now()}`;
+    try {
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: "🔧 Шаг 1 — подготавливаю файлы к выгрузке…",
+          createdAt: Date.now(),
+        });
+      });
+
+      const fresh = getThread(thread.id) ?? thread;
+      const r = await submitReport(fresh.draft);
+      if (!r.remote) {
+        updateThread(thread.id, (t) => {
+          pushMsg(t, "result", {
+            id: msgId(),
+            role: "assistant",
+            text: `⚠️ ${r.note ?? "Не удалось подготовить отчёт."}`,
+            createdAt: Date.now(),
+          });
+        });
+        return;
+      }
+
+      // Шаг 2 — выгрузка. Количество файлов берём из ответа сервера
+      // (uploadFiles из Storage.PrepareSpecialistReport).
+      const total = Math.max(1, (r as { uploadFilesCount?: number }).uploadFilesCount ?? 1);
+      updateThread(thread.id, (t) => {
+        pushMsg(t, "result", {
+          id: msgId(),
+          role: "assistant",
+          text: "📤 Шаг 2 — выгружаю файлы…",
+          createdAt: Date.now(),
+        });
+        pushMsg(t, "result", {
+          id: progressId,
+          role: "assistant",
+          text: "",
+          step: "result",
+          kind: "uploadProgress",
+          uploadProgress: { phase: "uploading", percent: 0, uploaded: 0, total },
+          createdAt: Date.now(),
+        });
+      });
+
+      // Анимируем прогресс — файлы уже залиты во временное хранилище ранее,
+      // тут отображаем шаги фиксации отчёта на сервере.
+      for (let i = 1; i <= total; i++) {
+        await new Promise((res) => setTimeout(res, 220));
+        const percent = Math.round((i / total) * 100);
+        updateThread(thread.id, (t) => {
+          const m = t.messages.result.find((x) => x.id === progressId);
+          if (m?.uploadProgress) {
+            m.uploadProgress.percent = percent;
+            m.uploadProgress.uploaded = i;
+          }
+        });
+      }
+
+      updateThread(thread.id, (t) => {
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "done";
+          m.uploadProgress.percent = 100;
+          m.uploadProgress.uploaded = total;
+          m.uploadProgress.reportId = r.reportId;
+          m.uploadProgress.note = `Отчёт ${r.reportId ?? ""} выгружен.`;
+        }
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
+      updateThread(thread.id, (t) => {
+        const m = t.messages.result.find((x) => x.id === progressId);
+        if (m?.uploadProgress) {
+          m.uploadProgress.phase = "error";
+          m.uploadProgress.note = msg;
+        } else {
+          pushMsg(t, "result", {
+            id: `m_${Date.now()}`,
+            role: "assistant",
+            text: `⚠️ ${msg}`,
+            createdAt: Date.now(),
+          });
+        }
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [thread, busy]);
+
+
+
+
+
 
 
   const advanceStep = useCallback(() => {
