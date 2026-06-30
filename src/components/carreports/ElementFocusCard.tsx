@@ -102,6 +102,7 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
     chatNoteProposal,
     onGenerateNote,
     onEdit,
+    onSetPaintwork,
   } = props;
 
 
