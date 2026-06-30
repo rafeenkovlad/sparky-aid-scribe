@@ -3481,7 +3481,9 @@ function MessageBubble({
   stepNoteProposals,
   hasStepPassport,
   onJumpToMissing,
+  onReformulateResultNote,
 }: BubbleProps) {
+
 
 
   if (msg.role === "user") {
