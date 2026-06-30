@@ -841,10 +841,15 @@ export function ChatApp({ threadId }: Props) {
 
 
   /** Мутация finding текущего фото в фокус-режиме. */
-  const mutatePhotoFinding = useCallback(
-    (mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void) => {
-      if (photoFocusIdx === null || !thread) return;
-      const idx = photoFocusIdx;
+  // Мутирует finding фото по конкретному индексу. Без явного idx использует
+  // глобальный photoFocusIdx (полноэкранный фокус). Inline-карточки в ленте
+  // чата передают собственный idx, иначе клики по тегам в них уходят в null.
+  const mutateFindingAt = useCallback(
+    (
+      idx: number,
+      mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void,
+    ) => {
+      if (!thread) return;
       updateThread(thread.id, (t) => {
         const p = t.draft.inspectionStep.photos[idx];
         if (!p) return;
@@ -854,8 +859,17 @@ export function ChatApp({ threadId }: Props) {
         t.draft.inspectionStep.touched = true;
       });
     },
-    [photoFocusIdx, thread, defaultElementIdFor],
+    [thread, defaultElementIdFor],
   );
+
+  const mutatePhotoFinding = useCallback(
+    (mutate: (f: import("@/lib/carreports/types").InspectionElementFinding) => void) => {
+      if (photoFocusIdx === null) return;
+      mutateFindingAt(photoFocusIdx, mutate);
+    },
+    [photoFocusIdx, mutateFindingAt],
+  );
+
 
   const photoChangeElement = useCallback(
     (elementId: string) => {
