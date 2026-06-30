@@ -39,6 +39,7 @@ import { InspectionDateField } from "./InspectionDateField";
 import { CarChecklist } from "./CarChecklist";
 import { DocsChecklist, countDocsPassport } from "./DocsChecklist";
 import { StepPassport } from "./StepPassport";
+import { InspectionSectionPassport } from "./InspectionSectionPassport";
 import { NoteProposalCard } from "./NoteProposalCard";
 
 
