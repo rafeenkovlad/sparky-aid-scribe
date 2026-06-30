@@ -326,6 +326,8 @@ export function ChatApp({ threadId }: Props) {
                     url: up.url,
                     size: up.size,
                     mimeType: up.mimeType,
+                    localFileId: up.localFileId,
+                    pending: up.pending,
                     addedAt: Date.now(),
                   },
                 ],
@@ -336,13 +338,15 @@ export function ChatApp({ threadId }: Props) {
                 up.size >= 1024 * 1024
                   ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
                   : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
-              const text = `${icon} ${f.name} · ${kb} · загружено`;
+              const status = up.pending ? "готов к выгрузке" : "загружено";
+              const text = `${icon} ${f.name} · ${kb} · ${status}`;
               if (i >= 0) {
                 t.messages.legalMaterials[i] = {
                   ...t.messages.legalMaterials[i],
                   text,
                   queueStatus: undefined,
                 };
+
               }
             });
           } catch (err) {
