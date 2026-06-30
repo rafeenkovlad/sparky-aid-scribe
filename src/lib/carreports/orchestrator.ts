@@ -1862,6 +1862,7 @@ export async function analyzeInspectionPhoto(
   const tagCatalogue = await loadSectionTags(sectionSnake);
 
   const id = aiChatIdFor(thread, `vision:inspection:${sectionSnake}:${photoUrl.slice(-12)}`);
+  const supportsPaintwork = PAINTWORK_SECTIONS.has(sectionSnake);
   const cliche = CLICHE_INSPECTION_PHOTO(
     section.label,
     section.elements.map((el) => ({
@@ -1871,6 +1872,7 @@ export async function analyzeInspectionPhoto(
     })),
     tagCatalogue.map((t) => ({ name: t.name, type: t.type })),
     existingNote,
+    supportsPaintwork,
   );
   const text = hint?.trim() || "Опиши, что видно на фото.";
 
