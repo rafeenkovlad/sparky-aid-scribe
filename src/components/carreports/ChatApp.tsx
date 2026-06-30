@@ -1390,6 +1390,31 @@ export function ChatApp({ threadId }: Props) {
     [patchNoteProposalMsg],
   );
 
+  const generateInspectionNote = useCallback(
+    (args: {
+      section: SectionSnake;
+      elementId: string;
+      scopeLabel: string;
+      originalText: string;
+      tagNames: string[];
+    }) => {
+      if (!thread) return;
+      const tagNames = args.tagNames
+        .map((name) => name.trim())
+        .filter((name, idx, arr) => name && arr.indexOf(name) === idx);
+      if (!tagNames.length) return;
+      pushChatNoteProposal(thread.id, {
+        ref: { kind: "inspection", section: args.section, elementId: args.elementId },
+        scopeLabel: args.scopeLabel,
+        originalText:
+          args.originalText.trim() ||
+          `Замечания: ${tagNames.join(", ")}.`,
+        tagNames,
+      });
+    },
+    [thread, pushChatNoteProposal],
+  );
+
   const acceptChatNoteOriginal = useCallback(
     (ref: NoteRef, originalText?: string) => {
       if (!thread) return;
