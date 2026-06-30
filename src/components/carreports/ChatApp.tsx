@@ -3859,6 +3859,7 @@ function MessageBubble({
   onInspectionDateChange,
   draft,
   onFillMissing,
+  onPassportEdit,
   onDocsAllMatch,
   onTestDriveAllOk,
   onTestDriveAddTag,
