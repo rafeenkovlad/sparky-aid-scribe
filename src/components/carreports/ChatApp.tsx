@@ -3353,6 +3353,7 @@ function MessageBubble({
   onElementFocusToggleTag,
   onElementFocusAddPendingTag,
   onElementFocusDeletePhoto,
+  onMutateFindingAt,
   elementFocusNoteProposal,
   onElementFocusPickNoteOriginal,
   onElementFocusPickNoteAi,
