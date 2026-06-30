@@ -649,7 +649,9 @@ export async function completeReport(reportId: string | number): Promise<{
       ? "Сервис временно недоступен, попробуйте ещё раз через минуту."
       : msg;
     return { remote: false, note: friendly };
+  }
 }
+
 
 /**
  * Получить публичную ссылку для шаринга отчёта.
