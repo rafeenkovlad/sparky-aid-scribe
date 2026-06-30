@@ -2051,7 +2051,8 @@ export function ChatApp({ threadId }: Props) {
         }
       });
 
-      const finalizeId = r.reportNumericId ?? r.reportId;
+      const finalizeId = r.reportId; // reportNumber для CompleteSpecialistReport
+      const numericId = r.reportNumericId; // числовой id для CreateShareUrl
       let completeNote = "";
       if (finalizeId != null) {
         const { completeReport } = await import("@/lib/carreports/storageApi");
@@ -2063,6 +2064,14 @@ export function ChatApp({ threadId }: Props) {
           if (c.remote) { completeNote = ""; break; }
           completeNote = c.note ?? "Не удалось завершить отчёт на сервере.";
         }
+      }
+
+      // Получаем публичную ссылку для шаринга.
+      let shareUrl: string | undefined;
+      if (!completeNote && numericId != null) {
+        const { createShareUrl } = await import("@/lib/carreports/storageApi");
+        const s = await createShareUrl(numericId);
+        shareUrl = s.url;
       }
 
       // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться» / «Повторить».
@@ -2078,14 +2087,13 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId: r.reportId,
-            shareUrl: !completeNote && r.reportId
-              ? `https://app.carreports.ru/r/${r.reportId}`
-              : undefined,
+            shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
           },
           createdAt: Date.now(),
         });
       });
+
 
 
     } catch (e) {
