@@ -351,6 +351,9 @@ export function buildResultEditTemplate(r: ReportDraft["resultStep"]): string {
     "Вердикт:",
     verdict,
   ].join("\n");
+}
+
+
 
 /** Строка категории тест-драйва: чипы (только issue-теги) + дропдаун. */
 function TestDriveCategoryRow({
