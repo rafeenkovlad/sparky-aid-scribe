@@ -64,7 +64,9 @@ export function StepPassport({
   onTestDriveAddTag,
   noteProposals,
   onReformulateResultNote,
+  onDeleteLegalMaterial,
 }: Props) {
+
   const hideConfirm =
     step === "legalMaterials" ||
     step === "testDrive" ||
