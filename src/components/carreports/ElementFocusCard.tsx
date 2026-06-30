@@ -327,6 +327,8 @@ export function ElementFocusCard(props: ElementFocusCardProps) {
               type="button"
               onClick={() =>
                 onEdit(buildElementEditTemplate({
+                  sectionSnake,
+                  elementId,
                   sectionLabel: section?.label ?? sectionSnake,
                   elementLabel,
                   verdictLabel: derivedVerdict !== null ? verdictLabel : null,
