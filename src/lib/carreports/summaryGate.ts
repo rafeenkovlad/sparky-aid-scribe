@@ -51,6 +51,31 @@ export function collectMissingForSummary(d: ReportDraft): MissingSummaryItem[] {
     }
   }
 
+  // Тест-драйв: если какой-то узел отмечен как неисправный (false), но к нему
+  // не выбрано ни одного тега — бэкенд вернёт ошибку «необходимо указать теги».
+  // Подсказываем это сразу, до отправки.
+  const td = (d.testDriveStep ?? {}) as Record<string, unknown>;
+  const tdSkipped = td.notDone === true || td.testDriveIsIncluded === false;
+  if (!tdSkipped) {
+    const subsystems: Array<{ okKey: string; tagsKey: string; label: string }> = [
+      { okKey: "testDriveEngineIsWorkingProperly", tagsKey: "testDriveEngineTags", label: "двигатель" },
+      { okKey: "testDriveTransmissionIsWorkingProperly", tagsKey: "testDriveTransmissionTags", label: "трансмиссия" },
+      { okKey: "testDriveSteeringWheelIsWorkingProperly", tagsKey: "testDriveSteeringWheelTags", label: "руль" },
+      { okKey: "testDriveSuspensionInDriveIsWorkingProperly", tagsKey: "testDriveSuspensionInDriveTags", label: "подвеска" },
+      { okKey: "testDriveBrakesInDriveIsWorkingProperly", tagsKey: "testDriveBrakesInDriveTags", label: "тормоза" },
+    ];
+    for (const s of subsystems) {
+      const tags = td[s.tagsKey];
+      const tagsLen = Array.isArray(tags) ? tags.length : 0;
+      if (td[s.okKey] === false && tagsLen === 0) {
+        out.push({
+          label: `Тест-драйв: укажите теги для «${s.label}» (отмечено как неисправно)`,
+          step: "testDrive",
+        });
+      }
+    }
+  }
+
   // Осмотр: записи не требуются. Если раздел не заполнен записями —
   // по умолчанию считаем его «без повреждений», подтверждения не нужны.
 
