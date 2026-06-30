@@ -660,8 +660,8 @@ export function ChatApp({ threadId }: Props) {
             // «Без замечаний» — обнуляем все теги и проставляем флаг.
             f.seriousDamageTagIds = [];
             f.noSeriousDamageTagIds = [];
-            f.pendingTags = [];
             f.note = "";
+
             f.noDamage = true;
           },
         );
