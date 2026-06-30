@@ -1526,3 +1526,90 @@ function NotePassportRow({
   );
 }
 
+/** Паспортная строка «ЛКП» с двумя числовыми инпутами (мкм, от/до). */
+function PaintworkPassportRow({
+  from,
+  to,
+  updating,
+  flashing,
+  onChange,
+}: {
+  from: number;
+  to: number;
+  updating?: boolean;
+  flashing?: boolean;
+  onChange: (from: number, to: number) => void;
+}) {
+  const [localFrom, setLocalFrom] = useState<string>(String(from));
+  const [localTo, setLocalTo] = useState<string>(String(to));
+  // Синхронизируем локальное состояние с внешним при изменении (например, после AI).
+  const fromRef = useRef(from);
+  const toRef = useRef(to);
+  if (fromRef.current !== from) {
+    fromRef.current = from;
+    setLocalFrom(String(from));
+  }
+  if (toRef.current !== to) {
+    toRef.current = to;
+    setLocalTo(String(to));
+  }
+
+  const commit = (nextFrom: string, nextTo: string) => {
+    const f = Math.max(0, Math.round(Number(nextFrom)));
+    const tRaw = Math.max(0, Math.round(Number(nextTo)));
+    if (!Number.isFinite(f) || !Number.isFinite(tRaw)) return;
+    const t = Math.max(f, tRaw);
+    if (f !== from || t !== to) onChange(f, t);
+  };
+
+  const filled = from > 0 && to > 0;
+  return (
+    <li
+      className={
+        "flex items-center gap-2 min-w-0 -mx-1 px-1 rounded-md transition-colors duration-700 " +
+        (flashing ? "bg-orange-400/15" : "")
+      }
+    >
+      {updating ? (
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-orange-300/80" />
+      ) : filled ? (
+        <Check className="h-3 w-3 shrink-0 text-emerald-400/80" />
+      ) : (
+        <span className="h-3 w-3 shrink-0 rounded-full border border-white/15" />
+      )}
+      <span className="shrink-0 text-white/55">ЛКП, мкм</span>
+      <span className="flex-1 border-b border-dashed border-white/5" />
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={2000}
+          value={localFrom}
+          onChange={(e) => setLocalFrom(e.target.value)}
+          onBlur={() => commit(localFrom, localTo)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="w-12 text-right tabular-nums bg-white/[0.04] border border-white/10 rounded px-1 py-[1px] text-[12px] text-white/90 focus:outline-none focus:border-orange-400/50"
+        />
+        <span className="text-white/40 text-[12px]">–</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={2000}
+          value={localTo}
+          onChange={(e) => setLocalTo(e.target.value)}
+          onBlur={() => commit(localFrom, localTo)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          className="w-12 text-right tabular-nums bg-white/[0.04] border border-white/10 rounded px-1 py-[1px] text-[12px] text-white/90 focus:outline-none focus:border-orange-400/50"
+        />
+      </div>
+    </li>
+  );
+}
+
+
