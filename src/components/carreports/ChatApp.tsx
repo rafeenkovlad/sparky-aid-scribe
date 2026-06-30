@@ -326,6 +326,8 @@ export function ChatApp({ threadId }: Props) {
                     url: up.url,
                     size: up.size,
                     mimeType: up.mimeType,
+                    localFileId: up.localFileId,
+                    pending: up.pending,
                     addedAt: Date.now(),
                   },
                 ],
@@ -336,13 +338,15 @@ export function ChatApp({ threadId }: Props) {
                 up.size >= 1024 * 1024
                   ? `${(up.size / 1024 / 1024).toFixed(1)} МБ`
                   : `${Math.max(1, Math.round(up.size / 1024))} КБ`;
-              const text = `${icon} ${f.name} · ${kb} · загружено`;
+              const status = up.pending ? "готов к выгрузке" : "загружено";
+              const text = `${icon} ${f.name} · ${kb} · ${status}`;
               if (i >= 0) {
                 t.messages.legalMaterials[i] = {
                   ...t.messages.legalMaterials[i],
                   text,
                   queueStatus: undefined,
                 };
+
               }
             });
           } catch (err) {
@@ -1959,21 +1963,52 @@ export function ChatApp({ threadId }: Props) {
       });
 
       const reportNumber = String(r.reportId ?? "");
-      const tempByName = new Map<string, { key?: string; type?: string }>();
+      const sourceByName = new Map<
+        string,
+        { key?: string; type?: string; localFileId?: string; mimeType?: string }
+      >();
       for (const lm of (getThread(thread.id) ?? thread).draft.legalReviewStep?.otherMaterials ?? []) {
-        if (lm.filename) tempByName.set(lm.filename, { key: lm.key, type: lm.type });
+        if (lm.filename) {
+          sourceByName.set(lm.filename, {
+            key: lm.key,
+            type: lm.type,
+            localFileId: lm.localFileId,
+            mimeType: lm.mimeType,
+          });
+        }
       }
 
       const { uploadReportFileMultipart } = await import("@/lib/carreports/storageApi");
+      const { getPhoto } = await import("@/lib/carreports/photoCache");
       const uploadErrors: string[] = [];
       for (let i = 0; i < uploadFiles.length; i++) {
         const f = uploadFiles[i];
-        const src = tempByName.get(f.filename);
+        const src = sourceByName.get(f.filename);
+        // Если файл держали локально — берём blob из IndexedDB и грузим
+        // multipart'ом напрямую в финальный ключ, минуя temp-бакет.
+        const localBlob = src?.localFileId ? await getPhoto(src.localFileId) : null;
+        const contentType =
+          src?.mimeType ||
+          (f.type === "document"
+            ? "application/pdf"
+            : f.type === "video"
+              ? "video/mp4"
+              : undefined);
         const up = await uploadReportFileMultipart({
           reportNumber,
           filename: f.filename,
           sourceKey: src?.key,
-          contentType: f.type === "document" ? "application/pdf" : undefined,
+          blob: localBlob ?? undefined,
+          contentType,
+          onProgress: (frac) => {
+            const overall = ((i + frac) / total) * 100;
+            updateThread(thread.id, (t) => {
+              const m = t.messages.result.find((x) => x.id === progressId);
+              if (m?.uploadProgress) {
+                m.uploadProgress.percent = Math.round(overall);
+              }
+            });
+          },
         });
         if (!up.ok) uploadErrors.push(`${f.filename}: ${up.note}`);
         const done = i + 1;
@@ -1986,6 +2021,7 @@ export function ChatApp({ threadId }: Props) {
           }
         });
       }
+
 
       if (uploadErrors.length > 0) {
         updateThread(thread.id, (t) => {

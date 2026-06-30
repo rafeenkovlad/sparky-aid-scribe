@@ -653,28 +653,54 @@ export async function completeReport(reportId: string | number): Promise<{
 }
 
 /**
- * Загружает один файл из temp/ в финальный ключ отчёта через multipart upload:
- *   1) ObjectStorage.InitiateMultipartUpload → uploadId
- *   2) скачиваем исходный файл из temp/ (ObjectStorage.GetTemporaryViewUrlBucketTemp)
- *   3) ObjectStorage.GetPartUploadUrl(partNumber=1) → presigned PUT
- *   4) PUT bytes → читаем ETag из ответа S3
- *   5) ObjectStorage.CompleteMultipartUpload({ parts: [{PartNumber, ETag}] })
+ * Загружает один файл в финальный ключ отчёта через S3 multipart upload.
  *
- * Для PDF/документов <5 ГБ достаточно одной части (multipart-ограничение S3
- * «≥5 MB на часть, кроме последней» не нарушается, т.к. часть единственная).
+ * Источник байтов выбирается так:
+ *   • `opts.blob` — приоритет (видео/документы, которые мы держали локально и
+ *     никогда не загружали в temp-бакет);
+ *   • иначе скачиваем из temp/ через `ObjectStorage.GetTemporaryViewUrlBucketTemp`
+ *     (картинки, которые уже там лежат).
+ *
+ * Поток:
+ *   1) ObjectStorage.InitiateMultipartUpload → uploadId
+ *   2) делим blob на части по 5 МБ (последняя может быть меньше)
+ *   3) для каждой части: ObjectStorage.GetPartUploadUrl → PUT в S3 → ETag
+ *   4) ObjectStorage.CompleteMultipartUpload({ parts: [{PartNumber, ETag}…] })
+ *   5) при ошибке — ObjectStorage.AbortMultipartUpload
  */
 export async function uploadReportFileMultipart(opts: {
   reportNumber: string;
   filename: string;
   /** Ключ исходного файла во временном бакете (например `temp/foo.pdf`). */
   sourceKey?: string;
+  /** Локальные байты (видео/документы, не загруженные заранее). */
+  blob?: Blob;
   contentType?: string;
+  /** 0..1, прогресс по байтам конкретного файла. */
+  onProgress?: (fraction: number) => void;
 }): Promise<{ ok: true } | { ok: false; note: string }> {
   const { reportNumber, filename } = opts;
-  const basename = (opts.sourceKey ?? filename).split("/").pop() ?? filename;
+  const PART_SIZE = 5 * 1024 * 1024; // 5 MB — минимум S3 multipart (кроме последней)
   let uploadId: string | undefined;
   try {
-    // 1) инициируем multipart на сервере отчётов
+    // 1) забираем blob
+    let blob: Blob | null = opts.blob ?? null;
+    if (!blob) {
+      const basename = (opts.sourceKey ?? filename).split("/").pop() ?? filename;
+      const view = await rpc<{ url?: string }>(
+        "ObjectStorage.GetTemporaryViewUrlBucketTemp",
+        { filename: basename, expiresInSeconds: 3600 },
+      );
+      if (!view.url) {
+        return { ok: false, note: "Не получен URL временного файла." };
+      }
+      blob = await (await fetch(view.url)).blob();
+    }
+    if (!blob || blob.size === 0) {
+      return { ok: false, note: "Пустой файл." };
+    }
+
+    // 2) инициируем multipart
     const init = await rpc<{ uploadId: string; key: string }>(
       "ObjectStorage.InitiateMultipartUpload",
       { reportNumber, filename },
@@ -684,48 +710,45 @@ export async function uploadReportFileMultipart(opts: {
       return { ok: false, note: "Не получен uploadId от ObjectStorage." };
     }
 
-    // 2) забираем байты исходника из temp/
-    const view = await rpc<{ url?: string }>(
-      "ObjectStorage.GetTemporaryViewUrlBucketTemp",
-      { filename: basename, expiresInSeconds: 3600 },
-    );
-    if (!view.url) {
-      return { ok: false, note: "Не получен URL временного файла." };
-    }
-    const blob = await (await fetch(view.url)).blob();
+    // 3) считаем количество частей
+    const totalParts = Math.max(1, Math.ceil(blob.size / PART_SIZE));
+    const parts: { PartNumber: number; ETag: string }[] = [];
+    for (let i = 0; i < totalParts; i++) {
+      const partNumber = i + 1;
+      const start = i * PART_SIZE;
+      const end = Math.min(blob.size, start + PART_SIZE);
+      const chunk = blob.slice(start, end);
 
-    // 3) пресайн PUT на одну часть
-    const part = await rpc<{ url: string; partNumber: number }>(
-      "ObjectStorage.GetPartUploadUrl",
-      { reportNumber, filename, uploadId, partNumber: 1 },
-    );
+      const part = await rpc<{ url: string; partNumber: number }>(
+        "ObjectStorage.GetPartUploadUrl",
+        { reportNumber, filename, uploadId, partNumber },
+      );
 
-    // 4) загружаем в S3
-    const putRes = await fetch(part.url, {
-      method: "PUT",
-      headers: opts.contentType
-        ? { "Content-Type": opts.contentType }
-        : undefined,
-      body: blob,
-    });
-    if (!putRes.ok) {
-      return { ok: false, note: `S3 PUT ${putRes.status}` };
-    }
-    const etag = putRes.headers.get("ETag") ?? putRes.headers.get("etag");
-    if (!etag) {
-      return { ok: false, note: "S3 не вернул ETag (проверьте CORS expose ETag)." };
+      const putRes = await fetch(part.url, {
+        method: "PUT",
+        headers: opts.contentType ? { "Content-Type": opts.contentType } : undefined,
+        body: chunk,
+      });
+      if (!putRes.ok) {
+        return { ok: false, note: `S3 PUT part ${partNumber}: ${putRes.status}` };
+      }
+      const etag = putRes.headers.get("ETag") ?? putRes.headers.get("etag");
+      if (!etag) {
+        return { ok: false, note: "S3 не вернул ETag (проверьте CORS expose ETag)." };
+      }
+      parts.push({ PartNumber: partNumber, ETag: etag.replace(/"/g, "") });
+      opts.onProgress?.(partNumber / totalParts);
     }
 
-    // 5) завершаем multipart
+    // 4) завершаем multipart
     await rpc("ObjectStorage.CompleteMultipartUpload", {
       reportNumber,
       filename,
       uploadId,
-      parts: [{ PartNumber: 1, ETag: etag.replace(/"/g, "") }],
+      parts,
     });
     return { ok: true };
   } catch (e) {
-    // best-effort abort, чтобы не оставить «висящие» части в S3
     if (uploadId) {
       try {
         await rpc("ObjectStorage.AbortMultipartUpload", {
@@ -741,5 +764,6 @@ export async function uploadReportFileMultipart(opts: {
     return { ok: false, note: msg };
   }
 }
+
 
 
