@@ -553,7 +553,40 @@ async function handleInspectionEdit(
 }
 
 /** Run extraction for a step and return the patch + a short assistant reply. */
+/**
+ * Парсит шаблон правки шага «Итог»: две секции «Резюме:» и «Вердикт:».
+ * Заменяет оба поля целиком — это явная правка пользователем.
+ */
+async function handleResultEdit(
+  thread: Thread,
+  text: string,
+): Promise<{
+  patch: Partial<ReportDraft>;
+  reply: string;
+  chips?: ChatChip[];
+  notePatched?: NotePatched;
+}> {
+  const prev = thread.draft.resultStep ?? {};
+  // Срезаем заголовок и режем оставшееся по секциям.
+  const body = text.replace(/^\s*Итог\s*\(правка\)\s*:\s*/i, "");
+  const sumMatch = body.match(/Резюме:\s*([\s\S]*?)(?=\n\s*Вердикт:|$)/i);
+  const verMatch = body.match(/Вердикт:\s*([\s\S]*)$/i);
+  const summary = (sumMatch?.[1] ?? "").trim();
+  const verdict = (verMatch?.[1] ?? "").trim();
+  const merged = {
+    ...prev,
+    summaryInspectionNote: summary,
+    resultSpecialistNote: verdict,
+  };
+  return {
+    patch: { resultStep: merged },
+    reply: "Итог обновлён по вашей правке.",
+    chips: resultChips(),
+  };
+}
+
 export async function extractForStep(
+
   step: StepId,
   text: string,
   thread: Thread,
@@ -1036,6 +1069,12 @@ export async function extractForStep(
 
   // Result: AI splits text into summary vs verdict.
   if (step === "result") {
+    // Структурированный режим правки: пользователь нажал «Редактировать»
+    // в паспорте итога. Парсим секции «Резюме:» и «Вердикт:» и
+    // заменяем целиком — это явная правка пользователем.
+    if (/^\s*Итог\s*\(правка\)\s*:/i.test(text)) {
+      return handleResultEdit(thread, text);
+    }
     const prev = thread.draft.resultStep ?? {};
     try {
       const id = aiChatIdFor(thread, "extract:result");

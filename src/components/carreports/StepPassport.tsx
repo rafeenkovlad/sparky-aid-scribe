@@ -58,7 +58,8 @@ export function StepPassport({
   onTestDriveAddTag,
   noteProposals,
 }: Props) {
-  const hideConfirm = step === "legalMaterials" || step === "testDrive";
+  const hideConfirm =
+    step === "legalMaterials" || step === "testDrive" || step === "result";
   return (
     <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2.5 text-white">
       <div className="mb-2">
@@ -297,6 +298,20 @@ function StepBody({
               })()}
             </div>
           )}
+          {onEdit && (r.summaryInspectionNote || r.resultSpecialistNote) && (
+            <div className="pt-2 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onEdit(buildResultEditTemplate(r))}
+                aria-label="Редактировать"
+                title="Редактировать"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/10 text-white/80 text-[12px] font-medium px-3 py-1.5 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Редактировать
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -323,6 +338,22 @@ export function buildTestDriveEditTemplate(td: ReportDraft["testDriveStep"]): st
   ].join("\n");
 
 }
+
+/** Префилл композера для правки шага «Итог»: резюме и вердикт двумя секциями. */
+export function buildResultEditTemplate(r: ReportDraft["resultStep"]): string {
+  const summary = (r?.summaryInspectionNote ?? "").trim();
+  const verdict = (r?.resultSpecialistNote ?? "").trim();
+  return [
+    "Итог (правка):",
+    "Резюме:",
+    summary,
+    "",
+    "Вердикт:",
+    verdict,
+  ].join("\n");
+}
+
+
 
 /** Строка категории тест-драйва: чипы (только issue-теги) + дропдаун. */
 function TestDriveCategoryRow({
