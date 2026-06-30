@@ -2638,6 +2638,31 @@ export function ChatApp({ threadId }: Props) {
                   createdAt: Date.now(),
                 });
               }
+            } else if (stepForTask === "docs") {
+              // По аналогии с тест-драйвом: вместо «Зафиксировал сверку…»
+              // отдаём паспорт документов.
+              const passportId = `passport-docs-${Date.now()}`;
+              t.messages.docs = t.messages.docs.filter((m) => m.kind !== "docsPassport");
+              pushMsg(t, "docs", {
+                id: passportId,
+                role: "assistant",
+                text: "",
+                step: "docs",
+                kind: "docsPassport",
+                createdAt: Date.now(),
+              });
+              if (chips && chips.length) {
+                pushMsg(t, "docs", {
+                  id: msgId(),
+                  role: "assistant",
+                  text: "",
+                  step: "docs",
+                  chips,
+                  optionsStep: "docs",
+                  selectedChipValues: [],
+                  createdAt: Date.now(),
+                });
+              }
             } else {
               pushMsg(t, stepForTask, {
                 id: msgId(),
