@@ -1968,18 +1968,17 @@ export function ChatApp({ threadId }: Props) {
         });
       }
 
+      // Шаг 3 — финализация отчёта.
       updateThread(thread.id, (t) => {
         const m = t.messages.result.find((x) => x.id === progressId);
         if (m?.uploadProgress) {
-          m.uploadProgress.phase = "done";
+          m.uploadProgress.phase = "finalizing";
           m.uploadProgress.percent = 100;
           m.uploadProgress.uploaded = total;
-          m.uploadProgress.reportId = r.reportId;
-          m.uploadProgress.note = `Файлы загружены (${total}/${total}).`;
+          m.uploadProgress.note = "Финализация отчёта…";
         }
       });
 
-      // Шаг 3 — финализация отчёта.
       const finalizeId = r.reportNumericId ?? r.reportId;
       let completeNote = "";
       if (finalizeId != null) {
@@ -1990,14 +1989,15 @@ export function ChatApp({ threadId }: Props) {
         }
       }
 
-      // Шаг 4 — финальное сообщение с кнопкой «Поделиться».
+      // Шаг 4 — заменяем прогресс на карточку с кнопкой «Поделиться».
       updateThread(thread.id, (t) => {
+        t.messages.result = t.messages.result.filter((m) => m.id !== progressId);
         pushMsg(t, "result", {
           id: msgId(),
           role: "assistant",
           text: completeNote
             ? `⚠️ Файлы выгружены, но финализация не удалась: ${completeNote}`
-            : `✅ Отчёт ${r.reportId ?? ""} успешно выгружен.`,
+            : "",
           step: "result",
           kind: "finishComplete",
           finishComplete: {
@@ -2009,6 +2009,7 @@ export function ChatApp({ threadId }: Props) {
           createdAt: Date.now(),
         });
       });
+
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка выгрузки";
       updateThread(thread.id, (t) => {
