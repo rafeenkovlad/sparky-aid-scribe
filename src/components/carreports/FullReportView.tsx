@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Printer, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { INSPECTION_ZONES, zoneById } from "@/lib/carreports/inspectionZones";
 import { ZONE_TO_SECTION, getSection } from "@/lib/carreports/inspectionSections";
@@ -54,18 +54,11 @@ export function FullReportView({ thread, onClose }: Props) {
       <div className="no-print absolute top-0 inset-x-0 bg-zinc-900 border-b border-white/10 px-4 py-2 flex items-center gap-2 z-10">
         <div className="text-sm font-medium text-white">Предпросмотр отчёта</div>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => window.print()}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
-          >
-            <Printer className="h-4 w-4 mr-1.5" />
-            Печать / PDF
-          </Button>
           <Button size="sm" variant="ghost" onClick={onClose} className="text-white hover:bg-white/10">
             <X className="h-4 w-4" />
           </Button>
         </div>
+
       </div>
 
       <div className="absolute inset-0 overflow-y-auto pt-12 print:pt-0 print:overflow-visible print:relative">
