@@ -420,10 +420,15 @@ export function ChatApp({ threadId }: Props) {
   }, [threadId]);
 
 
-  // Keep textarea focused.
+  // Keep textarea focused. НЕ фокусируем на шаге «Итог» — там нажатие
+  // «Продолжить» запускает doFinish, который тоглит busy, и автофокус
+  // раскрывал бы композер и клавиатуру на мобильных.
   useEffect(() => {
+    if (!thread) return;
+    const step = FLOW_STEPS[thread.stepIndex]?.id;
+    if (step === "result") return;
     textareaRef.current?.focus();
-  }, [threadId, busy]);
+  }, [threadId, busy, thread]);
 
   const currentStep = thread ? FLOW_STEPS[thread.stepIndex].id : "car";
 
