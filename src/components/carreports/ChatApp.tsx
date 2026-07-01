@@ -4216,6 +4216,12 @@ function MessageBubble({
             </div>
             <button
               type="button"
+              onPointerDown={(e) => {
+                // Не даём фокусу уйти на textarea — иначе на мобильных
+                // раскроется композер и всплывёт клавиатура.
+                e.preventDefault();
+                (document.activeElement as HTMLElement | null)?.blur?.();
+              }}
               onClick={() => onFinishContinue?.()}
               className="w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-[13px] font-medium px-3 py-2 transition"
             >
