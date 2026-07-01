@@ -72,7 +72,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
       const res = await authByPhone(normalized);
       setStarted(res);
       stopRef.current = false;
-      pollLoop(res.notificationToken);
+      pollLoop(res.notificationToken, normalized);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось начать авторизацию");
     } finally {
