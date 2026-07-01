@@ -2,9 +2,11 @@
 // Opens https://<report-host>/?token=preview in a new tab and streams
 // the current draft as CarReport JSON via postMessage.
 
-import type { ReportDraft } from "./types";
-import { buildPrepareReportPayload } from "./storageApi";
+import type { ReportDraft, InspectionPhoto } from "./types";
+import { buildPrepareReportPayload, rpc } from "./storageApi";
 import { resolveCar, type ResolvedCar } from "./carCatalog";
+import { uploadTemporary } from "./photo";
+import { getPhoto } from "./photoCache";
 
 const PREVIEW_URL =
   (import.meta.env.VITE_PREVIEW_URL as string | undefined) ||
@@ -18,31 +20,82 @@ function isPublicUrl(u: unknown): u is string {
   return typeof u === "string" && /^https?:\/\//i.test(u);
 }
 
-/** Обогащаем payload url'ами файлов (для тех, у кого есть публичный URL). */
+/**
+ * Гарантирует, что у каждого фото осмотра есть свежая подписанная ссылка на
+ * temp-бакет. Если у фото уже есть публичный URL — используем его; иначе
+ * пробуем запросить свежий view-URL по имени файла; если и это не удалось —
+ * поднимаем blob из IndexedDB и заливаем в temp-бакет заново.
+ *
+ * ВАЖНО: видео и документы в temp-бакет не выгружаем — превью их скроет.
+ */
+async function ensurePreviewPhotoUrls(
+  photos: InspectionPhoto[],
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  for (const p of photos) {
+    if (!p.filename) continue;
+    if (isPublicUrl(p.url)) {
+      urls.set(p.filename, p.url);
+      continue;
+    }
+    // 1) свежий signed view URL по basename.
+    try {
+      const basename = p.filename.split("/").pop() ?? p.filename;
+      const view = await rpc<{ url?: string }>(
+        "ObjectStorage.GetTemporaryViewUrlBucketTemp",
+        { filename: basename, expiresInSeconds: 3600 },
+      );
+      if (isPublicUrl(view.url)) {
+        urls.set(p.filename, view.url);
+        continue;
+      }
+    } catch {
+      /* ignore, попробуем перезалить */
+    }
+    // 2) blob из IDB → uploadTemporary.
+    if (p.photoId) {
+      try {
+        const blob = await getPhoto(p.photoId);
+        if (blob) {
+          const up = await uploadTemporary(
+            { filename: p.filename, blob, photoId: p.photoId },
+            { contentType: blob.type || "image/jpeg" },
+          );
+          urls.set(p.filename, up.url);
+          continue;
+        }
+      } catch {
+        /* фото пропустим — превью покажет заглушку */
+      }
+    }
+  }
+  return urls;
+}
+
+/** Обогащаем payload url'ами файлов. */
 function attachFileUrls(
   payload: Record<string, unknown>,
   draft: ReportDraft,
+  photoUrls: Map<string, string>,
 ): void {
-  // 1) legalReviewStep.otherLegalReviews — прикрепить url из материала.
+  // 1) legalReviewStep.otherLegalReviews — только для картинок с публичным URL.
+  //    Видео/документы отдаём без url — превью их скроет.
   const legal = (payload.legalReviewStep as { otherLegalReviews?: Array<Record<string, unknown>> })
     ?.otherLegalReviews;
   if (Array.isArray(legal)) {
     const materials = draft.legalReviewStep?.otherMaterials ?? [];
     for (const item of legal) {
       const m = materials.find((x) => x.filename === item.filename);
-      const url = isPublicUrl(m?.url) ? m!.url : "";
+      const url = m && m.type === "image" && isPublicUrl(m.url) ? m.url : "";
       item.url = url;
     }
   }
 
-  // 2) inspectionStep: для каждого элемента положить file={filename,url,type}
-  //    если у нас есть удалённое фото на секцию+элемент.
+  // 2) inspectionStep: прикрепляем file={filename,url,type=image} к каждому
+  //    элементу, для которого есть загруженное фото.
   const insp = payload.inspectionStep as Record<string, Record<string, unknown>> | undefined;
   const photos = draft.inspectionStep?.photos ?? [];
   if (insp && photos.length) {
-    // Собираем first-remote-photo по (sectionType, elementType).
-    // sectionType/elementType в payload соответствуют photo.section/elementId
-    // с точностью до snake_case, поэтому матчим по photo.filename → элементу.
     for (const section of Object.values(insp)) {
       for (const [, coll] of Object.entries(section)) {
         if (!Array.isArray(coll)) continue;
@@ -52,14 +105,15 @@ function attachFileUrls(
           if (!elementType || !sectionType) continue;
           const photo = photos.find(
             (p) =>
-              (p.elementId && camelOrSnakeEq(p.elementId, elementType)) &&
+              !!p.elementId &&
+              camelOrSnakeEq(p.elementId, elementType) &&
               sectionMatches(p.section, sectionType) &&
-              isPublicUrl(p.url),
+              photoUrls.has(p.filename),
           );
           if (photo) {
             el.file = {
               filename: photo.filename,
-              url: photo.url,
+              url: photoUrls.get(photo.filename) ?? "",
               type: "image",
             };
           }
@@ -99,8 +153,11 @@ export async function buildPreviewReport(draft: ReportDraft): Promise<Record<str
       /* игнорируем — для превью не критично */
     }
   }
+  // Только фото: заливаем недостающие в temp-бакет и собираем свежие URL'ы.
+  // Видео/документы намеренно игнорируем.
+  const photoUrls = await ensurePreviewPhotoUrls(draft.inspectionStep?.photos ?? []);
   const payload = buildPrepareReportPayload(draft, resolved);
-  attachFileUrls(payload, draft);
+  attachFileUrls(payload, draft, photoUrls);
   return payload;
 }
 
