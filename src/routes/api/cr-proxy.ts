@@ -40,18 +40,39 @@ export const Route = createFileRoute("/api/cr-proxy")({
 
 
         // storage: Bearer header, content-type application/json
-        const r = await fetch(upstream, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body,
-        });
-        return new Response(await r.text(), {
-          status: r.status,
-          headers: { "Content-Type": r.headers.get("Content-Type") ?? "application/json" },
-        });
+        try {
+          const r = await fetch(upstream, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body,
+          });
+          return new Response(await r.text(), {
+            status: r.status,
+            headers: { "Content-Type": r.headers.get("Content-Type") ?? "application/json" },
+          });
+        } catch (err) {
+          console.error("cr-proxy storage fetch failed:", err);
+          const msg = err instanceof Error ? err.message : String(err);
+          return new Response(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: null,
+              response: "error",
+              errors: [
+                {
+                  message:
+                    "Не удалось подключиться к серверу carreports. Проверьте, что приложение опубликовано (в dev-песочнице внешний доступ может быть закрыт).",
+                },
+              ],
+              _debug: msg,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
       },
     },
   },
