@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Phone, PhoneCall, Copy, Check, Loader2 } from "lucide-react";
 import { setToken } from "@/lib/carreports/tokenStore";
 import { getProfile } from "@/lib/carreports/storageApi";
@@ -22,29 +20,22 @@ interface Props {
   initialToken?: string | null;
 }
 
-export function TokenDialog({ open, onOpenChange, initialToken }: Props) {
+// Максимум ожидания звонка — 3 минуты.
+const MAX_WAIT_SECONDS = 180;
+const POLL_INTERVAL_MS = 3000;
+const MAX_TICKS = Math.floor(MAX_WAIT_SECONDS / (POLL_INTERVAL_MS / 1000)); // 60
+
+export function TokenDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Вход в carreports</DialogTitle>
           <DialogDescription>
-            Авторизуйтесь по звонку с телефона или вставьте готовый Bearer-токен.
-            Данные хранятся только локально в этом браузере.
+            Авторизуйтесь по звонку с телефона. Данные хранятся только локально в этом браузере.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue={initialToken ? "manual" : "phone"} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="phone">По телефону</TabsTrigger>
-            <TabsTrigger value="manual">Токен</TabsTrigger>
-          </TabsList>
-          <TabsContent value="phone" className="pt-3">
-            <PhoneAuthPanel onDone={() => onOpenChange(false)} />
-          </TabsContent>
-          <TabsContent value="manual" className="pt-3">
-            <ManualTokenPanel initialToken={initialToken} onDone={() => onOpenChange(false)} />
-          </TabsContent>
-        </Tabs>
+        <PhoneAuthPanel onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
@@ -57,7 +48,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState<AuthStartResult | null>(null);
-  const [pollTick, setPollTick] = useState(0); // for UX ("ждём звонок…")
+  const [pollTick, setPollTick] = useState(0);
   const [copied, setCopied] = useState(false);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const stopRef = useRef(false);
@@ -92,7 +83,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
   async function pollLoop(notificationToken: string) {
     let tick = 0;
     while (!stopRef.current) {
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       if (stopRef.current) return;
       tick += 1;
       setPollTick(tick);
@@ -114,12 +105,11 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
           return;
         }
       } catch {
-        // тихо продолжаем — сервер может временно ответить ошибкой
+        // тихо продолжаем
       }
-      if (tick > 100) {
-        // ~5 минут — прекращаем автоматом
+      if (tick >= MAX_TICKS) {
         stopRef.current = true;
-        setError("Время ожидания звонка истекло. Попробуйте снова.");
+        setError("Время ожидания звонка истекло (3 минуты). Попробуйте снова.");
         setStarted(null);
         return;
       }
@@ -180,6 +170,9 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
 
   const dialNumber = "+" + started.callToPhone.replace(/\D/g, "");
   const pretty = formatPhone(dialNumber);
+  const secondsLeft = Math.max(0, MAX_WAIT_SECONDS - pollTick * (POLL_INTERVAL_MS / 1000));
+  const mm = Math.floor(secondsLeft / 60);
+  const ss = String(secondsLeft % 60).padStart(2, "0");
 
   return (
     <div className="space-y-4">
@@ -212,7 +205,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
         </div>
         <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Ждём звонок… {pollTick > 0 && `(проверка ${pollTick})`}
+          Ждём звонок… осталось {mm}:{ss}
         </p>
         <p className="text-xs text-muted-foreground">
           Достаточно одного гудка — сбросьте вызов после соединения.
@@ -222,82 +215,6 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
       {error && <p className="text-sm text-destructive text-center">{error}</p>}
       <DialogFooter className="gap-2 sm:gap-2">
         <Button variant="ghost" onClick={cancel}>Отменить</Button>
-      </DialogFooter>
-    </div>
-  );
-}
-
-// ─── Manual token (fallback) ───────────────────────────────────────────────
-
-function ManualTokenPanel({
-  initialToken,
-  onDone,
-}: {
-  initialToken?: string | null;
-  onDone: () => void;
-}) {
-  const [value, setValue] = useState(initialToken ?? "");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    setValue(initialToken ?? "");
-    setError(null);
-    setOkMsg(null);
-  }, [initialToken]);
-
-  async function save() {
-    const v = value.trim();
-    if (!v) {
-      setError("Введите токен");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setOkMsg(null);
-    setToken(v);
-    try {
-      const profile = await getProfile();
-      setOkMsg(
-        `Подключено как ${profile.firstName ?? profile.email ?? profile.role} (id ${profile.id})`,
-      );
-      setTimeout(onDone, 600);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось проверить токен");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function clearToken() {
-    setToken(null);
-    setValue("");
-    setOkMsg(null);
-  }
-
-  return (
-    <div className="space-y-3">
-      <Textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="eyJ..."
-        className="font-mono text-xs min-h-[120px]"
-        spellCheck={false}
-      />
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {okMsg && <p className="text-sm text-emerald-500">{okMsg}</p>}
-      <DialogFooter className="gap-2 sm:gap-2">
-        <Button variant="ghost" onClick={clearToken} disabled={busy}>
-          Очистить
-        </Button>
-        <Button
-          onClick={save}
-          disabled={busy}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-        >
-          {busy ? "Проверяю…" : "Сохранить и проверить"}
-        </Button>
       </DialogFooter>
     </div>
   );

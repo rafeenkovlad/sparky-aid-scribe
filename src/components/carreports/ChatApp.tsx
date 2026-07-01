@@ -25,7 +25,16 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import logo from "@/assets/cr-logo.png";
 import assistantAvatar from "@/assets/cr-assistant-vindiesel.jpg";
@@ -211,6 +220,7 @@ export function ChatApp({ threadId }: Props) {
   }, [mounted, threads]);
 
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [nameDialog, setNameDialog] = useState<{ open: boolean; mode: "create" | "rename"; value: string }>({ open: false, mode: "create", value: "" });
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [fullReportOpen, setFullReportOpen] = useState(false);
@@ -2963,9 +2973,27 @@ export function ChatApp({ threadId }: Props) {
 
 
   function newThread() {
-    const t = createThread();
     setMenuOpen(false);
-    navigate({ to: "/$threadId", params: { threadId: t.id } });
+    setNameDialog({ open: true, mode: "create", value: "" });
+  }
+
+  function submitNameDialog() {
+    const name = nameDialog.value.trim();
+    if (!name) return;
+    if (nameDialog.mode === "create") {
+      const t = createThread({ title: name });
+      updateThread(t.id, (x) => {
+        x.draft.reportName = name;
+      });
+      setNameDialog({ open: false, mode: "create", value: "" });
+      navigate({ to: "/$threadId", params: { threadId: t.id } });
+    } else if (thread) {
+      updateThread(thread.id, (x) => {
+        x.title = name;
+        x.draft.reportName = name;
+      });
+      setNameDialog({ open: false, mode: "rename", value: "" });
+    }
   }
 
   if (!mounted || !thread) {
@@ -3064,7 +3092,17 @@ export function ChatApp({ threadId }: Props) {
         </Sheet>
 
         <div className="flex-1 min-w-0 text-center">
-          <div className="text-sm font-medium truncate">{thread.title}</div>
+          <button
+            type="button"
+            onClick={() =>
+              setNameDialog({ open: true, mode: "rename", value: thread.title })
+            }
+            className="mx-auto flex items-center gap-1.5 text-sm font-medium truncate hover:text-white/90"
+            title="Переименовать отчёт"
+          >
+            <span className="truncate">{thread.title}</span>
+            <Pencil className="h-3 w-3 opacity-60" />
+          </button>
           <div className="text-[11px] text-white/50 truncate">Шаг: {stepDef.label}</div>
         </div>
 
@@ -3951,6 +3989,55 @@ export function ChatApp({ threadId }: Props) {
 
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      <Dialog
+        open={nameDialog.open}
+        onOpenChange={(open) =>
+          setNameDialog((s) => ({ ...s, open }))
+        }
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {nameDialog.mode === "create" ? "Название отчёта" : "Переименовать отчёт"}
+            </DialogTitle>
+            <DialogDescription>
+              {nameDialog.mode === "create"
+                ? "Дайте отчёту понятное название — его удобно будет искать в списке."
+                : "Введите новое название отчёта."}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={nameDialog.value}
+            onChange={(e) =>
+              setNameDialog((s) => ({ ...s, value: e.target.value }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitNameDialog();
+              }
+            }}
+            placeholder="Например: BMW X5 · Иванов"
+            maxLength={120}
+          />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setNameDialog((s) => ({ ...s, open: false }))}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={submitNameDialog}
+              disabled={!nameDialog.value.trim()}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {nameDialog.mode === "create" ? "Создать" : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {fullReportOpen && (
         <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
       )}
