@@ -3059,8 +3059,10 @@ export function ChatApp({ threadId }: Props) {
           <SheetContent side="left" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[360px]">
             <SheetHeader className="px-4 py-3 border-b border-white/10">
               <SheetTitle className="flex items-center gap-2 text-white">
-                <img src={logo} alt="" className="h-6 w-6 invert" />
-                ИИ-отчёт carreports
+                <span className="inline-flex items-center justify-center h-6 px-1.5 rounded-md bg-orange-500 text-black text-[11px] font-bold tracking-wider">
+                  vin
+                </span>
+                <span>diezel ассистент</span>
               </SheetTitle>
             </SheetHeader>
             <div className="p-3 space-y-2">
