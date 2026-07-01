@@ -3105,45 +3105,20 @@ export function ChatApp({ threadId }: Props) {
               </Button>
               <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
-            <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wider text-white/40">История</div>
-            <div className="px-2 pb-2 space-y-1 overflow-y-auto" style={{ maxHeight: "50dvh" }}>
-              {threads.length === 0 && <div className="px-2 py-3 text-sm text-white/50">Пока пусто</div>}
-              {threads.map((t) => (
-                <div
-                  key={t.id}
-                  className={
-                    "group flex items-center rounded-lg px-2 py-2 text-sm cursor-pointer " +
-                    (t.id === threadId ? "bg-white/10" : "hover:bg-white/5")
-                  }
-                  onClick={() => {
-                    navigate({ to: "/$threadId", params: { threadId: t.id } });
-                    setMenuOpen(false);
-                  }}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate">{t.title}</div>
-                    <div className="text-xs text-white/40">
-                      {new Date(t.updatedAt).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" })}
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!confirm("Удалить этот отчёт?")) return;
-                      const remaining = threads.filter((x) => x.id !== t.id);
-                      deleteThread(t.id);
-                      if (t.id === threadId) {
-                        const next = remaining[0] ?? createThread();
-                        navigate({ to: "/$threadId", params: { threadId: next.id } });
-                      }
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-white/60 hover:text-destructive p-1"
-                    aria-label="Удалить"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+            <div className="p-3 pt-0">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate({ to: "/history" });
+                }}
+                className="w-full justify-start text-white hover:bg-white/10"
+              >
+                <History className="h-4 w-4 mr-2" /> История отчётов
+                {threads.length > 0 && (
+                  <span className="ml-auto text-xs text-white/50">{threads.length}</span>
+                )}
+              </Button>
             </div>
             {token && (
               <div className="p-3 border-t border-white/10">
