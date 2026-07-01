@@ -147,7 +147,15 @@ function ProfilePage() {
             </div>
 
             <Section title="Все поля профиля">
-              <AllFields data={profile} skip={HIDDEN_FIELDS} />
+              <AllFields
+                data={profile}
+                skip={[
+                  ...HIDDEN_FIELDS,
+                  ...(profile.role === "specialist"
+                    ? ["companyId", "companyName", "companyInn"]
+                    : []),
+                ]}
+              />
             </Section>
 
             {company && (
