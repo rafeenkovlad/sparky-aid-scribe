@@ -243,17 +243,6 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
             <Eye className="h-4 w-4" />
             {isUploaded ? "Открыть отчёт" : "Предпросмотр"}
           </button>
-          <button
-            onClick={handleExternalPreview}
-            disabled={previewBusy}
-            className="w-full rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {previewBusy ? "Открываю…" : "Открыть в новой вкладке"}
-          </button>
-          <p className="text-[11px] leading-snug text-white/45 px-1">
-            Файлы и видео, которые ещё не загружены на сервер, в превью показаны не будут.
-          </p>
         </div>
       )}
 
