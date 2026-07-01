@@ -106,27 +106,31 @@ export async function buildPreviewReport(draft: ReportDraft): Promise<Record<str
 
 /**
  * Открывает превью в новой вкладке и отправляет туда JSON отчёта.
- * ВАЖНО: window.open должен вызываться синхронно из обработчика клика.
- * Поэтому здесь мы принимаем уже собранный report.
+ * ВАЖНО: window.open ДОЛЖЕН вызываться синхронно из клика (Safari/iOS
+ * иначе блокируют попап). Поэтому используем двухшаговый API:
+ *   1) openPreviewWindow() — sync, возвращает Window|null.
+ *   2) deliverPreviewReport(win, report) — async, шлёт JSON.
  */
-export function openReportPreview(report: Record<string, unknown>): void {
-  const previewWindow = window.open(PREVIEW_URL, "_blank", "noopener=no");
-  if (!previewWindow) {
-    try {
-      sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(report));
-    } catch {
-      /* ignore quota */
-    }
-    window.open(PREVIEW_URL, "_blank");
-    return;
-  }
+export function openPreviewWindow(): Window | null {
+  return window.open(PREVIEW_URL, "_blank", "noopener=no");
+}
 
-  // Фолбэк-канал: сохранить в sessionStorage на случай, если postMessage
-  // не долетит (например, если превью откроется в другом процессе).
+export function deliverPreviewReport(
+  previewWindow: Window | null,
+  report: Record<string, unknown>,
+): void {
+  // Фолбэк-канал: sessionStorage — превью-страница читает его,
+  // если postMessage не долетел.
   try {
     sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(report));
   } catch {
     /* ignore quota */
+  }
+
+  if (!previewWindow) {
+    // Попап заблокирован — открываем ещё раз (данные уже в storage).
+    window.open(PREVIEW_URL, "_blank");
+    return;
   }
 
   const targetOrigin = new URL(PREVIEW_URL).origin;
@@ -137,10 +141,7 @@ export function openReportPreview(report: Record<string, unknown>): void {
     const data = event.data as { type?: string } | null;
     if (!data || data.type !== PREVIEW_READY_TYPE) return;
     try {
-      previewWindow.postMessage(
-        { type: PREVIEW_MESSAGE_TYPE, report },
-        targetOrigin,
-      );
+      previewWindow.postMessage({ type: PREVIEW_MESSAGE_TYPE, report }, targetOrigin);
     } catch {
       /* окно могло закрыться */
     }
@@ -151,13 +152,11 @@ export function openReportPreview(report: Record<string, unknown>): void {
   // Страховка: если ready-сигнал не пришёл — попытаться отправить всё равно.
   setTimeout(() => {
     try {
-      previewWindow.postMessage(
-        { type: PREVIEW_MESSAGE_TYPE, report },
-        targetOrigin,
-      );
+      previewWindow.postMessage({ type: PREVIEW_MESSAGE_TYPE, report }, targetOrigin);
     } catch {
       /* ignore */
     }
     window.removeEventListener("message", onMessage);
   }, 5000);
 }
+
