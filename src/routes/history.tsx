@@ -62,7 +62,13 @@ async function shareLink(url: string, title: string) {
 function HistoryPage() {
   const threads = useThreads();
   const navigate = useNavigate();
+  const token = useToken();
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) navigate({ to: "/" });
+  }, [token, navigate]);
+
 
   const openNew = () => {
     const t = createThread();
