@@ -835,4 +835,122 @@ export async function uploadReportFileMultipart(opts: {
 }
 
 
+// ─── Profile editing & avatar upload ────────────────────────────────────
+
+export type ProfileUpdatePatch = {
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  middleName?: string | null;
+  description?: string | null;
+  city?: string | null;
+  role?: "specialist" | "company";
+  companyName?: string | null;
+  companyInn?: string | null;
+  urlAvatar?: string | null;
+};
+
+/** Обновляет только переданные поля профиля. null стирает поле. */
+export async function updateProfile(patch: ProfileUpdatePatch): Promise<Record<string, unknown>> {
+  const params: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) params[k] = v;
+  }
+  const r = await rpc<{ result?: Record<string, unknown> } | Record<string, unknown>>(
+    "Storage.UpdateProfile",
+    params,
+  );
+  return (r as { result?: Record<string, unknown> }).result ?? (r as Record<string, unknown>);
+}
+
+export async function deleteProfileAvatar(): Promise<void> {
+  await rpc("Storage.DeleteProfileAvatar");
+}
+
+/**
+ * Загружает файл аватарки через ObjectStorage.Profile.* multipart flow
+ * и возвращает публичный URL. НЕ вызывает Storage.UpdateProfile — это делает вызывающий код.
+ */
+export async function uploadProfileAvatar(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<string> {
+  const CHUNK = 5 * 1024 * 1024; // 5 MiB
+  const size = file.size;
+  const partCount = Math.max(1, Math.ceil(size / CHUNK));
+
+  // 1. Init
+  const init = await rpc<{
+    uploadId: string;
+    filename: string;
+    key: string;
+    publicUrl: string;
+  }>("ObjectStorage.Profile.InitiateProfileMultipartUpload", {
+    filename: file.name,
+    contentLength: size,
+  });
+
+  try {
+    // 2. Presigned URLs
+    const urlsRes = await rpc<{ urls: Array<{ partNumber: number; url: string }>; key: string }>(
+      "ObjectStorage.Profile.GetProfilePartUploadUrls",
+      {
+        filename: init.filename,
+        uploadId: init.uploadId,
+        partCount,
+        expiresInSeconds: 3600,
+      },
+    );
+
+    // 3. Upload chunks
+    const parts: Array<{ partNumber: number; etag: string }> = [];
+    for (const item of urlsRes.urls) {
+      const start = (item.partNumber - 1) * CHUNK;
+      const end = Math.min(start + CHUNK, size);
+      const chunk = file.slice(start, end);
+      const putRes = await fetch(item.url, { method: "PUT", body: chunk });
+      if (!putRes.ok) throw new ApiError(`S3 part ${item.partNumber} failed: HTTP ${putRes.status}`);
+      const etag = putRes.headers.get("ETag") ?? putRes.headers.get("etag");
+      if (etag) parts.push({ partNumber: item.partNumber, etag });
+      onProgress?.(Math.round((item.partNumber / partCount) * 100));
+    }
+
+    // 3b. Fallback via ListParts, если CORS скрыл ETag
+    if (parts.length !== urlsRes.urls.length) {
+      const list = await rpc<{ parts: Array<{ partNumber: number; etag: string }> }>(
+        "ObjectStorage.Profile.ListParts",
+        { filename: init.filename, uploadId: init.uploadId },
+      );
+      parts.length = 0;
+      for (const p of list.parts) parts.push({ partNumber: p.partNumber, etag: p.etag });
+    }
+
+    parts.sort((a, b) => a.partNumber - b.partNumber);
+
+    // 4. Complete
+    const done = await rpc<{ publicUrl: string; key: string }>(
+      "ObjectStorage.Profile.CompleteProfileMultipartUpload",
+      {
+        filename: init.filename,
+        uploadId: init.uploadId,
+        parts,
+      },
+    );
+    return done.publicUrl ?? init.publicUrl;
+  } catch (e) {
+    // best-effort abort
+    try {
+      await rpc("ObjectStorage.Profile.AbortProfileMultipartUpload", {
+        filename: init.filename,
+        uploadId: init.uploadId,
+      });
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  }
+}
+
+
+
 
