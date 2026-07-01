@@ -3078,8 +3078,8 @@ export function ChatApp({ threadId }: Props) {
                 <Button
                   variant="ghost"
                   onClick={() => {
-                    setTokenOpen(true);
                     setMenuOpen(false);
+                    navigate({ to: "/profile" });
                   }}
                   className="w-full justify-start text-white hover:bg-white/10 h-auto py-2"
                 >
