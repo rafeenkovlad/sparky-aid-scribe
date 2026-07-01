@@ -84,19 +84,18 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const handleExternalPreview = () => {
     if (previewBusy) return;
     setPreviewBusy(true);
-    // window.open должен вызываться синхронно — открываем сразу,
-    // а данные шлём как только соберём JSON.
-    const previewWindowStub = { closed: false };
+    // window.open ДОЛЖЕН вызываться синхронно в клике (Safari/iOS).
+    const previewWindow = openPreviewWindow();
     void (async () => {
       try {
         const report = await buildPreviewReport(thread.draft);
-        openReportPreview(report);
+        deliverPreviewReport(previewWindow, report);
       } finally {
         setPreviewBusy(false);
-        void previewWindowStub;
       }
     })();
   };
+
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
