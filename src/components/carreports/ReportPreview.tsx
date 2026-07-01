@@ -2,9 +2,7 @@ import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { isStepFilled } from "@/lib/carreports/progress";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import type { StepId, Thread, ReportDraft } from "@/lib/carreports/types";
-import { Check, ChevronRight, ExternalLink, Eye, FileText } from "lucide-react";
-import { buildPreviewReport, openPreviewWindow, deliverPreviewReport } from "@/lib/carreports/previewReport";
-import { useState } from "react";
+import { Check, ChevronRight, Eye, FileText } from "lucide-react";
 
 interface Props {
   thread: Thread;
@@ -195,7 +193,6 @@ function fmtDate(ts: number): string {
 export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const uploaded = findUpload(thread);
   const isUploaded = !!uploaded;
-  const [previewBusy, setPreviewBusy] = useState(false);
 
   const filledCount = FLOW_STEPS.filter((s) => isStepFilled(s.id, thread.draft)).length;
   const totalSteps = FLOW_STEPS.length;
@@ -207,20 +204,6 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const subtitle = isUploaded
     ? `Выгружен · ${uploaded?.at ? fmtDate(uploaded.at) : ""}`
     : `${filledCount}/${totalSteps} шагов заполнено`;
-
-  const handleExternalPreview = () => {
-    if (previewBusy) return;
-    setPreviewBusy(true);
-    const previewWindow = openPreviewWindow();
-    void (async () => {
-      try {
-        const report = await buildPreviewReport(thread.draft);
-        deliverPreviewReport(previewWindow, report);
-      } finally {
-        setPreviewBusy(false);
-      }
-    })();
-  };
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
@@ -260,17 +243,6 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
             <Eye className="h-4 w-4" />
             {isUploaded ? "Открыть отчёт" : "Предпросмотр"}
           </button>
-          <button
-            onClick={handleExternalPreview}
-            disabled={previewBusy}
-            className="w-full rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {previewBusy ? "Открываю…" : "Открыть в новой вкладке"}
-          </button>
-          <p className="text-[11px] leading-snug text-white/45 px-1">
-            Файлы и видео, которые ещё не загружены на сервер, в превью показаны не будут.
-          </p>
         </div>
       )}
 
