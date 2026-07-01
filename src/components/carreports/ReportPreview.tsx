@@ -193,7 +193,6 @@ function fmtDate(ts: number): string {
 export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const uploaded = findUpload(thread);
   const isUploaded = !!uploaded;
-  const [previewBusy, setPreviewBusy] = useState(false);
 
   const filledCount = FLOW_STEPS.filter((s) => isStepFilled(s.id, thread.draft)).length;
   const totalSteps = FLOW_STEPS.length;
@@ -205,20 +204,6 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const subtitle = isUploaded
     ? `Выгружен · ${uploaded?.at ? fmtDate(uploaded.at) : ""}`
     : `${filledCount}/${totalSteps} шагов заполнено`;
-
-  const handleExternalPreview = () => {
-    if (previewBusy) return;
-    setPreviewBusy(true);
-    const previewWindow = openPreviewWindow();
-    void (async () => {
-      try {
-        const report = await buildPreviewReport(thread.draft);
-        deliverPreviewReport(previewWindow, report);
-      } finally {
-        setPreviewBusy(false);
-      }
-    })();
-  };
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
