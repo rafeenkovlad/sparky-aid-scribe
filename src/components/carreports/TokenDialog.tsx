@@ -80,7 +80,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
     }
   }
 
-  async function pollLoop(notificationToken: string) {
+  async function pollLoop(notificationToken: string, phoneE164: string) {
     let tick = 0;
     while (!stopRef.current) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
