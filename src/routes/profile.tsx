@@ -10,6 +10,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut, Loader2, UserRound } from "lucide-react";
 
+const HIDDEN_FIELDS = [
+  "urlAvatar",
+  "isDelete",
+  "isDeleted",
+  "isVerifyCompany",
+  "isVerifyEmail",
+  "isVerifyPhone",
+  "likeDown",
+  "likeUp",
+  "mobileJti",
+];
+
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -134,7 +147,7 @@ function ProfilePage() {
             </div>
 
             <Section title="Все поля профиля">
-              <AllFields data={profile} skip={["urlAvatar"]} />
+              <AllFields data={profile} skip={HIDDEN_FIELDS} />
             </Section>
 
             {company && (
@@ -151,8 +164,9 @@ function ProfilePage() {
                     </div>
                   </div>
                 )}
-                <AllFields data={company} skip={["urlAvatar"]} />
+                <AllFields data={company} skip={HIDDEN_FIELDS} />
               </Section>
+
             )}
 
 
