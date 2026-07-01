@@ -57,8 +57,15 @@ export interface AuthVerifyResult {
   refreshToken: string | null;
 }
 
-export async function verifyAuth(notificationToken: string): Promise<AuthVerifyResult> {
-  return rpc<AuthVerifyResult>("Storage.AuthVerify", {}, notificationToken);
+export async function verifyAuth(
+  notificationToken: string,
+  phone: string,
+): Promise<AuthVerifyResult> {
+  return rpc<AuthVerifyResult>(
+    "Storage.AuthVerify",
+    { phone, platform: "web" },
+    notificationToken,
+  );
 }
 
 export function saveRefreshToken(token: string | null) {
