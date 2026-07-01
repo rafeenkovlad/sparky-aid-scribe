@@ -1006,7 +1006,20 @@ export async function extractForStep(
       const tags = (k: string) => {
         if (Array.isArray(raw[k])) merged[k] = (raw[k] as unknown[]).filter((x) => typeof x === "string");
       };
-      bool("testDriveIsIncluded");
+      // testDriveIsIncluded=false («тест-драйв не проводился») — очень
+      // сильный сигнал: он скрывает всю секцию в отчёте. Не доверяем этому
+      // флагу «на глаз» — принимаем его только если пользователь буквально
+      // написал «не проводил…». Иначе AI мог поставить его по ошибке
+      // (например, из короткой заметки «покатался, всё ок»), и весь шаг
+      // превратится в «не проводился» без явного действия эксперта.
+      const userSaidNotDone = /не\s+проводил/i.test(text);
+      if (typeof raw.testDriveIsIncluded === "boolean") {
+        if (raw.testDriveIsIncluded === false && !userSaidNotDone) {
+          // игнорируем ложный false от AI
+        } else {
+          merged.testDriveIsIncluded = raw.testDriveIsIncluded;
+        }
+      }
       bool("testDriveEngineIsWorkingProperly");
       bool("testDriveTransmissionIsWorkingProperly");
       bool("testDriveSteeringWheelIsWorkingProperly");
@@ -1020,8 +1033,18 @@ export async function extractForStep(
       if (typeof raw.testDriveNote === "string") {
         merged.testDriveNote = raw.testDriveNote;
       }
-      // mirror legacy local fields for UI/preview compatibility
-      merged.notDone = merged.testDriveIsIncluded === false ? true : prev.notDone;
+      // mirror legacy local fields for UI/preview compatibility.
+      // notDone проставляем только если пользователь ЯВНО сказал
+      // «не проводил…» — либо чтобы AI поставил testDriveIsIncluded=false
+      // и это подтверждено текстом. Иначе оставляем прежнее значение
+      // (по умолчанию — undefined/false), чтобы шаг не превращался
+      // в «не проводился» самопроизвольно.
+      if (userSaidNotDone) {
+        merged.notDone = true;
+        merged.testDriveIsIncluded = false;
+      } else {
+        merged.notDone = prev.notDone ?? false;
+      }
       merged.notes =
         typeof merged.testDriveNote === "string" ? merged.testDriveNote : text;
 
