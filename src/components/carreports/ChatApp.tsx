@@ -3044,7 +3044,7 @@ export function ChatApp({ threadId }: Props) {
                 }}
                 className="w-full justify-start text-white hover:bg-white/10"
               >
-                <Settings2 className="h-4 w-4 mr-2" /> Токен carreports
+                <Settings2 className="h-4 w-4 mr-2" /> {token ? "Аккаунт carreports" : "Вход"}
               </Button>
               <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
