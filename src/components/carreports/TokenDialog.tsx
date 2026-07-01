@@ -88,7 +88,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
       tick += 1;
       setPollTick(tick);
       try {
-        const v = await verifyAuth(notificationToken);
+        const v = await verifyAuth(notificationToken, phoneE164);
         if (v.accessToken) {
           stopRef.current = true;
           setToken(v.accessToken);
