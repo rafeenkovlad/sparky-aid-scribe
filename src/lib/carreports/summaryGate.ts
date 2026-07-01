@@ -114,4 +114,28 @@ export function collectMissingForSummary(
   return out;
 }
 
+/**
+ * Полный список обязательных областей — используется как fallback,
+ * когда бэкенд вернул общую ошибку про незаполненные поля, но по тексту
+ * невозможно определить конкретный узел. Пользователь всё равно видит,
+ * что именно надо проверить, а не расплывчатое «во всех вкладках».
+ */
+export function listAllRequiredForSummary(): MissingSummaryItem[] {
+  const out: MissingSummaryItem[] = [
+    { label: "Автомобиль: марка, модель, VIN, пробег, госномер, город, дата осмотра", step: "car" },
+    { label: "Документы: ПТС, СТС, собственник", step: "docs" },
+    { label: "Тест-драйв: двигатель, трансмиссия, руль, подвеска, тормоза (или «не проводился»)", step: "testDrive" },
+    { label: "Итог: резюме и вердикт", step: "result" },
+  ];
+  for (const s of REQUIRED_INSPECTION_SECTIONS) {
+    out.push({
+      label: `Осмотр: раздел «${s.label}» (фото/видео + отметки)`,
+      step: "inspection",
+      sectionSnake: s.snake,
+    });
+  }
+  return out;
+}
+
+
 
