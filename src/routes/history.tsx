@@ -82,12 +82,14 @@ function HistoryPage() {
     setBusyId(t.id);
     try {
       let url = info.shareUrl;
-      if (!url && info.reportId != null) {
-        const s = await createShareUrl(info.reportId);
+      const idForShare = info.numericId ?? info.reportId;
+      if (!url && idForShare != null) {
+        const s = await createShareUrl(idForShare);
         url = s.url;
+        if (!url && s.note) toast.error(s.note);
       }
       if (!url) {
-        toast.error("Не удалось получить ссылку на отчёт");
+        toast.error("Отчёт ещё не выгружен на сервер. Откройте отчёт и завершите выгрузку.");
         return;
       }
       await shareLink(url, t.title || "Отчёт");
