@@ -3121,17 +3121,8 @@ export function ChatApp({ threadId }: Props) {
                 )}
               </Button>
             </div>
-            {token && (
-              <div className="p-3 border-t border-white/10">
-                <Button
-                  variant="ghost"
-                  onClick={doLogout}
-                  className="w-full justify-start text-white hover:bg-white/10"
-                >
-                  <LogOut className="h-4 w-4 mr-2" /> Выход из профиля
-                </Button>
-              </div>
-            )}
+
+
 
           </SheetContent>
         </Sheet>
