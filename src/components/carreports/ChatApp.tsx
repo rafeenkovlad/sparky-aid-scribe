@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Mic,
+  History,
   Paperclip,
   Pencil,
   Plus,
