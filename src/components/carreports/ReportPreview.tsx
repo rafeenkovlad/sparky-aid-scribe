@@ -3,7 +3,7 @@ import { isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } fro
 import { INSPECTION_ZONES } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
 import { Check, ChevronRight, ExternalLink, Eye, FileText } from "lucide-react";
-import { buildPreviewReport, openReportPreview } from "@/lib/carreports/previewReport";
+import { buildPreviewReport, openPreviewWindow, deliverPreviewReport } from "@/lib/carreports/previewReport";
 import { useState } from "react";
 
 interface Props {
