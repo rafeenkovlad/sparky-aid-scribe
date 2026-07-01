@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useThreads } from "@/hooks/useThreads";
+import { useEffect, useState } from "react";
+import { useThreads, useToken } from "@/hooks/useThreads";
 import { createThread, deleteThread } from "@/lib/carreports/threadStore";
 import { createShareUrl } from "@/lib/carreports/storageApi";
 import type { Thread } from "@/lib/carreports/types";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Share2, Loader2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/history")({
   head: () => ({
@@ -61,7 +62,13 @@ async function shareLink(url: string, title: string) {
 function HistoryPage() {
   const threads = useThreads();
   const navigate = useNavigate();
+  const token = useToken();
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) navigate({ to: "/" });
+  }, [token, navigate]);
+
 
   const openNew = () => {
     const t = createThread();

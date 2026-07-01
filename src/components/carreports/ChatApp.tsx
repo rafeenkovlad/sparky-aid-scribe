@@ -439,9 +439,11 @@ export function ChatApp({ threadId }: Props) {
     setMenuOpen(false);
   }, []);
 
-  // Не открываем диалог входа автоматически — пользователь должен иметь
-  // возможность свободно перемещаться по вкладкам без авторизации.
-  // Для входа доступна кнопка «Вход» в боковом меню.
+  // Без авторизации показываем модальное окно входа и блокируем навигацию.
+  useEffect(() => {
+    if (!token) setTokenOpen(true);
+  }, [token]);
+
 
 
 
@@ -4029,7 +4031,15 @@ export function ChatApp({ threadId }: Props) {
       </div>
 
 
-      <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      <TokenDialog
+        open={tokenOpen}
+        onOpenChange={(v) => {
+          // Пока пользователь не авторизован — окно закрыть нельзя.
+          if (!v && !token) return;
+          setTokenOpen(v);
+        }}
+        initialToken={token}
+      />
       <Dialog
         open={nameDialog.open}
         onOpenChange={(open) =>
