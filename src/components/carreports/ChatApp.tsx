@@ -3092,7 +3092,17 @@ export function ChatApp({ threadId }: Props) {
         </Sheet>
 
         <div className="flex-1 min-w-0 text-center">
-          <div className="text-sm font-medium truncate">{thread.title}</div>
+          <button
+            type="button"
+            onClick={() =>
+              setNameDialog({ open: true, mode: "rename", value: thread.title })
+            }
+            className="mx-auto flex items-center gap-1.5 text-sm font-medium truncate hover:text-white/90"
+            title="Переименовать отчёт"
+          >
+            <span className="truncate">{thread.title}</span>
+            <Pencil className="h-3 w-3 opacity-60" />
+          </button>
           <div className="text-[11px] text-white/50 truncate">Шаг: {stepDef.label}</div>
         </div>
 
