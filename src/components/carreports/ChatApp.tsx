@@ -220,6 +220,7 @@ export function ChatApp({ threadId }: Props) {
   }, [mounted, threads]);
 
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [nameDialog, setNameDialog] = useState<{ open: boolean; mode: "create" | "rename"; value: string }>({ open: false, mode: "create", value: "" });
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [fullReportOpen, setFullReportOpen] = useState(false);
