@@ -1,7 +1,7 @@
 import { FLOW_STEPS } from "@/lib/carreports/flow";
-import { isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
-import { INSPECTION_ZONES } from "@/lib/carreports/inspectionZones";
-import type { StepId, Thread } from "@/lib/carreports/types";
+import { isStepFilled } from "@/lib/carreports/progress";
+import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
+import type { StepId, Thread, ReportDraft } from "@/lib/carreports/types";
 import { Check, ChevronRight, ExternalLink, Eye, FileText } from "lucide-react";
 import { buildPreviewReport, openPreviewWindow, deliverPreviewReport } from "@/lib/carreports/previewReport";
 import { useState } from "react";
@@ -12,45 +12,164 @@ interface Props {
   onOpenFullReport?: () => void;
 }
 
+// Обязательные разделы осмотра (соответствует summaryGate).
+const REQUIRED_INSPECTION_SNAKES = ["body", "interior", "under_hood", "glass"] as const;
+const REQUIRED_INSPECTION_LABELS: Record<string, string> = {
+  body: "Кузов",
+  interior: "Салон",
+  under_hood: "Подкапотное",
+  glass: "Остекление",
+};
 
-function summaryFor(step: StepId, t: Thread): string {
+interface Bit {
+  key: string;
+  text: string;
+  tone?: "default" | "muted" | "warn" | "danger" | "ok";
+}
+
+function bit(key: string, text: string, tone: Bit["tone"] = "default"): Bit {
+  return { key, text, tone };
+}
+
+const toneClass: Record<NonNullable<Bit["tone"]>, string> = {
+  default: "bg-white/[0.06] text-white/85 border-white/10",
+  muted: "bg-white/[0.03] text-white/55 border-white/10",
+  warn: "bg-amber-500/12 text-amber-200 border-amber-400/25",
+  danger: "bg-rose-500/12 text-rose-200 border-rose-400/25",
+  ok: "bg-emerald-500/12 text-emerald-200 border-emerald-400/25",
+};
+
+function fmtDateInput(d: string): string {
+  // YYYY-MM-DD → DD.MM.YYYY
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const [y, m, day] = d.split("-");
+  return `${day}.${m}.${y}`;
+}
+
+function summaryBits(step: StepId, d: ReportDraft): Bit[] {
   switch (step) {
     case "car": {
-      const carPart = shortCarSummary(t.draft);
-      const charPart = shortCharSummary(t.draft);
-      const bits = [carPart, charPart].filter((s) => s && s !== "—");
-      return bits.length ? bits.join(" · ") : "—";
+      const c = d.carStep ?? {};
+      const ch = d.characteristicsStep ?? {};
+      const out: Bit[] = [];
+      const model = [ch.brandName, ch.modelCarName].filter(Boolean).join(" ");
+      if (model) out.push(bit("model", model));
+      if (ch.year) out.push(bit("year", `${ch.year} г.`));
+      if (ch.engineType) out.push(bit("eng", ch.engineType));
+      if (ch.transmission) out.push(bit("trans", ch.transmission));
+      if (ch.driveType) out.push(bit("drv", ch.driveType));
+      if (ch.color) out.push(bit("clr", ch.color));
+      if (c.vin) out.push(bit("vin", `VIN …${c.vin.slice(-6)}`, "muted"));
+      if (c.gosNumber) out.push(bit("gos", c.gosNumber, "muted"));
+      if (c.mileage) out.push(bit("mi", `${c.mileage.toLocaleString("ru-RU")} км`));
+      if (c.cityInspection) out.push(bit("city", c.cityInspection, "muted"));
+      if (c.dateInspection) out.push(bit("date", fmtDateInput(c.dateInspection), "muted"));
+      return out;
     }
-    case "characteristics":
-      return shortCharSummary(t.draft);
-    case "docs":
-      return shortDocsSummary(t.draft);
+    case "docs": {
+      const c = d.documentReconciliationStep ?? {};
+      const out: Bit[] = [];
+      if (typeof c.ownersCount === "number") {
+        out.push(bit("own", `Владельцев: ${c.ownersCount}`));
+      }
+      const rows: Array<[unknown, string, string]> = [
+        [c.ownerFullNameMatchWithPTSOrSTS, "Собственник", "own-match"],
+        [c.vinOnBodyMatchWithPTSOrSTS, "VIN на кузове", "vin-match"],
+        [c.engineModelMatchWithPTSOrSTS, "№ двигателя", "eng-match"],
+      ];
+      for (const [val, label, key] of rows) {
+        if (val === true) out.push(bit(key, `${label}: совпадает`, "ok"));
+        else if (val === false) out.push(bit(key, `${label}: не совпадает`, "danger"));
+      }
+      if (c.note) out.push(bit("note", c.note, "muted"));
+      return out;
+    }
     case "inspection": {
-      const ins = t.draft.inspectionStep;
-      const zones = INSPECTION_ZONES.filter(
-        (z) => ins.sectionNotes[z.id] || ins.photos.some((p) => p.section === z.id),
+      const ins = d.inspectionStep;
+      const out: Bit[] = [];
+      if (!ins) return out;
+      const photos = ins.photos ?? [];
+      // required coverage
+      const covered = REQUIRED_INSPECTION_SNAKES.filter((s) =>
+        photos.some((p) => p.section === s),
       );
-      if (zones.length === 0) return "—";
-      return `${zones.length}/${INSPECTION_ZONES.length} зон · ${ins.photos.length} фото`;
+      const missing = REQUIRED_INSPECTION_SNAKES.filter((s) => !covered.includes(s));
+      out.push(
+        bit(
+          "req",
+          `Разделы: ${covered.length}/${REQUIRED_INSPECTION_SNAKES.length}`,
+          missing.length === 0 ? "ok" : "warn",
+        ),
+      );
+      if (photos.length) out.push(bit("pho", `${photos.length} медиа`, "muted"));
+      // defects
+      let serious = 0;
+      let minor = 0;
+      const findings = ins.findings ?? {};
+      for (const f of Object.values(findings)) {
+        serious += (f.seriousDamageTagIds?.length ?? 0) +
+          (f.pendingTagNames?.filter((p) => p.severity === "serious").length ?? 0);
+        minor += (f.noSeriousDamageTagIds?.length ?? 0) +
+          (f.pendingTagNames?.filter((p) => p.severity === "non_serious").length ?? 0);
+      }
+      if (serious) out.push(bit("ser", `Серьёзных: ${serious}`, "danger"));
+      if (minor) out.push(bit("min", `Незначительных: ${minor}`, "warn"));
+      if (!serious && !minor && photos.length > 0) {
+        out.push(bit("noDef", "Дефекты не отмечены", "ok"));
+      }
+      if (missing.length) {
+        out.push(
+          bit(
+            "miss",
+            `Нет медиа: ${missing.map((s) => REQUIRED_INSPECTION_LABELS[s]).join(", ")}`,
+            "warn",
+          ),
+        );
+      }
+      return out;
     }
     case "legalMaterials": {
-      const files = t.draft.legalReviewStep?.otherMaterials ?? [];
-      if (!files.length) return "—";
-      return `${files.length} файл(ов)`;
+      const files = d.legalReviewStep?.otherMaterials ?? [];
+      if (!files.length) return [bit("empty", "Не добавлено", "muted")];
+      const counts: Record<string, number> = {};
+      for (const f of files) counts[f.type] = (counts[f.type] ?? 0) + 1;
+      const labels: Record<string, string> = { image: "фото", video: "видео", document: "документ" };
+      const out: Bit[] = [bit("total", `${files.length} файл(ов)`)];
+      for (const [t, n] of Object.entries(counts)) {
+        out.push(bit(`t-${t}`, `${labels[t] ?? t}: ${n}`, "muted"));
+      }
+      return out;
     }
     case "testDrive": {
-      const td = t.draft.testDriveStep ?? {};
-      if (td.notDone) return "Не проводился";
-      return td.notes ? td.notes.split("\n")[0] : "—";
+      const td = d.testDriveStep ?? {};
+      if (td.notDone || td.testDriveIsIncluded === false) {
+        return [bit("skip", "Не проводился", "muted")];
+      }
+      const subs: Array<[unknown, string]> = [
+        [td.testDriveEngineIsWorkingProperly, "Двигатель"],
+        [td.testDriveTransmissionIsWorkingProperly, "КПП"],
+        [td.testDriveSteeringWheelIsWorkingProperly, "Руль"],
+        [td.testDriveSuspensionInDriveIsWorkingProperly, "Подвеска"],
+        [td.testDriveBrakesInDriveIsWorkingProperly, "Тормоза"],
+      ];
+      const out: Bit[] = [];
+      for (const [val, label] of subs) {
+        if (val === true) out.push(bit(label, label, "ok"));
+        else if (val === false) out.push(bit(label, label, "danger"));
+      }
+      const note = td.notes || td.testDriveNote;
+      if (note) out.push(bit("note", note.split("\n")[0], "muted"));
+      return out;
     }
-
     case "result": {
-      const r = t.draft.resultStep ?? {};
-      const bits = [r.summaryInspectionNote, r.resultSpecialistNote].filter(Boolean);
-      return bits.join(" · ") || "—";
+      const r = d.resultStep ?? {};
+      const out: Bit[] = [];
+      if (r.summaryInspectionNote) out.push(bit("sum", r.summaryInspectionNote));
+      if (r.resultSpecialistNote) out.push(bit("verd", r.resultSpecialistNote, "ok"));
+      return out;
     }
     default:
-      return "Доступно позже";
+      return [];
   }
 }
 
@@ -77,14 +196,21 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const uploaded = findUpload(thread);
   const isUploaded = !!uploaded;
   const [previewBusy, setPreviewBusy] = useState(false);
+
+  const filledCount = FLOW_STEPS.filter((s) => isStepFilled(s.id, thread.draft)).length;
+  const totalSteps = FLOW_STEPS.length;
+  const progressPct = Math.round((filledCount / totalSteps) * 100);
+
   const titleText = isUploaded
-    ? `Отчёт${uploaded?.reportId ? ` №${uploaded.reportId}` : ""}${uploaded?.at ? ` · ${fmtDate(uploaded.at)}` : ""}`
+    ? `Отчёт${uploaded?.reportId ? ` №${uploaded.reportId}` : ""}`
     : "Черновик отчёта";
+  const subtitle = isUploaded
+    ? `Выгружен · ${uploaded?.at ? fmtDate(uploaded.at) : ""}`
+    : `${filledCount}/${totalSteps} шагов заполнено`;
 
   const handleExternalPreview = () => {
     if (previewBusy) return;
     setPreviewBusy(true);
-    // window.open ДОЛЖЕН вызываться синхронно в клике (Safari/iOS).
     const previewWindow = openPreviewWindow();
     void (async () => {
       try {
@@ -96,13 +222,30 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
     })();
   };
 
-
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
-      <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-        <FileText className="h-4 w-4 text-orange-400" />
-        <div className="text-sm font-medium truncate">{titleText}</div>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-orange-500/15 text-orange-400 flex items-center justify-center shrink-0">
+            <FileText className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">{titleText}</div>
+            <div className="text-[11px] text-white/50 truncate">{subtitle}</div>
+          </div>
+        </div>
+        {!isUploaded && (
+          <div className="mt-3 h-1 rounded-full bg-white/8 overflow-hidden">
+            <div
+              className="h-full bg-orange-500 transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Actions */}
       {onOpenFullReport && (
         <div className="px-3 pt-3 space-y-2">
           <button
@@ -123,18 +266,20 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
             className="w-full rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
           >
             <ExternalLink className="h-4 w-4" />
-            {previewBusy ? "Открываю…" : "Предварительный просмотр отчёта"}
+            {previewBusy ? "Открываю…" : "Открыть в новой вкладке"}
           </button>
-          <p className="text-[11px] leading-snug text-white/50 px-1">
+          <p className="text-[11px] leading-snug text-white/45 px-1">
             Файлы и видео, которые ещё не загружены на сервер, в превью показаны не будут.
           </p>
         </div>
       )}
 
+      {/* Steps */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {FLOW_STEPS.map((step, idx) => {
           const done = isStepFilled(step.id, thread.draft);
           const isCurrent = idx === thread.stepIndex;
+          const bits = summaryBits(step.id, thread.draft);
           return (
             <button
               key={step.id}
@@ -149,7 +294,7 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
               <div className="flex items-center gap-2">
                 <div
                   className={
-                    "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold " +
+                    "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 " +
                     (done
                       ? "bg-emerald-500 text-white"
                       : isCurrent
@@ -159,14 +304,31 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
                 >
                   {done ? <Check className="h-3 w-3" /> : idx + 1}
                 </div>
-                <div className="text-sm font-medium">{step.label}</div>
-                <ChevronRight className="h-4 w-4 text-white/40 ml-auto" />
+                <div className="text-sm font-medium truncate">{step.label}</div>
+                <ChevronRight className="h-4 w-4 text-white/40 ml-auto shrink-0" />
               </div>
-                <div className="text-xs text-white/60 mt-1 line-clamp-2">{summaryFor(step.id, thread)}</div>
-              </button>
-            );
-          })}
-        </div>
+
+              {bits.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {bits.map((b) => (
+                    <span
+                      key={b.key}
+                      className={
+                        "inline-flex items-center max-w-full rounded-md border px-1.5 py-0.5 text-[11px] leading-tight " +
+                        toneClass[b.tone ?? "default"]
+                      }
+                    >
+                      <span className="truncate">{b.text}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-white/40 mt-1.5">Пока пусто</div>
+              )}
+            </button>
+          );
+        })}
       </div>
+    </div>
   );
 }
