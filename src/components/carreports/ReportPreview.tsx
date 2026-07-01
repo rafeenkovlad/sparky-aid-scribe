@@ -2,9 +2,7 @@ import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { isStepFilled } from "@/lib/carreports/progress";
 import { INSPECTION_SECTIONS } from "@/lib/carreports/inspectionSections";
 import type { StepId, Thread, ReportDraft } from "@/lib/carreports/types";
-import { Check, ChevronRight, ExternalLink, Eye, FileText } from "lucide-react";
-import { buildPreviewReport, openPreviewWindow, deliverPreviewReport } from "@/lib/carreports/previewReport";
-import { useState } from "react";
+import { Check, ChevronRight, Eye, FileText } from "lucide-react";
 
 interface Props {
   thread: Thread;
