@@ -89,13 +89,42 @@ export interface ProfileResult {
   email: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  middleName?: string | null;
+  description?: string | null;
+  city?: string | null;
   role: "specialist" | "company" | "client";
+  urlAvatar?: string | null;
+  companyId?: number | null;
+  companyName?: string | null;
+  companyInn?: string | null;
+  // any additional fields returned by the backend
+  [key: string]: unknown;
 }
 
 export async function getProfile(): Promise<ProfileResult> {
   const r = await rpc<{ result?: ProfileResult } | ProfileResult>("Storage.GetProfile");
   return (r as { result?: ProfileResult }).result ?? (r as ProfileResult);
 }
+
+export interface CompanyProfileResult {
+  id: number;
+  companyName?: string | null;
+  companyInn?: string | null;
+  city?: string | null;
+  description?: string | null;
+  email?: string | null;
+  urlAvatar?: string | null;
+  [key: string]: unknown;
+}
+
+export async function getCompanyProfile(companyId: number): Promise<CompanyProfileResult> {
+  const r = await rpc<{ result?: CompanyProfileResult } | CompanyProfileResult>(
+    "Storage.GetCompanyProfile",
+    { companyId },
+  );
+  return (r as { result?: CompanyProfileResult }).result ?? (r as CompanyProfileResult);
+}
+
 
 export interface DecodedVin {
   // backend returns additionalProperties=true; flexible bag.
