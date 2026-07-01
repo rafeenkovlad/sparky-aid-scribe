@@ -8,17 +8,8 @@ import {
   type CompanyProfileResult,
 } from "@/lib/carreports/storageApi";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  LogOut,
-  Loader2,
-  UserRound,
-  Mail,
-  IdCard,
-  Briefcase,
-  Building2,
-  MapPin,
-} from "lucide-react";
+import { ArrowLeft, LogOut, Loader2, UserRound } from "lucide-react";
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
