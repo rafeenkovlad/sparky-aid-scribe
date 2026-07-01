@@ -5,13 +5,13 @@ import { createThread, loadThreads } from "@/lib/carreports/threadStore";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ИИ-отчёт об автомобиле · carreports" },
+      { title: "Vindiezel ассистент" },
       {
         name: "description",
         content:
           "Голосовой ИИ-ассистент для автоподборщика: соберите технический отчёт об автомобиле прямо в чате — без форм.",
       },
-      { property: "og:title", content: "ИИ-отчёт об автомобиле · carreports" },
+      { property: "og:title", content: "Vindiezel ассистент" },
       {
         property: "og:description",
         content: "Чат-ассистент для эксперта: 7 шагов отчёта, чипы клише, авто-извлечение фактов.",
