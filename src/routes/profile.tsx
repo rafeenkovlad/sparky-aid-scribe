@@ -8,17 +8,8 @@ import {
   type CompanyProfileResult,
 } from "@/lib/carreports/storageApi";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  LogOut,
-  Loader2,
-  UserRound,
-  Mail,
-  IdCard,
-  Briefcase,
-  Building2,
-  MapPin,
-} from "lucide-react";
+import { ArrowLeft, LogOut, Loader2, UserRound } from "lucide-react";
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -142,62 +133,28 @@ function ProfilePage() {
               </div>
             </div>
 
-            <Section title="Личные данные">
-              <Row icon={<IdCard className="h-4 w-4" />} label="ID" value={String(profile.id)} />
-              <Row icon={<Mail className="h-4 w-4" />} label="Email" value={profile.email ?? "—"} />
-              <Row icon={<UserRound className="h-4 w-4" />} label="Имя" value={profile.firstName ?? "—"} />
-              <Row icon={<UserRound className="h-4 w-4" />} label="Фамилия" value={profile.lastName ?? "—"} />
-              {profile.middleName && (
-                <Row icon={<UserRound className="h-4 w-4" />} label="Отчество" value={profile.middleName} />
-              )}
-              {profile.city && <Row icon={<MapPin className="h-4 w-4" />} label="Город" value={profile.city} />}
-              <Row icon={<Briefcase className="h-4 w-4" />} label="Роль" value={ROLE_LABEL[profile.role] ?? profile.role} />
+            <Section title="Все поля профиля">
+              <AllFields data={profile} skip={["urlAvatar"]} />
             </Section>
 
-            {(companyDisplayName || companyDisplayInn || company) && (
+            {company && (
               <Section title="Компания">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                    {company?.urlAvatar ? (
-                      <img
-                        src={company.urlAvatar}
-                        alt=""
-                        className="h-10 w-10 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <Building2 className="h-5 w-5 text-white/60" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
+                {company.urlAvatar && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <img
+                      src={company.urlAvatar}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover bg-white/10"
+                    />
                     <div className="text-sm truncate">
-                      {companyDisplayName ?? "—"}
+                      {company.companyName ?? `ID ${company.id}`}
                     </div>
-                    {companyCity && (
-                      <div className="text-xs text-white/50 truncate">{companyCity}</div>
-                    )}
-                  </div>
-                </div>
-                {companyDisplayInn && (
-                  <Row icon={<IdCard className="h-4 w-4" />} label="ИНН" value={companyDisplayInn} />
-                )}
-                {company?.email && (
-                  <Row icon={<Mail className="h-4 w-4" />} label="Email" value={company.email} />
-                )}
-                {company?.description && (
-                  <div className="px-4 py-3 text-sm text-white/70 whitespace-pre-wrap">
-                    {company.description}
                   </div>
                 )}
+                <AllFields data={company} skip={["urlAvatar"]} />
               </Section>
             )}
 
-            {profile.description && (
-              <Section title="О себе">
-                <div className="px-4 py-3 text-sm text-white/70 whitespace-pre-wrap">
-                  {profile.description}
-                </div>
-              </Section>
-            )}
 
             <Button
               variant="ghost"
@@ -241,12 +198,117 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className="text-white/40">{icon}</div>
-      <div className="text-sm text-white/60 w-24">{label}</div>
-      <div className="text-sm flex-1 text-right truncate">{value}</div>
+    <div className="flex items-start gap-3 px-4 py-3">
+      <div className="text-xs text-white/50 w-32 shrink-0 pt-0.5 break-words">{label}</div>
+      <div className="text-sm flex-1 text-right break-all whitespace-pre-wrap">{value}</div>
     </div>
   );
 }
+
+const FIELD_LABELS: Record<string, string> = {
+  id: "ID",
+  email: "Email",
+  phone: "Телефон",
+  firstName: "Имя",
+  lastName: "Фамилия",
+  middleName: "Отчество",
+  description: "Описание",
+  city: "Город",
+  role: "Роль",
+  urlAvatar: "Аватар",
+  companyId: "ID компании",
+  companyName: "Компания",
+  companyInn: "ИНН",
+  createdAt: "Создан",
+  updatedAt: "Обновлён",
+  emailVerified: "Email подтверждён",
+  phoneVerified: "Телефон подтверждён",
+  isActive: "Активен",
+  isBlocked: "Заблокирован",
+  isDeleted: "Удалён",
+};
+
+function humanLabel(key: string): string {
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+  // camelCase / snake_case → "Human case"
+  const spaced = key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function formatValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-white/30">—</span>;
+  }
+  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  if (typeof value === "number" || typeof value === "string") {
+    const s = String(value);
+    // ISO date detection
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return d.toLocaleString("ru-RU");
+    }
+    // URL rendering
+    if (/^https?:\/\//.test(s)) {
+      return (
+        <a
+          href={s}
+          target="_blank"
+          rel="noreferrer"
+          className="text-orange-400 hover:underline break-all"
+        >
+          {s}
+        </a>
+      );
+    }
+    return s;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-white/30">[]</span>;
+    return (
+      <pre className="text-xs bg-black/30 rounded p-2 overflow-x-auto text-left">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  if (typeof value === "object") {
+    return (
+      <pre className="text-xs bg-black/30 rounded p-2 overflow-x-auto text-left">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  return String(value);
+}
+
+function AllFields({
+  data,
+  skip = [],
+}: {
+  data: Record<string, unknown>;
+  skip?: string[];
+}) {
+  const entries = Object.entries(data).filter(([k]) => !skip.includes(k));
+  // Stable ordering: known fields first, then the rest alphabetically
+  const known = Object.keys(FIELD_LABELS);
+  entries.sort(([a], [b]) => {
+    const ai = known.indexOf(a);
+    const bi = known.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  return (
+    <>
+      {entries.map(([k, v]) => (
+        <Row key={k} label={humanLabel(k)} value={formatValue(v)} />
+      ))}
+    </>
+  );
+}
+
