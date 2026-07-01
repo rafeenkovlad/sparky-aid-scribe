@@ -8,18 +8,22 @@ import {
   Copy,
   HelpCircle,
   Loader2,
+  LogIn,
+  LogOut,
   Menu,
   Mic,
   Paperclip,
   Pencil,
   Plus,
-  Settings2,
+  
   Square,
   Trash2,
+  UserRound,
   X,
   PanelRightOpen,
   ClipboardCheck,
 } from "lucide-react";
+
 
 
 
@@ -408,10 +412,37 @@ export function ChatApp({ threadId }: Props) {
   });
 
 
+  // Profile from Storage.GetProfile (loaded when authorized).
+  const [profile, setProfile] = useState<{ id: number; email: string | null; firstName?: string | null; lastName?: string | null; role: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) { setProfile(null); return; }
+    void (async () => {
+      try {
+        const { getProfile } = await import("@/lib/carreports/storageApi");
+        const p = await getProfile();
+        if (!cancelled) setProfile(p);
+      } catch {
+        if (!cancelled) setProfile(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const doLogout = useCallback(async () => {
+    const { setToken } = await import("@/lib/carreports/tokenStore");
+    const { saveRefreshToken } = await import("@/lib/carreports/phoneAuth");
+    setToken(null);
+    saveRefreshToken(null);
+    setProfile(null);
+    setMenuOpen(false);
+  }, []);
+
   // Open token dialog automatically the very first time.
   useEffect(() => {
     if (!token) setTokenOpen(true);
   }, [token]);
+
 
   // Seed first intro message on a fresh thread (StrictMode-safe: re-check
   // current store state, only push when truly empty).
@@ -3030,26 +3061,52 @@ export function ChatApp({ threadId }: Props) {
               </SheetTitle>
             </SheetHeader>
             <div className="p-3 space-y-2">
+              {!token && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setTokenOpen(true);
+                    setMenuOpen(false);
+                  }}
+                  className="w-full justify-start text-white hover:bg-white/10"
+                >
+                  <LogIn className="h-4 w-4 mr-2" /> Вход
+                </Button>
+              )}
+              {token && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setTokenOpen(true);
+                    setMenuOpen(false);
+                  }}
+                  className="w-full justify-start text-white hover:bg-white/10 h-auto py-2"
+                >
+                  <UserRound className="h-4 w-4 mr-2 shrink-0" />
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="truncate max-w-full">
+                      {profile
+                        ? ([profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+                           profile.email ||
+                           `ID ${profile.id}`)
+                        : "Профиль"}
+                    </span>
+                    {profile?.email && (profile.firstName || profile.lastName) && (
+                      <span className="text-xs text-white/50 truncate max-w-full">{profile.email}</span>
+                    )}
+                  </div>
+                </Button>
+              )}
               <Button
                 onClick={newThread}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white justify-start"
               >
                 <Plus className="h-4 w-4 mr-2" /> Новый отчёт
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setTokenOpen(true);
-                  setMenuOpen(false);
-                }}
-                className="w-full justify-start text-white hover:bg-white/10"
-              >
-                <Settings2 className="h-4 w-4 mr-2" /> {token ? "Аккаунт carreports" : "Вход"}
-              </Button>
               <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
             <div className="px-3 pb-1 pt-2 text-xs uppercase tracking-wider text-white/40">История</div>
-            <div className="px-2 pb-4 space-y-1 overflow-y-auto" style={{ maxHeight: "60dvh" }}>
+            <div className="px-2 pb-2 space-y-1 overflow-y-auto" style={{ maxHeight: "50dvh" }}>
               {threads.length === 0 && <div className="px-2 py-3 text-sm text-white/50">Пока пусто</div>}
               {threads.map((t) => (
                 <div
@@ -3088,6 +3145,18 @@ export function ChatApp({ threadId }: Props) {
                 </div>
               ))}
             </div>
+            {token && (
+              <div className="p-3 border-t border-white/10">
+                <Button
+                  variant="ghost"
+                  onClick={doLogout}
+                  className="w-full justify-start text-white hover:bg-white/10"
+                >
+                  <LogOut className="h-4 w-4 mr-2" /> Выход из профиля
+                </Button>
+              </div>
+            )}
+
           </SheetContent>
         </Sheet>
 
