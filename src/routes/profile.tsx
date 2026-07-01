@@ -207,12 +207,117 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className="text-white/40">{icon}</div>
-      <div className="text-sm text-white/60 w-24">{label}</div>
-      <div className="text-sm flex-1 text-right truncate">{value}</div>
+    <div className="flex items-start gap-3 px-4 py-3">
+      <div className="text-xs text-white/50 w-32 shrink-0 pt-0.5 break-words">{label}</div>
+      <div className="text-sm flex-1 text-right break-all whitespace-pre-wrap">{value}</div>
     </div>
   );
 }
+
+const FIELD_LABELS: Record<string, string> = {
+  id: "ID",
+  email: "Email",
+  phone: "Телефон",
+  firstName: "Имя",
+  lastName: "Фамилия",
+  middleName: "Отчество",
+  description: "Описание",
+  city: "Город",
+  role: "Роль",
+  urlAvatar: "Аватар",
+  companyId: "ID компании",
+  companyName: "Компания",
+  companyInn: "ИНН",
+  createdAt: "Создан",
+  updatedAt: "Обновлён",
+  emailVerified: "Email подтверждён",
+  phoneVerified: "Телефон подтверждён",
+  isActive: "Активен",
+  isBlocked: "Заблокирован",
+  isDeleted: "Удалён",
+};
+
+function humanLabel(key: string): string {
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+  // camelCase / snake_case → "Human case"
+  const spaced = key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function formatValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-white/30">—</span>;
+  }
+  if (typeof value === "boolean") return value ? "Да" : "Нет";
+  if (typeof value === "number" || typeof value === "string") {
+    const s = String(value);
+    // ISO date detection
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return d.toLocaleString("ru-RU");
+    }
+    // URL rendering
+    if (/^https?:\/\//.test(s)) {
+      return (
+        <a
+          href={s}
+          target="_blank"
+          rel="noreferrer"
+          className="text-orange-400 hover:underline break-all"
+        >
+          {s}
+        </a>
+      );
+    }
+    return s;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-white/30">[]</span>;
+    return (
+      <pre className="text-xs bg-black/30 rounded p-2 overflow-x-auto text-left">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  if (typeof value === "object") {
+    return (
+      <pre className="text-xs bg-black/30 rounded p-2 overflow-x-auto text-left">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  return String(value);
+}
+
+function AllFields({
+  data,
+  skip = [],
+}: {
+  data: Record<string, unknown>;
+  skip?: string[];
+}) {
+  const entries = Object.entries(data).filter(([k]) => !skip.includes(k));
+  // Stable ordering: known fields first, then the rest alphabetically
+  const known = Object.keys(FIELD_LABELS);
+  entries.sort(([a], [b]) => {
+    const ai = known.indexOf(a);
+    const bi = known.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  return (
+    <>
+      {entries.map(([k, v]) => (
+        <Row key={k} label={humanLabel(k)} value={formatValue(v)} />
+      ))}
+    </>
+  );
+}
+
