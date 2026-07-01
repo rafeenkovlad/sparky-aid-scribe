@@ -4031,7 +4031,15 @@ export function ChatApp({ threadId }: Props) {
       </div>
 
 
-      <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      <TokenDialog
+        open={tokenOpen}
+        onOpenChange={(v) => {
+          // Пока пользователь не авторизован — окно закрыть нельзя.
+          if (!v && !token) return;
+          setTokenOpen(v);
+        }}
+        initialToken={token}
+      />
       <Dialog
         open={nameDialog.open}
         onOpenChange={(open) =>
