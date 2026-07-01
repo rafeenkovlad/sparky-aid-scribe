@@ -3066,6 +3066,12 @@ export function ChatApp({ threadId }: Props) {
               </SheetTitle>
             </SheetHeader>
             <div className="p-3 space-y-2">
+              <Button
+                onClick={newThread}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white justify-start"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Новый отчёт
+              </Button>
               {!token && (
                 <Button
                   variant="ghost"
@@ -3102,14 +3108,9 @@ export function ChatApp({ threadId }: Props) {
                   </div>
                 </Button>
               )}
-              <Button
-                onClick={newThread}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white justify-start"
-              >
-                <Plus className="h-4 w-4 mr-2" /> Новый отчёт
-              </Button>
               <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
+
             <div className="p-3 pt-0">
               <Button
                 variant="ghost"
