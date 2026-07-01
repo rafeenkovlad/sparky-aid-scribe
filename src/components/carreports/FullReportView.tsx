@@ -62,7 +62,7 @@ export function FullReportView({ thread, onClose }: Props) {
       </div>
 
       <div className="absolute inset-0 overflow-y-auto pt-12 print:pt-0 print:overflow-visible print:relative">
-        <div className="report-page mx-auto my-6 print:my-0 max-w-[800px] bg-white text-zinc-900 shadow-2xl print:shadow-none p-8 print:p-0">
+        <div className="report-page mx-auto sm:my-6 print:my-0 sm:max-w-[800px] min-h-full bg-white text-zinc-900 sm:shadow-2xl print:shadow-none p-4 sm:p-8 print:p-0">
           {/* Header */}
           <div className="border-b-2 border-orange-500 pb-3 mb-4">
             <div className="text-xs uppercase tracking-wider text-orange-600 font-semibold">
