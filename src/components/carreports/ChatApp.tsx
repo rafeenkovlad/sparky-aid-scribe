@@ -8,6 +8,8 @@ import {
   Copy,
   HelpCircle,
   Loader2,
+  LogIn,
+  LogOut,
   Menu,
   Mic,
   Paperclip,
@@ -16,10 +18,12 @@ import {
   Settings2,
   Square,
   Trash2,
+  UserRound,
   X,
   PanelRightOpen,
   ClipboardCheck,
 } from "lucide-react";
+
 
 
 
