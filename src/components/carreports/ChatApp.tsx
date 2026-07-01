@@ -1935,7 +1935,7 @@ export function ChatApp({ threadId }: Props) {
                 { re: /руль|steering/, item: { label: "Тест-драйв: укажите теги для «руль»", step: "testDrive" } },
                 { re: /подвеск|suspension/, item: { label: "Тест-драйв: укажите теги для «подвеска»", step: "testDrive" } },
                 { re: /тормоз|brake/, item: { label: "Тест-драйв: укажите теги для «тормоза»", step: "testDrive" } },
-                { re: /vin|пробег|госномер|город|дата осмотра|марк|модел/, item: { label: "Автомобиль: заполните обязательные поля", step: "car" } },
+                { re: /vin|пробег|госномер|город|city|дата осмотра|марк|модел/, item: { label: "Автомобиль: заполните обязательные поля (город осмотра, VIN, пробег, госномер, дата)", step: "car" } },
                 { re: /документ|птс|стс|собственник/, item: { label: "Документы: заполните обязательные поля", step: "docs" } },
                 { re: /кузов/, item: { label: "Осмотр: раздел «Кузов»", step: "inspection", sectionSnake: "body" } },
                 { re: /салон/, item: { label: "Осмотр: раздел «Салон»", step: "inspection", sectionSnake: "interior" } },
