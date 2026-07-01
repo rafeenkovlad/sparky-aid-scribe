@@ -40,16 +40,32 @@ function shortHint(s: string | null, fallback: string): string {
   return t.length > 90 ? t.slice(0, 87) + "…" : t;
 }
 
+/** Тест-драйв считается пропущенным, если явно отмечено «не проводился»
+ *  ЛЮБЫМ способом: флаг notDone, testDriveIsIncluded === false, или текст
+ *  заметки содержит «не проводил…». В этом случае шаг считаем заполненным. */
+function isTestDriveSkipped(td: Record<string, unknown>): boolean {
+  if (td.notDone === true) return true;
+  if (td.testDriveIsIncluded === false) return true;
+  const noteRe = /не\s+проводил/i;
+  const notes = typeof td.notes === "string" ? td.notes : "";
+  const tdNote = typeof td.testDriveNote === "string" ? td.testDriveNote : "";
+  return noteRe.test(notes) || noteRe.test(tdNote);
+}
+
 export function collectMissingForSummary(
   d: ReportDraft,
   opts: { includeResult?: boolean } = {},
 ): MissingSummaryItem[] {
   const out: MissingSummaryItem[] = [];
+  const td = (d.testDriveStep ?? {}) as Record<string, unknown>;
+  const tdSkipped = isTestDriveSkipped(td);
 
   for (const s of REQUIRED_STEPS) {
     // Шаг «Итог» (резюме/вердикт) проверяем только при финальной выгрузке,
     // а не при генерации самого резюме — иначе получится замкнутый круг.
     if (s.id === "result" && !opts.includeResult) continue;
+    // Тест-драйв, отмеченный как «не проводился», считаем заполненным.
+    if (s.id === "testDrive" && tdSkipped) continue;
     if (!isStepFilled(s.id, d)) {
       out.push({
         label: `${s.label}: ${shortHint(nextMissingPrompt(s.id, d), "заполните обязательные поля")}`,
@@ -61,8 +77,6 @@ export function collectMissingForSummary(
   // Тест-драйв: если какой-то узел отмечен как неисправный (false), но к нему
   // не выбрано ни одного тега — бэкенд вернёт ошибку «необходимо указать теги».
   // Подсказываем это сразу, до отправки.
-  const td = (d.testDriveStep ?? {}) as Record<string, unknown>;
-  const tdSkipped = td.notDone === true || td.testDriveIsIncluded === false;
   if (!tdSkipped) {
     const subsystems: Array<{ okKey: string; tagsKey: string; label: string }> = [
       { okKey: "testDriveEngineIsWorkingProperly", tagsKey: "testDriveEngineTags", label: "двигатель" },
