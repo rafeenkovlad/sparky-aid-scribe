@@ -76,9 +76,28 @@ function fmtDate(ts: number): string {
 export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
   const uploaded = findUpload(thread);
   const isUploaded = !!uploaded;
+  const [previewBusy, setPreviewBusy] = useState(false);
   const titleText = isUploaded
     ? `Отчёт${uploaded?.reportId ? ` №${uploaded.reportId}` : ""}${uploaded?.at ? ` · ${fmtDate(uploaded.at)}` : ""}`
     : "Черновик отчёта";
+
+  const handleExternalPreview = () => {
+    if (previewBusy) return;
+    setPreviewBusy(true);
+    // window.open должен вызываться синхронно — открываем сразу,
+    // а данные шлём как только соберём JSON.
+    const previewWindowStub = { closed: false };
+    void (async () => {
+      try {
+        const report = await buildPreviewReport(thread.draft);
+        openReportPreview(report);
+      } finally {
+        setPreviewBusy(false);
+        void previewWindowStub;
+      }
+    })();
+  };
+
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white">
       <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
@@ -86,7 +105,7 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
         <div className="text-sm font-medium truncate">{titleText}</div>
       </div>
       {onOpenFullReport && (
-        <div className="px-3 pt-3">
+        <div className="px-3 pt-3 space-y-2">
           <button
             onClick={onOpenFullReport}
             className={
@@ -99,8 +118,20 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
             <Eye className="h-4 w-4" />
             {isUploaded ? "Открыть отчёт" : "Предпросмотр"}
           </button>
+          <button
+            onClick={handleExternalPreview}
+            disabled={previewBusy}
+            className="w-full rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+          >
+            <ExternalLink className="h-4 w-4" />
+            {previewBusy ? "Открываю…" : "Предварительный просмотр отчёта"}
+          </button>
+          <p className="text-[11px] leading-snug text-white/50 px-1">
+            Файлы и видео, которые ещё не загружены на сервер, в превью показаны не будут.
+          </p>
         </div>
       )}
+
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {FLOW_STEPS.map((step, idx) => {
           const done = isStepFilled(step.id, thread.draft);
