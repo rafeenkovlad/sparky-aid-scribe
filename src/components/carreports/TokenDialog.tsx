@@ -72,7 +72,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
       const res = await authByPhone(normalized);
       setStarted(res);
       stopRef.current = false;
-      pollLoop(res.notificationToken);
+      pollLoop(res.notificationToken, normalized);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось начать авторизацию");
     } finally {
@@ -80,7 +80,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
     }
   }
 
-  async function pollLoop(notificationToken: string) {
+  async function pollLoop(notificationToken: string, phoneE164: string) {
     let tick = 0;
     while (!stopRef.current) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -88,7 +88,7 @@ function PhoneAuthPanel({ onDone }: { onDone: () => void }) {
       tick += 1;
       setPollTick(tick);
       try {
-        const v = await verifyAuth(notificationToken);
+        const v = await verifyAuth(notificationToken, phoneE164);
         if (v.accessToken) {
           stopRef.current = true;
           setToken(v.accessToken);
