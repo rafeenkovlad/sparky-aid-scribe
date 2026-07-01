@@ -142,62 +142,28 @@ function ProfilePage() {
               </div>
             </div>
 
-            <Section title="Личные данные">
-              <Row icon={<IdCard className="h-4 w-4" />} label="ID" value={String(profile.id)} />
-              <Row icon={<Mail className="h-4 w-4" />} label="Email" value={profile.email ?? "—"} />
-              <Row icon={<UserRound className="h-4 w-4" />} label="Имя" value={profile.firstName ?? "—"} />
-              <Row icon={<UserRound className="h-4 w-4" />} label="Фамилия" value={profile.lastName ?? "—"} />
-              {profile.middleName && (
-                <Row icon={<UserRound className="h-4 w-4" />} label="Отчество" value={profile.middleName} />
-              )}
-              {profile.city && <Row icon={<MapPin className="h-4 w-4" />} label="Город" value={profile.city} />}
-              <Row icon={<Briefcase className="h-4 w-4" />} label="Роль" value={ROLE_LABEL[profile.role] ?? profile.role} />
+            <Section title="Все поля профиля">
+              <AllFields data={profile} skip={["urlAvatar"]} />
             </Section>
 
-            {(companyDisplayName || companyDisplayInn || company) && (
+            {company && (
               <Section title="Компания">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                    {company?.urlAvatar ? (
-                      <img
-                        src={company.urlAvatar}
-                        alt=""
-                        className="h-10 w-10 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <Building2 className="h-5 w-5 text-white/60" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
+                {company.urlAvatar && (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <img
+                      src={company.urlAvatar}
+                      alt=""
+                      className="h-10 w-10 rounded-lg object-cover bg-white/10"
+                    />
                     <div className="text-sm truncate">
-                      {companyDisplayName ?? "—"}
+                      {company.companyName ?? `ID ${company.id}`}
                     </div>
-                    {companyCity && (
-                      <div className="text-xs text-white/50 truncate">{companyCity}</div>
-                    )}
-                  </div>
-                </div>
-                {companyDisplayInn && (
-                  <Row icon={<IdCard className="h-4 w-4" />} label="ИНН" value={companyDisplayInn} />
-                )}
-                {company?.email && (
-                  <Row icon={<Mail className="h-4 w-4" />} label="Email" value={company.email} />
-                )}
-                {company?.description && (
-                  <div className="px-4 py-3 text-sm text-white/70 whitespace-pre-wrap">
-                    {company.description}
                   </div>
                 )}
+                <AllFields data={company} skip={["urlAvatar"]} />
               </Section>
             )}
 
-            {profile.description && (
-              <Section title="О себе">
-                <div className="px-4 py-3 text-sm text-white/70 whitespace-pre-wrap">
-                  {profile.description}
-                </div>
-              </Section>
-            )}
 
             <Button
               variant="ghost"
