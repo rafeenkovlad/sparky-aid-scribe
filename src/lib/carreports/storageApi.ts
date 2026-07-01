@@ -334,7 +334,7 @@ function buildInspectionStep(draft: ReportDraft): Record<string, unknown> {
  * Build the request payload for Storage.PrepareSpecialistReport from our local
  * draft, mapping to the Doc schema field names.
  */
-function buildPrepareReportPayload(
+export function buildPrepareReportPayload(
   draft: ReportDraft,
   resolved: ResolvedCar,
 ): Record<string, unknown> {
