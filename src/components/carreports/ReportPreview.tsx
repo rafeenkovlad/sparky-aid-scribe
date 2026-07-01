@@ -2,13 +2,16 @@ import { FLOW_STEPS } from "@/lib/carreports/flow";
 import { isStepFilled, shortCarSummary, shortCharSummary, shortDocsSummary } from "@/lib/carreports/progress";
 import { INSPECTION_ZONES } from "@/lib/carreports/inspectionZones";
 import type { StepId, Thread } from "@/lib/carreports/types";
-import { Check, ChevronRight, Eye, FileText } from "lucide-react";
+import { Check, ChevronRight, ExternalLink, Eye, FileText } from "lucide-react";
+import { buildPreviewReport, openReportPreview } from "@/lib/carreports/previewReport";
+import { useState } from "react";
 
 interface Props {
   thread: Thread;
   onJump: (step: StepId) => void;
   onOpenFullReport?: () => void;
 }
+
 
 function summaryFor(step: StepId, t: Thread): string {
   switch (step) {
