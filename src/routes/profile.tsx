@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut, Loader2, UserRound } from "lucide-react";
 
 const HIDDEN_FIELDS = [
+  "id",
   "urlAvatar",
   "isDelete",
   "isDeleted",
