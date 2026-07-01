@@ -10,6 +10,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LogOut, Loader2, UserRound } from "lucide-react";
 
+const HIDDEN_FIELDS = [
+  "urlAvatar",
+  "isDelete",
+  "isDeleted",
+  "isVerifyCompany",
+  "isVerifyEmail",
+  "isVerifyPhone",
+  "likeDown",
+  "likeUp",
+  "mobileJti",
+];
+
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
