@@ -84,7 +84,7 @@ import { Sparkles, FileText, Share2, ChevronRight, RotateCcw } from "lucide-reac
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
 import { generateSummary } from "@/lib/carreports/aiSummary";
-import { collectMissingForSummary } from "@/lib/carreports/summaryGate";
+import { collectMissingForSummary, listAllRequiredForSummary } from "@/lib/carreports/summaryGate";
 import { enqueueAI, getQueueSize, subscribeQueue } from "@/lib/carreports/aiQueue";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
@@ -1947,7 +1947,11 @@ export function ChatApp({ threadId }: Props) {
                 if (g.re.test(low)) miss.push(g.item);
               }
               if (miss.length === 0) {
-                miss.push({ label: "Проверьте обязательные поля во всех шагах", step: "testDrive" });
+                // Не смогли распарсить конкретный узел из ответа бэкенда —
+                // вместо расплывчатого «во всех вкладках» показываем весь
+                // перечень обязательных областей, чтобы пользователь мог
+                // пройтись по ним и найти пропуск.
+                miss.push(...listAllRequiredForSummary());
               }
             }
             pushMsg(t, "result", {
@@ -1955,7 +1959,8 @@ export function ChatApp({ threadId }: Props) {
               role: "assistant",
               text:
                 "Не получится выгрузить отчёт — остались незаполненные обязательные поля. " +
-                "Перейдите по кнопкам ниже и допишите недостающее, затем снова нажмите «Завершить».",
+                "Проверьте перечисленные ниже пункты и допишите недостающее, затем снова нажмите «Завершить»." +
+                (raw ? `\n\nОтвет сервера: ${raw}` : ""),
               step: "result",
               kind: "missingFields",
               missingFields: miss,
