@@ -3989,6 +3989,55 @@ export function ChatApp({ threadId }: Props) {
 
 
       <TokenDialog open={tokenOpen} onOpenChange={setTokenOpen} initialToken={token} />
+      <Dialog
+        open={nameDialog.open}
+        onOpenChange={(open) =>
+          setNameDialog((s) => ({ ...s, open }))
+        }
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {nameDialog.mode === "create" ? "Название отчёта" : "Переименовать отчёт"}
+            </DialogTitle>
+            <DialogDescription>
+              {nameDialog.mode === "create"
+                ? "Дайте отчёту понятное название — его удобно будет искать в списке."
+                : "Введите новое название отчёта."}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={nameDialog.value}
+            onChange={(e) =>
+              setNameDialog((s) => ({ ...s, value: e.target.value }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitNameDialog();
+              }
+            }}
+            placeholder="Например: BMW X5 · Иванов"
+            maxLength={120}
+          />
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setNameDialog((s) => ({ ...s, open: false }))}
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={submitNameDialog}
+              disabled={!nameDialog.value.trim()}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {nameDialog.mode === "create" ? "Создать" : "Сохранить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {fullReportOpen && (
         <FullReportView thread={thread} onClose={() => setFullReportOpen(false)} />
       )}
