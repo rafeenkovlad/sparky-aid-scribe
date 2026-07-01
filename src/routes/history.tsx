@@ -21,6 +21,7 @@ export const Route = createFileRoute("/history")({
 /** Ищет последний finishComplete в потоке шага "result". */
 function extractShareInfo(t: Thread): {
   reportId?: string | number;
+  numericId?: string | number;
   shareUrl?: string;
 } | null {
   const result = t.messages?.result ?? [];
@@ -28,13 +29,14 @@ function extractShareInfo(t: Thread): {
     const m = result[i];
     if (m.kind === "finishComplete" && m.finishComplete) {
       const fc = m.finishComplete;
-      if (fc.reportId || fc.shareUrl) {
-        return { reportId: fc.reportId, shareUrl: fc.shareUrl };
+      if (fc.reportId || fc.shareUrl || fc.numericId) {
+        return { reportId: fc.reportId, numericId: fc.numericId, shareUrl: fc.shareUrl };
       }
     }
   }
   return null;
 }
+
 
 async function shareLink(url: string, title: string) {
   const nav = navigator as Navigator & {
@@ -80,12 +82,14 @@ function HistoryPage() {
     setBusyId(t.id);
     try {
       let url = info.shareUrl;
-      if (!url && info.reportId != null) {
-        const s = await createShareUrl(info.reportId);
+      const idForShare = info.numericId ?? info.reportId;
+      if (!url && idForShare != null) {
+        const s = await createShareUrl(idForShare);
         url = s.url;
+        if (!url && s.note) toast.error(s.note);
       }
       if (!url) {
-        toast.error("Не удалось получить ссылку на отчёт");
+        toast.error("Отчёт ещё не выгружен на сервер. Откройте отчёт и завершите выгрузку.");
         return;
       }
       await shareLink(url, t.title || "Отчёт");
