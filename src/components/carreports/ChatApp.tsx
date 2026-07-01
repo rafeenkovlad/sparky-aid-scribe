@@ -412,10 +412,37 @@ export function ChatApp({ threadId }: Props) {
   });
 
 
+  // Profile from Storage.GetProfile (loaded when authorized).
+  const [profile, setProfile] = useState<{ id: number; email: string | null; firstName?: string | null; lastName?: string | null; role: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) { setProfile(null); return; }
+    void (async () => {
+      try {
+        const { getProfile } = await import("@/lib/carreports/storageApi");
+        const p = await getProfile();
+        if (!cancelled) setProfile(p);
+      } catch {
+        if (!cancelled) setProfile(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const doLogout = useCallback(async () => {
+    const { setToken } = await import("@/lib/carreports/tokenStore");
+    const { saveRefreshToken } = await import("@/lib/carreports/phoneAuth");
+    setToken(null);
+    saveRefreshToken(null);
+    setProfile(null);
+    setMenuOpen(false);
+  }, []);
+
   // Open token dialog automatically the very first time.
   useEffect(() => {
     if (!token) setTokenOpen(true);
   }, [token]);
+
 
   // Seed first intro message on a fresh thread (StrictMode-safe: re-check
   // current store state, only push when truly empty).
