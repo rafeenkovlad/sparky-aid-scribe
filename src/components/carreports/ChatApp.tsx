@@ -439,10 +439,10 @@ export function ChatApp({ threadId }: Props) {
     setMenuOpen(false);
   }, []);
 
-  // Open token dialog automatically the very first time.
-  useEffect(() => {
-    if (!token) setTokenOpen(true);
-  }, [token]);
+  // Не открываем диалог входа автоматически — пользователь должен иметь
+  // возможность свободно перемещаться по вкладкам без авторизации.
+  // Для входа доступна кнопка «Вход» в боковом меню.
+
 
 
   // Seed first intro message on a fresh thread (StrictMode-safe: re-check
