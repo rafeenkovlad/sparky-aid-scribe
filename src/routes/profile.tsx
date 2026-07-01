@@ -212,13 +212,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value, block }: { label: string; value: React.ReactNode; block?: boolean }) {
+  if (block) {
+    return (
+      <div className="px-4 py-3">
+        <div className="text-xs text-white/50 pb-1">{label}</div>
+        <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-white/90">
+          {value}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <div className="text-xs text-white/50 w-32 shrink-0 pt-0.5 break-words">{label}</div>
-      <div className="text-sm flex-1 text-right break-all whitespace-pre-wrap">{value}</div>
+      <div className="text-sm flex-1 text-right break-words whitespace-pre-wrap">{value}</div>
     </div>
   );
+}
+
+const BLOCK_FIELDS = new Set(["description", "bio", "about", "address", "note", "notes"]);
+function isLongText(v: unknown): boolean {
+  return typeof v === "string" && (v.length > 60 || v.includes("\n"));
 }
 
 const FIELD_LABELS: Record<string, string> = {
