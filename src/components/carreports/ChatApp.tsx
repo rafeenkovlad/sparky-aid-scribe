@@ -2972,9 +2972,27 @@ export function ChatApp({ threadId }: Props) {
 
 
   function newThread() {
-    const t = createThread();
     setMenuOpen(false);
-    navigate({ to: "/$threadId", params: { threadId: t.id } });
+    setNameDialog({ open: true, mode: "create", value: "" });
+  }
+
+  function submitNameDialog() {
+    const name = nameDialog.value.trim();
+    if (!name) return;
+    if (nameDialog.mode === "create") {
+      const t = createThread({ title: name });
+      updateThread(t.id, (x) => {
+        x.draft.reportName = name;
+      });
+      setNameDialog({ open: false, mode: "create", value: "" });
+      navigate({ to: "/$threadId", params: { threadId: t.id } });
+    } else if (thread) {
+      updateThread(thread.id, (x) => {
+        x.title = name;
+        x.draft.reportName = name;
+      });
+      setNameDialog({ open: false, mode: "rename", value: "" });
+    }
   }
 
   if (!mounted || !thread) {
