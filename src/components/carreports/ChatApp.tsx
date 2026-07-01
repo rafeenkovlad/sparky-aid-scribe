@@ -497,6 +497,28 @@ export function ChatApp({ threadId }: Props) {
         nextSelected = [...prev, chip.value];
       }
       msg.selectedChipValues = nextSelected;
+
+      // Спец-обработка «Тест-драйв не проводился»: сразу помечаем шаг
+      // как заполненный в драфте, чтобы гейт обязательных полей не блокировал
+      // резюме/финализацию до отправки текста.
+      if (chip.group === "td" && chip.single) {
+        const isNotDone = /не\s+проводил/i.test(chip.value);
+        const td = { ...(t.draft.testDriveStep ?? {}) };
+        if (isNotDone && nextSelected.includes(chip.value)) {
+          td.notDone = true;
+          td.testDriveIsIncluded = false;
+          if (!td.testDriveNote) td.testDriveNote = chip.value;
+          if (!td.notes) td.notes = chip.value;
+        } else if (isNotDone && !nextSelected.includes(chip.value)) {
+          td.notDone = false;
+          td.testDriveIsIncluded = undefined;
+        } else if (!isNotDone && nextSelected.includes(chip.value)) {
+          // выбран «Проводился» — снимаем флаг «не проводился».
+          td.notDone = false;
+          td.testDriveIsIncluded = true;
+        }
+        t.draft.testDriveStep = td;
+      }
     });
     textareaRef.current?.focus();
   }, [thread]);
