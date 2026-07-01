@@ -329,7 +329,13 @@ function AllFields({
   data: Record<string, unknown>;
   skip?: string[];
 }) {
-  const entries = Object.entries(data).filter(([k]) => !skip.includes(k));
+  const skipLower = skip.map((s) => s.toLowerCase());
+  const entries = Object.entries(data).filter(([k]) => {
+    const kl = k.toLowerCase();
+    if (skipLower.includes(kl)) return false;
+    if (kl.includes("like")) return false;
+    return true;
+  });
   // Stable ordering: known fields first, then the rest alphabetically
   const known = Object.keys(FIELD_LABELS);
   entries.sort(([a], [b]) => {
