@@ -2160,6 +2160,7 @@ export function ChatApp({ threadId }: Props) {
           kind: "finishComplete",
           finishComplete: {
             reportId: r.reportId,
+            numericId,
             shareUrl,
             retryFinalizeId: completeNote ? finalizeId : undefined,
             retryNumericId: completeNote ? numericId : undefined,
