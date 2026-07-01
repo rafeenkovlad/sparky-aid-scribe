@@ -15,7 +15,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
-  Settings2 as _Settings2Unused,
+  
   Square,
   Trash2,
   UserRound,
