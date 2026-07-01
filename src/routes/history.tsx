@@ -11,7 +11,7 @@ import { ArrowLeft, Plus, Trash2, Share2, Loader2 } from "lucide-react";
 export const Route = createFileRoute("/history")({
   head: () => ({
     meta: [
-      { title: "История отчётов · carreports" },
+      { title: "История отчётов · Vindiezel ассистент" },
       { name: "description", content: "История ваших ИИ-отчётов об автомобиле." },
     ],
   }),

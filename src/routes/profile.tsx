@@ -44,7 +44,7 @@ const HIDDEN_FIELDS = [
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "Профиль · carreports" },
+      { title: "Профиль · Vindiezel ассистент" },
       { name: "description", content: "Профиль пользователя carreports." },
     ],
   }),
