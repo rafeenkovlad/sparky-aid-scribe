@@ -23,19 +23,30 @@ export const Route = createFileRoute("/api/cr-proxy")({
           // AI API авторизуется ТОЛЬКО заголовком Authorization: Bearer <jwt>.
           // Query-параметр ?token= игнорируется и приводит к Unauthorized.
           if (!token) return new Response("Missing token", { status: 401 });
-          const r = await fetch(upstream, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body,
-          });
-          return new Response(await r.text(), {
-            status: r.status,
-            headers: { "Content-Type": r.headers.get("Content-Type") ?? "application/json" },
-          });
+          try {
+            const r = await fetch(upstream, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body,
+            });
+            return new Response(await r.text(), {
+              status: r.status,
+              headers: { "Content-Type": r.headers.get("Content-Type") ?? "application/json" },
+            });
+          } catch (err) {
+            console.error("cr-proxy ai fetch failed:", err);
+            return new Response(
+              JSON.stringify({
+                error: { message: "AI сервер недоступен из dev-песочницы. Проверьте на опубликованном URL." },
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            );
+          }
+
         }
 
 
