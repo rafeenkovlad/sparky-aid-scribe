@@ -335,7 +335,12 @@ function AllFields({
   return (
     <>
       {entries.map(([k, v]) => (
-        <Row key={k} label={humanLabel(k)} value={formatValue(v)} />
+        <Row
+          key={k}
+          label={humanLabel(k)}
+          value={formatValue(v)}
+          block={BLOCK_FIELDS.has(k) || isLongText(v)}
+        />
       ))}
     </>
   );
