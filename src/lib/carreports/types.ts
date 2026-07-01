@@ -299,6 +299,8 @@ export interface ChatMessage {
   /** payload for kind=finishComplete — успешная выгрузка с кнопкой «Поделиться» */
   finishComplete?: {
     reportId?: string | number;
+    /** числовой id отчёта — нужен для CreateSpecialistReportShareUrl */
+    numericId?: string | number;
     shareUrl?: string;
     /** если задано — финализация не удалась, показать кнопку «Повторить» */
     retryFinalizeId?: string | number;
@@ -306,6 +308,7 @@ export interface ChatMessage {
     retryNumericId?: string | number;
 
   };
+
 
   /** payload for kind=missingFields — required-field gate before AI summary */
   missingFields?: { label: string; step: StepId; sectionSnake?: string }[];
