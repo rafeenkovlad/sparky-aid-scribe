@@ -161,6 +161,20 @@ a[href*="lovable.dev"][target="_blank"],
     overscroll-behavior-y: none;
   }
 
+  /* PWA / standalone: не залезать под системные индикаторы
+     (часы, батарея, оператор, home-indicator). */
+  @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      box-sizing: border-box;
+    }
+  }
+
+
+
   /* iOS Safari auto-zooms inputs with font-size < 16px on focus. */
   input,
   select,
