@@ -3252,7 +3252,7 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-4 pb-[calc(var(--chat-footer-h,96px)+1rem)] space-y-4">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-4 pb-4 space-y-4 overscroll-contain">
         {stepToast && (
           <div
             className={`pointer-events-none absolute left-1/2 -translate-x-1/2 top-2 z-30 flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] transition-all duration-300 ease-out ${
