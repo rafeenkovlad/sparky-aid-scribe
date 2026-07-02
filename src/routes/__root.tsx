@@ -128,20 +128,14 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [pendingActivate, setPendingActivate] = useState<null | (() => Promise<void>)>(null);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     void import("../lib/pwa/register-sw").then((m) =>
       m.registerServiceWorker((activate) => {
-        toast("Доступна новая версия", {
-          description: "Обновите приложение, чтобы применить изменения.",
-          duration: Infinity,
-          action: {
-            label: "Обновить",
-            onClick: () => {
-              void activate();
-            },
-          },
-        });
+        // Оборачиваем в функцию-обёртку, иначе useState вызовет activate как updater.
+        setPendingActivate(() => activate);
       }),
     );
   }, []);
@@ -179,6 +173,40 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster position="bottom-center" />
+      {pendingActivate && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-zinc-950/90 backdrop-blur-sm px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pwa-update-title"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-white/10 p-6 text-center text-white shadow-2xl">
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-orange-500/20 flex items-center justify-center text-2xl">
+              ⟳
+            </div>
+            <h2 id="pwa-update-title" className="text-lg font-semibold">
+              Доступна новая версия
+            </h2>
+            <p className="mt-2 text-sm text-white/70">
+              Чтобы продолжить работу, обновите приложение до последней версии.
+            </p>
+            <button
+              type="button"
+              disabled={activating}
+              onClick={() => {
+                if (activating) return;
+                setActivating(true);
+                void pendingActivate().catch(() => {
+                  setActivating(false);
+                });
+              }}
+              className="mt-5 w-full rounded-full bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 transition-colors"
+            >
+              {activating ? "Обновление…" : "Обновить приложение"}
+            </button>
+          </div>
+        </div>
+      )}
     </QueryClientProvider>
   );
 }
