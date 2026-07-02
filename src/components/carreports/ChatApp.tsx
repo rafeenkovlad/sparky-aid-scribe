@@ -3321,7 +3321,15 @@ export function ChatApp({ threadId }: Props) {
               <PanelRightOpen className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-screen max-w-none sm:max-w-none !h-[var(--app-h,100dvh)] top-0 bottom-0 inset-y-0">
+          <SheetContent
+            side="right"
+            className="bg-zinc-950 border-white/10 text-white p-0 w-screen max-w-none sm:max-w-none !h-[var(--app-h,100dvh)] top-0 bottom-0 inset-y-0 flex flex-col [&>button]:!top-[calc(0.75rem+env(safe-area-inset-top,0px))] [&>button]:!right-[calc(1rem+env(safe-area-inset-right,0px))] [&>button]:z-10"
+            style={{
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              paddingRight: "env(safe-area-inset-right, 0px)",
+            }}
+          >
             <SheetHeader className="sr-only">
               <SheetTitle>Черновик отчёта</SheetTitle>
             </SheetHeader>
