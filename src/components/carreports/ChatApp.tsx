@@ -4774,10 +4774,12 @@ function MessageBubble({
         ) : (
           msg.text && (
             <>
-              <div className="rounded-2xl rounded-tl-md bg-white/[0.04] border border-white/10 text-sm px-3 py-2 text-white whitespace-pre-wrap">
+              <div className="rounded-2xl rounded-tl-md bg-white/[0.03] border border-white/5 px-3.5 py-2.5 text-[15px] leading-[1.55] tracking-[0.005em] text-white/90 whitespace-pre-wrap [text-wrap:pretty]">
                 {msg.text}
               </div>
-              <CopyButton text={msg.text} />
+              <div className="flex justify-end">
+                <CopyButton text={msg.text} />
+              </div>
             </>
           )
         )}
