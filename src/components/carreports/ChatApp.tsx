@@ -225,7 +225,10 @@ export function ChatApp({ threadId }: Props) {
     void import("@/lib/carreports/photoCache").then((mod) => mod.gcOrphans(keep));
   }, [mounted, threads]);
 
-  const [tokenOpen, setTokenOpen] = useState(false);
+  const [tokenOpen, setTokenOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !getTokenNow();
+  });
   const [nameDialog, setNameDialog] = useState<{ open: boolean; mode: "create" | "rename"; value: string }>({ open: false, mode: "create", value: "" });
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
@@ -443,8 +446,17 @@ export function ChatApp({ threadId }: Props) {
   }, []);
 
   // Без авторизации показываем модальное окно входа и блокируем навигацию.
+  // Читаем токен из стора напрямую, чтобы не сработать в промежуточный кадр,
+  // когда useSyncExternalStore ещё не отдал значение из localStorage.
   useEffect(() => {
-    if (!token) setTokenOpen(true);
+    const current = token ?? getTokenNow();
+    if (current) {
+      // Токен есть — гарантированно закрываем окно, даже если оно успело
+      // открыться в предыдущем кадре при пустом снапшоте.
+      setTokenOpen(false);
+    } else {
+      setTokenOpen(true);
+    }
   }, [token]);
 
 
