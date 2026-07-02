@@ -3089,7 +3089,7 @@ export function ChatApp({ threadId }: Props) {
 
   if (!mounted || !thread) {
     return (
-      <div className="flex flex-col h-full min-h-0 bg-zinc-950 text-white items-center justify-center">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950 text-white items-center justify-center">
         <div className="text-sm text-white/60">Открываю отчёт…</div>
       </div>
     );
@@ -3104,7 +3104,7 @@ export function ChatApp({ threadId }: Props) {
     summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-zinc-950 text-white">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950 text-white">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 h-12 border-b border-white/10 shrink-0">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -3232,7 +3232,7 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      <main className="relative flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {stepToast && (
           <div
             className={`pointer-events-none absolute left-1/2 -translate-x-1/2 top-2 z-30 flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] transition-all duration-300 ease-out ${

@@ -169,7 +169,9 @@ a[href*="lovable.dev"][target="_blank"],
        уводила композер за пределы экрана: layout-viewport не скроллится,
        меняется только --app-h (высота видимой области над клавиатурой). */
     position: fixed;
-    inset: 0;
+    top: var(--vv-offset-top, 0px);
+    left: 0;
+    right: 0;
     width: 100%;
     height: var(--app-h, 100dvh);
     overflow: hidden;
