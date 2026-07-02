@@ -403,6 +403,7 @@ export function ChatApp({ threadId }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const askToggledByPointerRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputFooterRef = useRef<HTMLDivElement>(null);
 
   const voiceBaseRef = useRef<string>("");
   const voice = useVoiceRecorder({
@@ -534,6 +535,25 @@ export function ChatApp({ threadId }: Props) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [currentStepMessages.length, currentStep, lastMsgId, lastMsgStamp]);
+
+  // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
+  // actual height in the scroll area so it never covers the last chat message.
+  useEffect(() => {
+    const el = inputFooterRef.current;
+    if (!el || typeof document === "undefined") return;
+    const root = document.documentElement;
+    const update = () => {
+      root.style.setProperty("--chat-footer-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    };
+    update();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [mounted, thread]);
 
   // Композер скоупим по (thread, step): при переходе на другой шаг текущий
   // черновик сохраняем, на новом шаге показываем его собственный (или пусто).
@@ -3232,7 +3252,7 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-4 pb-[calc(var(--chat-footer-h,96px)+1rem)] space-y-4">
         {stepToast && (
           <div
             className={`pointer-events-none absolute left-1/2 -translate-x-1/2 top-2 z-30 flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] transition-all duration-300 ease-out ${
@@ -3545,8 +3565,19 @@ export function ChatApp({ threadId }: Props) {
 
 
 
+      {/* Fixed input footer: pinned to visualViewport, not flex layout, so iOS keyboard cannot push it off-screen. */}
+      <div
+        ref={inputFooterRef}
+        className="fixed left-0 right-0 z-40 bg-zinc-950/95 pt-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/85"
+        style={{
+          bottom: "calc(var(--keyboard-bottom, 0px) + env(safe-area-inset-bottom, 0px) * var(--kb-open-inv, 1))",
+          paddingLeft: "calc(0.75rem + env(safe-area-inset-left, 0px))",
+          paddingRight: "calc(0.75rem + env(safe-area-inset-right, 0px))",
+          paddingBottom: "0.75rem",
+        }}
+      >
       {/* Quick actions */}
-      <div className="px-3 pt-2 flex flex-wrap gap-2 shrink-0">
+      <div className="flex flex-wrap gap-2">
         {currentStep === "result" && (
           <button
             onClick={() => void doGenSummary()}
@@ -3788,7 +3819,7 @@ export function ChatApp({ threadId }: Props) {
 
 
       {/* Composer */}
-      <div className="px-3 pb-3 pt-2 shrink-0">
+      <div className="pt-2 shrink-0">
         {(() => {
           if (!lastOptionsMsgId) return null;
           const optMsg = currentStepMessages.find((m) => m.id === lastOptionsMsgId);
@@ -4153,6 +4184,7 @@ export function ChatApp({ threadId }: Props) {
           );
         })()}
 
+      </div>
       </div>
 
 

@@ -150,8 +150,12 @@ function RootComponent() {
     const update = () => {
       const h = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
+      const keyboardBottom = vv
+        ? Math.max(0, window.innerHeight - vv.height - offsetTop)
+        : 0;
       root.style.setProperty("--app-h", `${h}px`);
       root.style.setProperty("--vv-offset-top", `${offsetTop}px`);
+      root.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
       const kbOpen = vv ? window.innerHeight - vv.height > 80 : false;
       root.style.setProperty("--kb-open", kbOpen ? "1" : "0");
       root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
