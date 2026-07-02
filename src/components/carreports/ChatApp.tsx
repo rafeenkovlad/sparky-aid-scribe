@@ -3571,6 +3571,12 @@ export function ChatApp({ threadId }: Props) {
 
         {hasCurrentStepDraft && (
           <button
+            onPointerDown={(e) => {
+              // Не даём фокусу уйти на textarea/композер при тапе кнопки
+              // (особенно на мобильных, где это раскрывает клавиатуру).
+              e.preventDefault();
+              textareaRef.current?.blur();
+            }}
             onClick={() => {
               setAskMode(false);
               updateThread(thread.id, (t) => {
