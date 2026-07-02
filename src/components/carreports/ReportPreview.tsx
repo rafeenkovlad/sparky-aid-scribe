@@ -206,7 +206,7 @@ export function ReportPreview({ thread, onJump, onOpenFullReport }: Props) {
     : `${filledCount}/${totalSteps} шагов заполнено`;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 text-white">
+    <div className="flex flex-col flex-1 min-h-0 h-full bg-zinc-950 text-white">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
