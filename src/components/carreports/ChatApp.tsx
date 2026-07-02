@@ -3273,10 +3273,6 @@ export function ChatApp({ threadId }: Props) {
                   </div>
                 </Button>
               )}
-              <PWAInstallButton onAction={() => setMenuOpen(false)} />
-            </div>
-
-            <div className="p-3 pt-0">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -3290,6 +3286,10 @@ export function ChatApp({ threadId }: Props) {
                   <span className="ml-auto text-xs text-white/50">{threads.length}</span>
                 )}
               </Button>
+            </div>
+
+            <div className="p-3 pt-0">
+              <PWAInstallButton onAction={() => setMenuOpen(false)} />
             </div>
 
 
