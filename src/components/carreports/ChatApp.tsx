@@ -470,10 +470,18 @@ export function ChatApp({ threadId }: Props) {
   // Keep textarea focused. НЕ фокусируем на шаге «Итог» — там нажатие
   // «Продолжить» запускает doFinish, который тоглит busy, и автофокус
   // раскрывал бы композер и клавиатуру на мобильных.
+  // На тач-устройствах вообще не автофокусим: любой .focus() на textarea
+  // на iOS/Android поднимает клавиатуру, в том числе при переходе «Далее».
   useEffect(() => {
     if (!thread) return;
     const step = FLOW_STEPS[thread.stepIndex]?.id;
     if (step === "result") return;
+    if (typeof window !== "undefined") {
+      const isTouch =
+        (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches) ||
+        (typeof navigator !== "undefined" && (navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints ? ((navigator as unknown as { maxTouchPoints?: number }).maxTouchPoints ?? 0) > 0 : false);
+      if (isTouch) return;
+    }
     textareaRef.current?.focus();
   }, [threadId, busy, thread]);
 
