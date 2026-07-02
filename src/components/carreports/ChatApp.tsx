@@ -3828,7 +3828,11 @@ export function ChatApp({ threadId }: Props) {
               <div
                 className={
                   "rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
-                  (isExpanded ? "border-white/15" : "border-white/10")
+                  (composerResizing
+                    ? "border-orange-400/60 ring-2 ring-orange-400/40 shadow-[0_0_24px_rgba(251,146,60,0.35)] "
+                    : isExpanded
+                      ? "border-white/15 "
+                      : "border-white/10 ")
                 }
               >
                 {isExpanded && (
@@ -3840,6 +3844,7 @@ export function ChatApp({ threadId }: Props) {
                       (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
                       const cur = composerHeight ?? (textareaRef.current?.offsetHeight ?? 44);
                       composerDragRef.current = { startY: e.clientY, startH: cur };
+                      setComposerResizing(true);
                     }}
                     onPointerMove={(e) => {
                       const d = composerDragRef.current;
@@ -3852,16 +3857,28 @@ export function ChatApp({ threadId }: Props) {
                     }}
                     onPointerUp={(e) => {
                       composerDragRef.current = null;
+                      setComposerResizing(false);
                       try { (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
                     }}
-                    onPointerCancel={() => { composerDragRef.current = null; }}
+                    onPointerCancel={() => { composerDragRef.current = null; setComposerResizing(false); }}
                     onDoubleClick={() => setComposerHeight(null)}
-                    className="flex items-center justify-center cursor-ns-resize touch-none py-1.5 -mb-1 select-none"
+                    className={
+                      "flex items-center justify-center cursor-ns-resize touch-none py-2 -mb-1 select-none transition-colors " +
+                      (composerResizing ? "bg-orange-400/10" : "")
+                    }
                     title="Перетащите, чтобы изменить высоту. Двойной клик — сброс"
                   >
-                    <span className="h-1 w-10 rounded-full bg-white/25" />
+                    <span
+                      className={
+                        "h-1 rounded-full transition-all duration-150 " +
+                        (composerResizing
+                          ? "w-16 bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.9)]"
+                          : "w-10 bg-white/25")
+                      }
+                    />
                   </div>
                 )}
+
 
                 <input
                   ref={attachInputRef}
