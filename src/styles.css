@@ -165,19 +165,16 @@ a[href*="lovable.dev"][target="_blank"],
     /* Layout-viewport не должен скроллиться: композер держим по visualViewport. */
     overflow: hidden;
     height: 100%;
-    /* Плавно компенсируем короткие «дыхания» visualViewport на iOS. */
   }
 
   body {
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
-    /* Фиксируем body по визуальному viewport, чтобы iOS-клавиатура не
-       уводила композер за пределы экрана: layout-viewport не скроллится,
-       меняется только --app-h (высота видимой области над клавиатурой).
-       --vv-offset-top компенсирует iOS-сдвиг visualViewport при фокусе. */
+    /* Фиксируем body по визуальному viewport: layout-viewport не скроллится,
+       меняется только --app-h (высота видимой области над клавиатурой). */
     position: fixed;
-    top: var(--vv-offset-top, 0px);
+    top: 0;
     left: 0;
     right: 0;
     width: 100%;
@@ -186,9 +183,7 @@ a[href*="lovable.dev"][target="_blank"],
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
-       композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
-    padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
+    padding-bottom: 0;
     box-sizing: border-box;
   }
 

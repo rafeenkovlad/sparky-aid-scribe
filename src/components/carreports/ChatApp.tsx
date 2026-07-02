@@ -240,9 +240,9 @@ export function ChatApp({ threadId }: Props) {
   const [composerResizing, setComposerResizing] = useState(false);
   const composerDragRef = useRef<{ startY: number; startH: number } | null>(null);
 
-  // Re-render when the visual viewport changes (e.g. mobile keyboard opens),
-  // so the composer height cap recomputes against the actually visible area.
-  const [, setVvTick] = useState(0);
+  // Clamp only a manually resized composer on keyboard resize. The root layout
+  // already follows visualViewport through CSS variables; forcing a React
+  // re-render on every iOS keyboard frame makes the footer visibly jitter.
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return;
     const vv = window.visualViewport;
@@ -251,11 +251,10 @@ export function ChatApp({ threadId }: Props) {
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        setVvTick((n) => n + 1);
         setComposerHeight((h) => {
           if (h == null) return h;
           const cap = Math.max(120, vv.height - 200);
-          return Math.min(h, cap);
+          return h > cap ? cap : h;
         });
       });
     };
@@ -4061,7 +4060,7 @@ export function ChatApp({ threadId }: Props) {
             <div className="w-full">
               <div
                 className={
-                  "rounded-2xl border bg-white/[0.04] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height,transform] " +
+                  "rounded-2xl border bg-white/[0.04] transition-colors duration-150 " +
                   (composerResizing
                     ? "border-orange-400/60 ring-2 ring-orange-400/40 shadow-[0_0_24px_rgba(251,146,60,0.35)] "
                     : isExpanded
@@ -4190,7 +4189,7 @@ export function ChatApp({ threadId }: Props) {
                           : undefined
                       }
                       className={
-                        "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height,padding-bottom] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] " +
+                        "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 " +
                         // Внизу — место под кнопки + ещё пара строк, чтобы текст под ними можно было прокрутить и прочитать.
                         (voice.error ? "pb-32 " : "pb-24 ") +
                         (composerHeight != null

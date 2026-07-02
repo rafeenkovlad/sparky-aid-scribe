@@ -140,47 +140,36 @@ function RootComponent() {
     );
   }, []);
 
-  // Синхронизируем реальную видимую высоту (visualViewport) с CSS-переменной,
-  // чтобы приложение и композер оставались над клавиатурой на iOS и не
-  // оставляли пустой полосы снизу.
+  // Синхронизируем реальную видимую высоту (visualViewport) с CSS-переменной.
+  // На iOS PWA клавиатура часто отдаёт серию мелких resize/scroll событий;
+  // обновляем layout только при реальном изменении высоты, чтобы композер не
+  // подпрыгивал и не получал двойную компенсацию клавиатуры.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const root = document.documentElement;
     const vv = window.visualViewport;
     let raf = 0;
     let lastH = -1;
-    let lastOffset = -1;
     let lastKbOpen = -1;
     const apply = () => {
       raf = 0;
       const h = Math.round(vv?.height ?? window.innerHeight);
-      // На iOS visualViewport.offsetTop может быть дробным и «дышать» на
-      // 1px при инерции — округляем и игнорируем микро-сдвиги, чтобы body
-      // не подпрыгивал при каждом кадре скролла клавиатуры.
-      const rawOffset = vv?.offsetTop ?? 0;
-      const offsetTop = Math.max(0, Math.round(rawOffset));
       const winH = window.innerHeight;
-      const keyboardBottom = vv ? Math.max(0, winH - h - offsetTop) : 0;
       const kbOpen = winH - h > 80 ? 1 : 0;
 
-      if (h !== lastH) {
+      if (lastH < 0 || Math.abs(h - lastH) > 1) {
         root.style.setProperty("--app-h", `${h}px`);
         lastH = h;
       }
-      if (offsetTop !== lastOffset) {
-        root.style.setProperty("--vv-offset-top", `${offsetTop}px`);
-        lastOffset = offsetTop;
-      }
-      root.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
       if (kbOpen !== lastKbOpen) {
         root.style.setProperty("--kb-open", String(kbOpen));
         root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
+        root.dataset.keyboard = kbOpen ? "open" : "closed";
         lastKbOpen = kbOpen;
       }
 
       // iOS иногда пытается «доскроллить» layout-viewport при фокусе поля,
-      // хотя body у нас fixed. Если layout-скролл всё-таки уехал — вернём его
-      // на место одним движением, а offsetTop компенсируем через CSS-переменную.
+      // хотя body у нас fixed. Если layout-скролл всё-таки уехал — вернём его.
       if (window.scrollY !== 0 || window.scrollX !== 0) {
         window.scrollTo(0, 0);
       }
@@ -246,5 +235,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-
 
