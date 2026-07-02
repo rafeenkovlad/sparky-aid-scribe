@@ -225,7 +225,10 @@ export function ChatApp({ threadId }: Props) {
     void import("@/lib/carreports/photoCache").then((mod) => mod.gcOrphans(keep));
   }, [mounted, threads]);
 
-  const [tokenOpen, setTokenOpen] = useState(false);
+  const [tokenOpen, setTokenOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !getTokenNow();
+  });
   const [nameDialog, setNameDialog] = useState<{ open: boolean; mode: "create" | "rename"; value: string }>({ open: false, mode: "create", value: "" });
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
