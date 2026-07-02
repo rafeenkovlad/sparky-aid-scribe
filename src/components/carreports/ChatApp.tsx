@@ -2477,6 +2477,14 @@ export function ChatApp({ threadId }: Props) {
     setComposer("");
     setPendingAttachments([]);
     if (askModeLocal) setAskMode(false);
+    // Скрываем клавиатуру на мобильных: снимаем фокус с textarea после отправки.
+    try {
+      textareaRef.current?.blur();
+      if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    } catch { /* ignore */ }
+
 
     // Утилиты обновления плейсхолдера статуса.
     const setStatus = (patch: Partial<ChatMessage>) => {
