@@ -3213,7 +3213,15 @@ export function ChatApp({ threadId }: Props) {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[360px]">
+          <SheetContent
+            side="left"
+            className="bg-zinc-950 border-white/10 text-white p-0 w-[88%] max-w-[360px] !h-[var(--app-h,100dvh)] top-0 bottom-0 inset-y-0 flex flex-col [&>button]:!top-[calc(0.75rem+env(safe-area-inset-top,0px))] [&>button]:!right-[calc(1rem+env(safe-area-inset-right,0px))]"
+            style={{
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              paddingLeft: "env(safe-area-inset-left, 0px)",
+            }}
+          >
             <SheetHeader className="px-4 py-3 border-b border-white/10">
               <SheetTitle className="flex items-center gap-2 text-white">
                 <span className="inline-flex items-center justify-center h-6 px-2 rounded-md bg-orange-500 text-black text-[11px] font-bold tracking-wider">
