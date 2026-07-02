@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowUp,
@@ -614,6 +615,25 @@ export function ChatApp({ threadId }: Props) {
       window.removeEventListener("resize", update);
     };
   }, [mounted, thread]);
+
+  // Виртуализация списка сообщений. Рендерим только видимые + overscan,
+  // что бережёт мобильный процессор и делает прокрутку длинных диалогов
+  // плавной. Высоты сообщений сильно варьируются (паспорта, изображения,
+  // чипы), поэтому измеряем каждую строку через ResizeObserver
+  // (`measureElement`), не полагаясь на фиксированный размер.
+  const messageVirtualizer = useVirtualizer({
+    count: currentStepMessages.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    getItemKey: (index) => currentStepMessages[index]?.id ?? index,
+    measureElement:
+      typeof window !== "undefined" && "ResizeObserver" in window
+        ? (el) => el.getBoundingClientRect().height
+        : undefined,
+  });
+  const virtualItems = messageVirtualizer.getVirtualItems();
+  const totalHeight = messageVirtualizer.getTotalSize();
 
   // Композер скоупим по (thread, step): при переходе на другой шаг текущий
   // черновик сохраняем, на новом шаге показываем его собственный (или пусто).
@@ -3328,9 +3348,31 @@ export function ChatApp({ threadId }: Props) {
             <span>Шаг: {stepToast}</span>
           </div>
         )}
-        {currentStepMessages.map((m) => (
-          <MessageBubble
+        <div
+          style={{
+            height: `${totalHeight}px`,
+            position: "relative",
+            width: "100%",
+          }}
+        >
+        {virtualItems.map((vi) => {
+          const m = currentStepMessages[vi.index];
+          if (!m) return null;
+          return (
+          <div
             key={m.id}
+            data-index={vi.index}
+            ref={messageVirtualizer.measureElement}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              transform: `translateY(${vi.start}px)`,
+              paddingBottom: 16,
+            }}
+          >
+          <MessageBubble
             msg={m}
             interactive={m.id === lastOptionsMsgId}
             onChipTap={(chip) => insertChip(m.id, chip)}
@@ -3538,9 +3580,10 @@ export function ChatApp({ threadId }: Props) {
             }}
 
           />
-
-
-        ))}
+          </div>
+          );
+        })}
+        </div>
 
         {currentStep === "legalMaterials" && (thread.draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 && (
           <div className="flex gap-2 items-start">
