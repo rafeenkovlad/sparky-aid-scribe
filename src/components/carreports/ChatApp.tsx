@@ -443,8 +443,17 @@ export function ChatApp({ threadId }: Props) {
   }, []);
 
   // Без авторизации показываем модальное окно входа и блокируем навигацию.
+  // Читаем токен из стора напрямую, чтобы не сработать в промежуточный кадр,
+  // когда useSyncExternalStore ещё не отдал значение из localStorage.
   useEffect(() => {
-    if (!token) setTokenOpen(true);
+    const current = token ?? getTokenNow();
+    if (current) {
+      // Токен есть — гарантированно закрываем окно, даже если оно успело
+      // открыться в предыдущем кадре при пустом снапшоте.
+      setTokenOpen(false);
+    } else {
+      setTokenOpen(true);
+    }
   }, [token]);
 
 
