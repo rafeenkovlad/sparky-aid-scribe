@@ -94,7 +94,7 @@ import {
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
-import { Sparkles, FileText, Share2, ChevronRight, RotateCcw } from "lucide-react";
+import { Sparkles, FileText, Share2, ChevronRight, ChevronDown, RotateCcw } from "lucide-react";
 
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
