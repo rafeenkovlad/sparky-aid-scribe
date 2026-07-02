@@ -3917,19 +3917,46 @@ export function ChatApp({ threadId }: Props) {
                 <input
                   ref={attachInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={
+                    currentStep === "inspection" &&
+                    cursor?.section.snake === "computer_diagnostics"
+                      ? undefined
+                      : "image/*"
+                  }
                   multiple
                   className="hidden"
                   onChange={(e) => {
                     const files = Array.from(e.target.files ?? []);
+                    const inDiag =
+                      currentStep === "inspection" &&
+                      cursor?.section.snake === "computer_diagnostics";
+                    const nonImages: File[] = [];
                     for (const f of files) {
-                      // На первом шаге (и в композере вообще) принимаем только фото.
-                      if (!f.type.startsWith("image/")) continue;
-                      void addAttachment(f);
+                      if (f.type.startsWith("image/")) {
+                        void addAttachment(f);
+                      } else if (inDiag) {
+                        nonImages.push(f);
+                      }
+                      // Иначе игнорируем: композер вне диагностики принимает только фото.
+                    }
+                    if (nonImages.length && thread) {
+                      // Не-изображения из раздела «Компьютерная диагностика» уходят
+                      // в общий пул материалов, чтобы попасть в отчёт как файлы.
+                      void handleMaterialFiles(nonImages);
+                      updateThread(thread.id, (t) => {
+                        pushMsg(t, "inspection", {
+                          id: msgId(),
+                          role: "assistant",
+                          text: `📎 Прикреплено к материалам диагностики: ${nonImages.map((f) => f.name).join(", ")}`,
+                          step: "inspection",
+                          createdAt: Date.now(),
+                        });
+                      });
                     }
                     e.target.value = "";
                   }}
                 />
+
 
 
                 {isExpanded ? (
