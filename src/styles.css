@@ -170,7 +170,7 @@ a[href*="lovable.dev"][target="_blank"],
   body {
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
     /* Фиксируем body по визуальному viewport: layout-viewport не скроллится,
        меняется только --app-h (высота видимой области над клавиатурой). */
     position: fixed;
