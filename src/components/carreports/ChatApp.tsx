@@ -3580,9 +3580,10 @@ export function ChatApp({ threadId }: Props) {
             }}
 
           />
-
-
-        ))}
+          </div>
+          );
+        })}
+        </div>
 
         {currentStep === "legalMaterials" && (thread.draft.legalReviewStep?.otherMaterials.length ?? 0) === 0 && (
           <div className="flex gap-2 items-start">
