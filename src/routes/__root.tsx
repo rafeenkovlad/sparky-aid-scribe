@@ -153,6 +153,11 @@ function RootComponent() {
       const kbOpen = vv ? window.innerHeight - vv.height > 80 : false;
       root.style.setProperty("--kb-open", kbOpen ? "1" : "0");
       root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
+      // iOS Safari scrolls layout-viewport when клавиатура открывается,
+      // унося композер вверх за пределы экрана. Возвращаем страницу
+      // в исходное положение — тогда фиксированный по --app-h контейнер
+      // остаётся точно над клавиатурой.
+      if (kbOpen) window.scrollTo(0, 0);
     };
     update();
     vv?.addEventListener("resize", update);
