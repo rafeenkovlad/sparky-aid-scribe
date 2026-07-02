@@ -25,10 +25,17 @@ const MAX_WAIT_SECONDS = 180;
 const POLL_INTERVAL_MS = 3000;
 const MAX_TICKS = Math.floor(MAX_WAIT_SECONDS / (POLL_INTERVAL_MS / 1000)); // 60
 
-export function TokenDialog({ open, onOpenChange }: Props) {
+export function TokenDialog({ open, onOpenChange, initialToken }: Props) {
+  const authed = Boolean(initialToken);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent
+        className="sm:max-w-[480px]"
+        hideClose={!authed}
+        onEscapeKeyDown={(e) => { if (!authed) e.preventDefault(); }}
+        onPointerDownOutside={(e) => { if (!authed) e.preventDefault(); }}
+        onInteractOutside={(e) => { if (!authed) e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle>Вход в carreports</DialogTitle>
           <DialogDescription>
