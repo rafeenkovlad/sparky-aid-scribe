@@ -3211,7 +3211,6 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      {/* Messages */}
       <main className="relative flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {stepToast && (
           <div
