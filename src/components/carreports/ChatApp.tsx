@@ -490,6 +490,7 @@ export function ChatApp({ threadId }: Props) {
   // Всплывающий лейбл при переходе на следующий шаг: показываем название
   // шага на 3 секунды. Не показываем при самом первом монтировании треда.
   const [stepToast, setStepToast] = useState<string | null>(null);
+  const [stepToastVisible, setStepToastVisible] = useState(false);
   const prevStepRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevStepRef.current;
@@ -498,8 +499,16 @@ export function ChatApp({ threadId }: Props) {
     const def = FLOW_STEPS.find((s) => s.id === currentStep);
     if (!def) return;
     setStepToast(def.label);
-    const t = window.setTimeout(() => setStepToast(null), 3000);
-    return () => window.clearTimeout(t);
+    // Дадим React отрисовать элемент с opacity:0, затем плавно покажем.
+    const showT = window.setTimeout(() => setStepToastVisible(true), 20);
+    const hideT = window.setTimeout(() => setStepToastVisible(false), 3000);
+    // Убираем из DOM после завершения fade-out (~250ms).
+    const clearT = window.setTimeout(() => setStepToast(null), 3300);
+    return () => {
+      window.clearTimeout(showT);
+      window.clearTimeout(hideT);
+      window.clearTimeout(clearT);
+    };
   }, [currentStep]);
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
