@@ -3856,15 +3856,20 @@ export function ChatApp({ threadId }: Props) {
                 <input
                   ref={attachInputRef}
                   type="file"
-                  accept="image/*,.heic,.heif"
+                  accept="image/*"
                   multiple
                   className="hidden"
                   onChange={(e) => {
                     const files = Array.from(e.target.files ?? []);
-                    for (const f of files) void addAttachment(f);
+                    for (const f of files) {
+                      // На первом шаге (и в композере вообще) принимаем только фото.
+                      if (!f.type.startsWith("image/")) continue;
+                      void addAttachment(f);
+                    }
                     e.target.value = "";
                   }}
                 />
+
 
                 {isExpanded ? (
                   // ── Развёрнутый композер: текст на всю ширину, кнопки оверлеем ──
