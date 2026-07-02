@@ -490,6 +490,7 @@ export function ChatApp({ threadId }: Props) {
   // Всплывающий лейбл при переходе на следующий шаг: показываем название
   // шага на 3 секунды. Не показываем при самом первом монтировании треда.
   const [stepToast, setStepToast] = useState<string | null>(null);
+  const [stepToastVisible, setStepToastVisible] = useState(false);
   const prevStepRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevStepRef.current;
@@ -498,8 +499,16 @@ export function ChatApp({ threadId }: Props) {
     const def = FLOW_STEPS.find((s) => s.id === currentStep);
     if (!def) return;
     setStepToast(def.label);
-    const t = window.setTimeout(() => setStepToast(null), 3000);
-    return () => window.clearTimeout(t);
+    // Дадим React отрисовать элемент с opacity:0, затем плавно покажем.
+    const showT = window.setTimeout(() => setStepToastVisible(true), 20);
+    const hideT = window.setTimeout(() => setStepToastVisible(false), 3000);
+    // Убираем из DOM после завершения fade-out (~250ms).
+    const clearT = window.setTimeout(() => setStepToast(null), 3300);
+    return () => {
+      window.clearTimeout(showT);
+      window.clearTimeout(hideT);
+      window.clearTimeout(clearT);
+    };
   }, [currentStep]);
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
@@ -3214,8 +3223,12 @@ export function ChatApp({ threadId }: Props) {
       <main className="relative flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {stepToast && (
           <div
-            key={stepToast}
-            className="pointer-events-none sticky top-2 z-30 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] animate-in fade-in slide-in-from-top-2 duration-200"
+            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 top-2 z-30 flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] transition-all duration-300 ease-out ${
+              stepToastVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 -translate-y-2"
+            }`}
+            style={{ top: `calc(0.5rem + env(safe-area-inset-top, 0px))` }}
             role="status"
             aria-live="polite"
           >
