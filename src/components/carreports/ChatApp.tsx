@@ -596,24 +596,9 @@ export function ChatApp({ threadId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
 
-  // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
-  // actual height in the scroll area so it never covers the last chat message.
-  useEffect(() => {
-    const el = inputFooterRef.current;
-    if (!el || typeof document === "undefined") return;
-    const root = document.documentElement;
-    const update = () => {
-      root.style.setProperty("--chat-footer-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
-    };
-    update();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    ro?.observe(el);
-    window.addEventListener("resize", update);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [mounted, thread]);
+  // Композер теперь обычный flex-child внизу колонки: высота считается
+  // браузером, отдельный ResizeObserver + CSS-переменная больше не нужны.
+
 
   // Виртуализация списка сообщений. Рендерим только видимые + overscan,
   // что бережёт мобильный процессор и делает прокрутку длинных диалогов
@@ -639,13 +624,17 @@ export function ChatApp({ threadId }: Props) {
   // На возврат — восстанавливаем то, что было набрано.
   const composerDraftsRef = useRef<Record<string, string>>({});
   const composerStepKeyRef = useRef<string | null>(null);
+  const composerLatestRef = useRef(composer);
+  useEffect(() => {
+    composerLatestRef.current = composer;
+  }, [composer]);
   useEffect(() => {
     if (!thread) return;
     const nextKey = `${thread.id}:${currentStep}`;
     const prevKey = composerStepKeyRef.current;
     if (prevKey === nextKey) return;
     if (prevKey !== null) {
-      composerDraftsRef.current[prevKey] = composer;
+      composerDraftsRef.current[prevKey] = composerLatestRef.current;
     }
     composerStepKeyRef.current = nextKey;
     const restored = composerDraftsRef.current[nextKey] ?? "";
@@ -656,7 +645,7 @@ export function ChatApp({ threadId }: Props) {
       setPhotoFocusIdx(null);
       composerBackupRef.current = null;
     }
-  }, [thread, currentStep, composer]);
+  }, [thread, currentStep]);
 
 
 
