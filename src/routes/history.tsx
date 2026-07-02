@@ -108,7 +108,7 @@ function HistoryPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-zinc-950 text-white">
+    <div className="h-full flex flex-col bg-zinc-950 text-white overflow-y-auto overscroll-contain">
       <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-3 border-b border-white/10 bg-zinc-950/95 backdrop-blur">
         <Link to="/" className="inline-flex">
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
