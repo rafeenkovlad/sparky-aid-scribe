@@ -3035,7 +3035,7 @@ export function ChatApp({ threadId }: Props) {
 
   if (!mounted || !thread) {
     return (
-      <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white items-center justify-center">
+      <div className="flex flex-col h-[var(--app-h,100dvh)] bg-zinc-950 text-white items-center justify-center">
         <div className="text-sm text-white/60">Открываю отчёт…</div>
       </div>
     );
@@ -3050,7 +3050,7 @@ export function ChatApp({ threadId }: Props) {
     summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-zinc-950 text-white">
+    <div className="flex flex-col h-[var(--app-h,100dvh)] bg-zinc-950 text-white">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 h-12 border-b border-white/10 shrink-0">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -3159,7 +3159,7 @@ export function ChatApp({ threadId }: Props) {
               <PanelRightOpen className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-screen max-w-none sm:max-w-none !h-[100dvh] top-0 bottom-0 inset-y-0">
+          <SheetContent side="right" className="bg-zinc-950 border-white/10 text-white p-0 w-screen max-w-none sm:max-w-none !h-[var(--app-h,100dvh)] top-0 bottom-0 inset-y-0">
             <SheetHeader className="sr-only">
               <SheetTitle>Черновик отчёта</SheetTitle>
             </SheetHeader>
