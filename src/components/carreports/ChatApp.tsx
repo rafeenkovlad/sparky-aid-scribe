@@ -3619,6 +3619,26 @@ export function ChatApp({ threadId }: Props) {
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* Индикатор «чат не автоскроллит»: появляется, когда пользователь
+            пролистал вверх. Показывает счётчик непрочитанных сообщений и по
+            нажатию мгновенно возвращает к последнему сообщению. */}
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label={unread > 0 ? `Новых сообщений: ${unread}. К последнему` : "К последнему сообщению"}
+            className="sticky bottom-3 ml-auto mr-2 flex items-center gap-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold px-3 py-1.5 shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] hover:bg-orange-600 active:scale-95 transition z-20 animate-in fade-in slide-in-from-bottom-2"
+          >
+            {unread > 0 && (
+              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-white text-orange-600 text-[11px] font-bold tabular-nums px-1">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+            <span>{unread > 0 ? "Новые сообщения" : "Вниз"}</span>
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        )}
       </main>
 
 
