@@ -528,15 +528,42 @@ export function ChatApp({ threadId }: Props) {
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
 
-  // Auto-scroll on new messages in the current step. Также реагируем на
-  // обновление createdAt последнего сообщения — карандаш/паспорт переносят
-  // существующее сообщение в конец, и тогда меняется только timestamp.
+  // Auto-scroll on new messages only when the user is already near the bottom.
+  // Step changes always snap to bottom.
   const lastMsg = currentStepMessages[currentStepMessages.length - 1];
   const lastMsgId = lastMsg?.id ?? null;
   const lastMsgStamp = lastMsg?.createdAt ?? 0;
+  const lastMsgIsUser = lastMsg?.role === "user";
+
+  // Track whether the user is near the bottom of the scroll area.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [currentStepMessages.length, currentStep, lastMsgId, lastMsgStamp]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const NEAR = 120; // px threshold
+    const onScroll = () => {
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = dist <= NEAR;
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Snap to bottom when switching steps.
+  useEffect(() => {
+    stickToBottomRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [currentStep]);
+
+  // On new/updated last message: scroll only if user is at bottom, or if the
+  // new message came from the user themselves (they just sent it).
+  useEffect(() => {
+    if (!lastMsgId) return;
+    if (stickToBottomRef.current || lastMsgIsUser) {
+      stickToBottomRef.current = true;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [currentStepMessages.length, lastMsgId, lastMsgStamp, lastMsgIsUser]);
 
   // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
   // actual height in the scroll area so it never covers the last chat message.
