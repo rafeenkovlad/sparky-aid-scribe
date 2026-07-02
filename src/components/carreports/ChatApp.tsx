@@ -596,24 +596,9 @@ export function ChatApp({ threadId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
 
-  // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
-  // actual height in the scroll area so it never covers the last chat message.
-  useEffect(() => {
-    const el = inputFooterRef.current;
-    if (!el || typeof document === "undefined") return;
-    const root = document.documentElement;
-    const update = () => {
-      root.style.setProperty("--chat-footer-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
-    };
-    update();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    ro?.observe(el);
-    window.addEventListener("resize", update);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [mounted, thread]);
+  // Композер теперь обычный flex-child внизу колонки: высота считается
+  // браузером, отдельный ResizeObserver + CSS-переменная больше не нужны.
+
 
   // Виртуализация списка сообщений. Рендерим только видимые + overscan,
   // что бережёт мобильный процессор и делает прокрутку длинных диалогов
