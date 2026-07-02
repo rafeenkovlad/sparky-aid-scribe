@@ -3230,7 +3230,7 @@ export function ChatApp({ threadId }: Props) {
                 <span>ассистент</span>
               </SheetTitle>
             </SheetHeader>
-            <div className="p-3 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 overscroll-contain">
               <Button
                 onClick={newThread}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white justify-start"
