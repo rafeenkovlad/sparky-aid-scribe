@@ -403,6 +403,8 @@ export function ChatApp({ threadId }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const askToggledByPointerRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
+  const stickToBottomRef = useRef(true);
   const inputFooterRef = useRef<HTMLDivElement>(null);
 
   const voiceBaseRef = useRef<string>("");
