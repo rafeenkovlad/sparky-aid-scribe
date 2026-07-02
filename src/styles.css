@@ -148,6 +148,13 @@ a[href*="lovable.dev"][target="_blank"],
     border-color: var(--color-border);
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+    background-color: #09090b; /* zinc-950 — не показывать белый фон под приложением */
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -155,25 +162,28 @@ a[href*="lovable.dev"][target="_blank"],
   }
 
   body {
-    background-color: var(--color-background);
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
+    /* Растягиваем body под визуальный viewport, включая при открытой
+       клавиатуре на iOS (обновляется из JS через --app-h). */
+    min-height: var(--app-h, 100dvh);
   }
 
   /* PWA / standalone: не залезать под системные индикаторы
-     (часы, батарея, оператор, home-indicator). */
+     (часы, батарея, оператор, home-indicator). Отступы — на #root, а не на
+     body, чтобы фон приложения покрывал весь экран без «пустых» полос. */
   @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
-    body {
+    #root {
       padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
+      /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
+         композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
+      padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
       box-sizing: border-box;
     }
   }
-
-
 
   /* iOS Safari auto-zooms inputs with font-size < 16px on focus. */
   input,
