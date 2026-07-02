@@ -487,6 +487,21 @@ export function ChatApp({ threadId }: Props) {
 
   const currentStep = thread ? FLOW_STEPS[thread.stepIndex].id : "car";
 
+  // Всплывающий лейбл при переходе на следующий шаг: показываем название
+  // шага на 3 секунды. Не показываем при самом первом монтировании треда.
+  const [stepToast, setStepToast] = useState<string | null>(null);
+  const prevStepRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevStepRef.current;
+    prevStepRef.current = currentStep;
+    if (prev === null || prev === currentStep) return;
+    const def = FLOW_STEPS.find((s) => s.id === currentStep);
+    if (!def) return;
+    setStepToast(def.label);
+    const t = window.setTimeout(() => setStepToast(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [currentStep]);
+
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
 
   // Auto-scroll on new messages in the current step. Также реагируем на
