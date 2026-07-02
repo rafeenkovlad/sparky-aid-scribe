@@ -59,6 +59,7 @@ import { NoteProposalCard } from "./NoteProposalCard";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
+import { getToken as getTokenNow } from "@/lib/carreports/tokenStore";
 import {
   createThread,
   deleteThread,
@@ -4035,7 +4036,12 @@ export function ChatApp({ threadId }: Props) {
         open={tokenOpen}
         onOpenChange={(v) => {
           // Пока пользователь не авторизован — окно закрыть нельзя.
-          if (!v && !token) return;
+          // Читаем токен из стора, чтобы не залипнуть на устаревшем замыкании
+          // после успешной авторизации внутри модалки.
+          if (!v) {
+            const current = getTokenNow();
+            if (!current) return;
+          }
           setTokenOpen(v);
         }}
         initialToken={token}
