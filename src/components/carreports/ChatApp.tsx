@@ -624,13 +624,17 @@ export function ChatApp({ threadId }: Props) {
   // На возврат — восстанавливаем то, что было набрано.
   const composerDraftsRef = useRef<Record<string, string>>({});
   const composerStepKeyRef = useRef<string | null>(null);
+  const composerLatestRef = useRef(composer);
+  useEffect(() => {
+    composerLatestRef.current = composer;
+  }, [composer]);
   useEffect(() => {
     if (!thread) return;
     const nextKey = `${thread.id}:${currentStep}`;
     const prevKey = composerStepKeyRef.current;
     if (prevKey === nextKey) return;
     if (prevKey !== null) {
-      composerDraftsRef.current[prevKey] = composer;
+      composerDraftsRef.current[prevKey] = composerLatestRef.current;
     }
     composerStepKeyRef.current = nextKey;
     const restored = composerDraftsRef.current[nextKey] ?? "";
@@ -641,7 +645,7 @@ export function ChatApp({ threadId }: Props) {
       setPhotoFocusIdx(null);
       composerBackupRef.current = null;
     }
-  }, [thread, currentStep, composer]);
+  }, [thread, currentStep]);
 
 
 
