@@ -3880,7 +3880,7 @@ export function ChatApp({ threadId }: Props) {
             <div className="w-full">
               <div
                 className={
-                  "rounded-2xl border bg-white/[0.04] transition-all duration-300 " +
+                  "rounded-2xl border bg-white/[0.04] transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[height,transform] " +
                   (composerResizing
                     ? "border-orange-400/60 ring-2 ring-orange-400/40 shadow-[0_0_24px_rgba(251,146,60,0.35)] "
                     : isExpanded
