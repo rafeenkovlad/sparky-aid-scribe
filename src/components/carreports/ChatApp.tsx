@@ -543,6 +543,10 @@ export function ChatApp({ threadId }: Props) {
   const lastMsgStamp = lastMsg?.createdAt ?? 0;
   const lastMsgIsUser = lastMsg?.role === "user";
 
+  // Reactive state for unread indicator / scroll-to-bottom button.
+  const [atBottom, setAtBottom] = useState(true);
+  const [unread, setUnread] = useState(0);
+
   // Track whether the user is near the bottom of the scroll area.
   useEffect(() => {
     const el = scrollRef.current;
@@ -550,28 +554,47 @@ export function ChatApp({ threadId }: Props) {
     const NEAR = 120; // px threshold
     const onScroll = () => {
       const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-      stickToBottomRef.current = dist <= NEAR;
+      const near = dist <= NEAR;
+      stickToBottomRef.current = near;
+      setAtBottom((prev) => (prev === near ? prev : near));
+      if (near) setUnread(0);
     };
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Snap to bottom when switching steps.
+  // Snap to bottom when switching steps — reset unread.
   useEffect(() => {
     stickToBottomRef.current = true;
+    setAtBottom(true);
+    setUnread(0);
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [currentStep]);
 
   // On new/updated last message: scroll only if user is at bottom, or if the
   // new message came from the user themselves (they just sent it).
+  // Otherwise — increment unread counter for assistant messages.
+  const prevLastIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!lastMsgId) return;
+    const isNew = prevLastIdRef.current !== lastMsgId;
+    prevLastIdRef.current = lastMsgId;
     if (stickToBottomRef.current || lastMsgIsUser) {
       stickToBottomRef.current = true;
+      setUnread(0);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    } else if (isNew && !lastMsgIsUser) {
+      setUnread((n) => n + 1);
     }
   }, [currentStepMessages.length, lastMsgId, lastMsgStamp, lastMsgIsUser]);
+
+  const scrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setUnread(0);
+    setAtBottom(true);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, []);
 
   // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
   // actual height in the scroll area so it never covers the last chat message.
