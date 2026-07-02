@@ -403,6 +403,8 @@ export function ChatApp({ threadId }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const askToggledByPointerRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
+  const stickToBottomRef = useRef(true);
   const inputFooterRef = useRef<HTMLDivElement>(null);
 
   const voiceBaseRef = useRef<string>("");
@@ -526,15 +528,42 @@ export function ChatApp({ threadId }: Props) {
 
   const currentStepMessages = thread ? thread.messages[currentStep] : [];
 
-  // Auto-scroll on new messages in the current step. Также реагируем на
-  // обновление createdAt последнего сообщения — карандаш/паспорт переносят
-  // существующее сообщение в конец, и тогда меняется только timestamp.
+  // Auto-scroll on new messages only when the user is already near the bottom.
+  // Step changes always snap to bottom.
   const lastMsg = currentStepMessages[currentStepMessages.length - 1];
   const lastMsgId = lastMsg?.id ?? null;
   const lastMsgStamp = lastMsg?.createdAt ?? 0;
+  const lastMsgIsUser = lastMsg?.role === "user";
+
+  // Track whether the user is near the bottom of the scroll area.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [currentStepMessages.length, currentStep, lastMsgId, lastMsgStamp]);
+    const el = scrollRef.current;
+    if (!el) return;
+    const NEAR = 120; // px threshold
+    const onScroll = () => {
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottomRef.current = dist <= NEAR;
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Snap to bottom when switching steps.
+  useEffect(() => {
+    stickToBottomRef.current = true;
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [currentStep]);
+
+  // On new/updated last message: scroll only if user is at bottom, or if the
+  // new message came from the user themselves (they just sent it).
+  useEffect(() => {
+    if (!lastMsgId) return;
+    if (stickToBottomRef.current || lastMsgIsUser) {
+      stickToBottomRef.current = true;
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [currentStepMessages.length, lastMsgId, lastMsgStamp, lastMsgIsUser]);
 
   // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
   // actual height in the scroll area so it never covers the last chat message.
@@ -3252,7 +3281,7 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      <main className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-4 pb-4 space-y-4 overscroll-contain">
+      <main ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto px-3 pt-4 pb-4 space-y-4 overscroll-contain">
         {stepToast && (
           <div
             className={`pointer-events-none absolute left-1/2 -translate-x-1/2 top-2 z-30 flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] transition-all duration-300 ease-out ${
