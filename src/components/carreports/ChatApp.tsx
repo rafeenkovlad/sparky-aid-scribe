@@ -59,6 +59,7 @@ import { NoteProposalCard } from "./NoteProposalCard";
 
 
 import { useThreads, useToken } from "@/hooks/useThreads";
+import { getToken as getTokenNow } from "@/lib/carreports/tokenStore";
 import {
   createThread,
   deleteThread,
