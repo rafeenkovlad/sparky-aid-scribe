@@ -161,13 +161,21 @@ a[href*="lovable.dev"][target="_blank"],
     touch-action: manipulation;
   }
 
+  html {
+    /* Layout-viewport не должен скроллиться: композер держим по visualViewport. */
+    overflow: hidden;
+    height: 100%;
+    /* Плавно компенсируем короткие «дыхания» visualViewport на iOS. */
+  }
+
   body {
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
     /* Фиксируем body по визуальному viewport, чтобы iOS-клавиатура не
        уводила композер за пределы экрана: layout-viewport не скроллится,
-       меняется только --app-h (высота видимой области над клавиатурой). */
+       меняется только --app-h (высота видимой области над клавиатурой).
+       --vv-offset-top компенсирует iOS-сдвиг visualViewport при фокусе. */
     position: fixed;
     top: var(--vv-offset-top, 0px);
     left: 0;
@@ -178,22 +186,17 @@ a[href*="lovable.dev"][target="_blank"],
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
+       композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
     padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
     box-sizing: border-box;
   }
 
-  /* Не залезать под системные индикаторы iOS/Android (часы, батарея,
-     оператор, home-indicator, notch/Dynamic Island). Применяем всегда,
-     а не только в standalone: iOS Safari с viewport-fit=cover тоже держит
-     статус-бар поверх контента. Отступы — на #root, чтобы фон приложения
-     покрывал весь экран без «пустых» полос. */
+  /* #root заполняет body без собственных safe-area-отступов: они уже
+     учтены на body, дублирование давало пустую полосу сверху/снизу. */
   #root {
-    padding-top: env(safe-area-inset-top);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
-       композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
-    padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
+    height: 100%;
+    width: 100%;
     box-sizing: border-box;
   }
 

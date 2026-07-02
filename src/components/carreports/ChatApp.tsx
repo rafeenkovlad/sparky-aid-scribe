@@ -245,16 +245,24 @@ export function ChatApp({ threadId }: Props) {
   useEffect(() => {
     if (typeof window === "undefined" || !window.visualViewport) return;
     const vv = window.visualViewport;
+    let raf = 0;
     const onResize = () => {
-      setVvTick((n) => n + 1);
-      setComposerHeight((h) => {
-        if (h == null) return h;
-        const cap = Math.max(120, vv.height - 200);
-        return Math.min(h, cap);
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        setVvTick((n) => n + 1);
+        setComposerHeight((h) => {
+          if (h == null) return h;
+          const cap = Math.max(120, vv.height - 200);
+          return Math.min(h, cap);
+        });
       });
     };
     vv.addEventListener("resize", onResize);
-    return () => vv.removeEventListener("resize", onResize);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      vv.removeEventListener("resize", onResize);
+    };
   }, []);
   const [busy, setBusy] = useState(false);
   const [askMode, setAskMode] = useState(false);
