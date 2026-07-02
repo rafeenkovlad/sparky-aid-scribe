@@ -3565,15 +3565,14 @@ export function ChatApp({ threadId }: Props) {
 
 
 
-      {/* Fixed input footer: pinned to visualViewport, not flex layout, so iOS keyboard cannot push it off-screen. */}
+      {/* Footer composer: обычный flex-child внизу колонки. Body уже фиксирован по visualViewport (--app-h), поэтому клавиатура iOS не может перекрыть композер, а сам он остаётся вне области скролла чата. */}
       <div
         ref={inputFooterRef}
-        className="fixed left-0 right-0 z-40 bg-zinc-950/95 pt-2 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/85"
+        className="shrink-0 border-t border-white/5 bg-zinc-950 pt-2"
         style={{
-          bottom: "calc(var(--keyboard-bottom, 0px) + env(safe-area-inset-bottom, 0px) * var(--kb-open-inv, 1))",
           paddingLeft: "calc(0.75rem + env(safe-area-inset-left, 0px))",
           paddingRight: "calc(0.75rem + env(safe-area-inset-right, 0px))",
-          paddingBottom: "0.75rem",
+          paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px) * var(--kb-open-inv, 1))",
         }}
       >
       {/* Quick actions */}
