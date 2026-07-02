@@ -165,9 +165,14 @@ a[href*="lovable.dev"][target="_blank"],
     color: var(--color-foreground);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
-    /* Растягиваем body под визуальный viewport, включая при открытой
-       клавиатуре на iOS (обновляется из JS через --app-h). */
-    min-height: var(--app-h, 100dvh);
+    /* Фиксируем body по визуальному viewport, чтобы iOS-клавиатура не
+       уводила композер за пределы экрана: layout-viewport не скроллится,
+       меняется только --app-h (высота видимой области над клавиатурой). */
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: var(--app-h, 100dvh);
+    overflow: hidden;
   }
 
   /* PWA / standalone: не залезать под системные индикаторы
