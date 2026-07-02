@@ -616,6 +616,25 @@ export function ChatApp({ threadId }: Props) {
     };
   }, [mounted, thread]);
 
+  // Виртуализация списка сообщений. Рендерим только видимые + overscan,
+  // что бережёт мобильный процессор и делает прокрутку длинных диалогов
+  // плавной. Высоты сообщений сильно варьируются (паспорта, изображения,
+  // чипы), поэтому измеряем каждую строку через ResizeObserver
+  // (`measureElement`), не полагаясь на фиксированный размер.
+  const messageVirtualizer = useVirtualizer({
+    count: currentStepMessages.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    getItemKey: (index) => currentStepMessages[index]?.id ?? index,
+    measureElement:
+      typeof window !== "undefined" && "ResizeObserver" in window
+        ? (el) => el.getBoundingClientRect().height
+        : undefined,
+  });
+  const virtualItems = messageVirtualizer.getVirtualItems();
+  const totalHeight = messageVirtualizer.getTotalSize();
+
   // Композер скоупим по (thread, step): при переходе на другой шаг текущий
   // черновик сохраняем, на новом шаге показываем его собственный (или пусто).
   // На возврат — восстанавливаем то, что было набрано.
