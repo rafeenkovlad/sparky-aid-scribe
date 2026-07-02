@@ -3211,7 +3211,19 @@ export function ChatApp({ threadId }: Props) {
       <PWAInstallBanner />
 
       {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      {/* Messages */}
+      <main className="relative flex-1 overflow-y-auto px-3 py-4 space-y-4">
+        {stepToast && (
+          <div
+            key={stepToast}
+            className="pointer-events-none sticky top-2 z-30 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-full bg-orange-500/95 px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] animate-in fade-in slide-in-from-top-2 duration-200"
+            role="status"
+            aria-live="polite"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+            <span>Шаг: {stepToast}</span>
+          </div>
+        )}
         {currentStepMessages.map((m) => (
           <MessageBubble
             key={m.id}
