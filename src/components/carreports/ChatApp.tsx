@@ -94,7 +94,7 @@ import {
 } from "./InspectionCollage";
 import { ElementFocusCard, type NoteProposal as NoteProposalT } from "./ElementFocusCard";
 import { addUserTag, type UserTag } from "@/lib/carreports/inspectionTags";
-import { Sparkles, FileText, Share2, ChevronRight, RotateCcw } from "lucide-react";
+import { Sparkles, FileText, Share2, ChevronRight, ChevronDown, RotateCcw } from "lucide-react";
 
 import { ensurePhotoAccessible, preparePhoto, uploadFile, uploadPhoto, uploadTemporary } from "@/lib/carreports/photo";
 import { submitReport } from "@/lib/carreports/storageApi";
@@ -543,6 +543,10 @@ export function ChatApp({ threadId }: Props) {
   const lastMsgStamp = lastMsg?.createdAt ?? 0;
   const lastMsgIsUser = lastMsg?.role === "user";
 
+  // Reactive state for unread indicator / scroll-to-bottom button.
+  const [atBottom, setAtBottom] = useState(true);
+  const [unread, setUnread] = useState(0);
+
   // Track whether the user is near the bottom of the scroll area.
   useEffect(() => {
     const el = scrollRef.current;
@@ -550,28 +554,47 @@ export function ChatApp({ threadId }: Props) {
     const NEAR = 120; // px threshold
     const onScroll = () => {
       const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-      stickToBottomRef.current = dist <= NEAR;
+      const near = dist <= NEAR;
+      stickToBottomRef.current = near;
+      setAtBottom((prev) => (prev === near ? prev : near));
+      if (near) setUnread(0);
     };
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Snap to bottom when switching steps.
+  // Snap to bottom when switching steps — reset unread.
   useEffect(() => {
     stickToBottomRef.current = true;
+    setAtBottom(true);
+    setUnread(0);
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [currentStep]);
 
   // On new/updated last message: scroll only if user is at bottom, or if the
   // new message came from the user themselves (they just sent it).
+  // Otherwise — increment unread counter for assistant messages.
+  const prevLastIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!lastMsgId) return;
+    const isNew = prevLastIdRef.current !== lastMsgId;
+    prevLastIdRef.current = lastMsgId;
     if (stickToBottomRef.current || lastMsgIsUser) {
       stickToBottomRef.current = true;
+      setUnread(0);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    } else if (isNew && !lastMsgIsUser) {
+      setUnread((n) => n + 1);
     }
   }, [currentStepMessages.length, lastMsgId, lastMsgStamp, lastMsgIsUser]);
+
+  const scrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setUnread(0);
+    setAtBottom(true);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, []);
 
   // Composer/footer is fixed to visualViewport on mobile keyboards; reserve its
   // actual height in the scroll area so it never covers the last chat message.
@@ -3596,6 +3619,26 @@ export function ChatApp({ threadId }: Props) {
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* Индикатор «чат не автоскроллит»: появляется, когда пользователь
+            пролистал вверх. Показывает счётчик непрочитанных сообщений и по
+            нажатию мгновенно возвращает к последнему сообщению. */}
+        {!atBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            aria-label={unread > 0 ? `Новых сообщений: ${unread}. К последнему` : "К последнему сообщению"}
+            className="sticky bottom-3 ml-auto mr-2 flex items-center gap-1.5 rounded-full bg-orange-500 text-white text-xs font-semibold px-3 py-1.5 shadow-[0_8px_24px_-8px_rgba(249,115,22,0.7)] hover:bg-orange-600 active:scale-95 transition z-20 animate-in fade-in slide-in-from-bottom-2"
+          >
+            {unread > 0 && (
+              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-white text-orange-600 text-[11px] font-bold tabular-nums px-1">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+            <span>{unread > 0 ? "Новые сообщения" : "Вниз"}</span>
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        )}
       </main>
 
 
