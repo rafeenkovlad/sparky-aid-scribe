@@ -4009,12 +4009,12 @@ export function ChatApp({ threadId }: Props) {
                           : undefined
                       }
                       className={
-                        "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 " +
+                        "block w-full border-0 bg-transparent text-white placeholder:text-white/40 focus-visible:ring-0 transition-[min-height,padding-bottom] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] " +
                         // Внизу — место под кнопки + ещё пара строк, чтобы текст под ними можно было прокрутить и прочитать.
                         (voice.error ? "pb-32 " : "pb-24 ") +
                         (composerHeight != null
                           ? "resize-none "
-                          : "min-h-[88px] max-h-[60vh] resize-y ") +
+                          : (isExpanded ? "min-h-[88px] " : "min-h-[44px] ") + "max-h-[60vh] resize-y ") +
                         (askMode ? "placeholder:text-sky-300/60" : "")
                       }
                     />
