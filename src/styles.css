@@ -175,19 +175,19 @@ a[href*="lovable.dev"][target="_blank"],
     overflow: hidden;
   }
 
-  /* PWA / standalone: не залезать под системные индикаторы
-     (часы, батарея, оператор, home-indicator). Отступы — на #root, а не на
-     body, чтобы фон приложения покрывал весь экран без «пустых» полос. */
-  @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
-    #root {
-      padding-top: env(safe-area-inset-top);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
-         композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
-      padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
-      box-sizing: border-box;
-    }
+  /* Не залезать под системные индикаторы iOS/Android (часы, батарея,
+     оператор, home-indicator, notch/Dynamic Island). Применяем всегда,
+     а не только в standalone: iOS Safari с viewport-fit=cover тоже держит
+     статус-бар поверх контента. Отступы — на #root, чтобы фон приложения
+     покрывал весь экран без «пустых» полос. */
+  #root {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Bottom-inset применяем только при закрытой клавиатуре — иначе под
+       композером остаётся пустая полоса. --kb-open-inv переключается из JS. */
+    padding-bottom: calc(env(safe-area-inset-bottom) * var(--kb-open-inv, 1));
+    box-sizing: border-box;
   }
 
   /* iOS Safari auto-zooms inputs with font-size < 16px on focus. */
