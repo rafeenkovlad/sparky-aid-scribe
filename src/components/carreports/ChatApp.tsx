@@ -704,7 +704,7 @@ export function ChatApp({ threadId }: Props) {
         t.draft.testDriveStep = td;
       }
     });
-    textareaRef.current?.focus();
+    // Не фокусируем textarea — иначе композер раскрывается и всплывает клавиатура при выборе быстрого элемента.
   }, [thread]);
 
   const setInspectionDate = useCallback(
