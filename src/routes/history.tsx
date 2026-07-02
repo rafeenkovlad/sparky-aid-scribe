@@ -125,7 +125,7 @@ function HistoryPage() {
         </Button>
       </div>
 
-      <div className="max-w-2xl mx-auto p-3 space-y-2">
+      <div className="w-full max-w-5xl mx-auto p-3 space-y-2">
         {threads.length === 0 && (
           <div className="text-center py-16 text-white/50 text-sm">Пока пусто</div>
         )}
