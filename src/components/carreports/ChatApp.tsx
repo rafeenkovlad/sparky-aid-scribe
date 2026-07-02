@@ -3068,7 +3068,7 @@ export function ChatApp({ threadId }: Props) {
 
   if (!mounted || !thread) {
     return (
-      <div className="flex flex-col h-[var(--app-h,100dvh)] bg-zinc-950 text-white items-center justify-center">
+      <div className="flex flex-col h-full min-h-0 bg-zinc-950 text-white items-center justify-center">
         <div className="text-sm text-white/60">Открываю отчёт…</div>
       </div>
     );
