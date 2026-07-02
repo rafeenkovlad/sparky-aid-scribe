@@ -147,32 +147,59 @@ function RootComponent() {
     if (typeof window === "undefined") return;
     const root = document.documentElement;
     const vv = window.visualViewport;
-    const update = () => {
-      const h = vv?.height ?? window.innerHeight;
-      const offsetTop = vv?.offsetTop ?? 0;
-      const keyboardBottom = vv
-        ? Math.max(0, window.innerHeight - vv.height - offsetTop)
-        : 0;
-      root.style.setProperty("--app-h", `${h}px`);
-      root.style.setProperty("--vv-offset-top", `${offsetTop}px`);
+    let raf = 0;
+    let lastH = -1;
+    let lastOffset = -1;
+    let lastKbOpen = -1;
+    const apply = () => {
+      raf = 0;
+      const h = Math.round(vv?.height ?? window.innerHeight);
+      // На iOS visualViewport.offsetTop может быть дробным и «дышать» на
+      // 1px при инерции — округляем и игнорируем микро-сдвиги, чтобы body
+      // не подпрыгивал при каждом кадре скролла клавиатуры.
+      const rawOffset = vv?.offsetTop ?? 0;
+      const offsetTop = Math.max(0, Math.round(rawOffset));
+      const winH = window.innerHeight;
+      const keyboardBottom = vv ? Math.max(0, winH - h - offsetTop) : 0;
+      const kbOpen = winH - h > 80 ? 1 : 0;
+
+      if (h !== lastH) {
+        root.style.setProperty("--app-h", `${h}px`);
+        lastH = h;
+      }
+      if (offsetTop !== lastOffset) {
+        root.style.setProperty("--vv-offset-top", `${offsetTop}px`);
+        lastOffset = offsetTop;
+      }
       root.style.setProperty("--keyboard-bottom", `${keyboardBottom}px`);
-      const kbOpen = vv ? window.innerHeight - vv.height > 80 : false;
-      root.style.setProperty("--kb-open", kbOpen ? "1" : "0");
-      root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
-      // iOS может сдвигать visualViewport при фокусе поля. Не боремся со
-      // скроллом через scrollTo — вместо этого выравниваем fixed body по
-      // offsetTop, чтобы нижняя граница приложения была ровно над клавиатурой.
+      if (kbOpen !== lastKbOpen) {
+        root.style.setProperty("--kb-open", String(kbOpen));
+        root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
+        lastKbOpen = kbOpen;
+      }
+
+      // iOS иногда пытается «доскроллить» layout-viewport при фокусе поля,
+      // хотя body у нас fixed. Если layout-скролл всё-таки уехал — вернём его
+      // на место одним движением, а offsetTop компенсируем через CSS-переменную.
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
     };
-    update();
-    vv?.addEventListener("resize", update);
-    vv?.addEventListener("scroll", update);
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(apply);
+    };
+    apply();
+    vv?.addEventListener("resize", schedule);
+    vv?.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
     return () => {
-      vv?.removeEventListener("resize", update);
-      vv?.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
+      if (raf) cancelAnimationFrame(raf);
+      vv?.removeEventListener("resize", schedule);
+      vv?.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
     };
   }, []);
 
