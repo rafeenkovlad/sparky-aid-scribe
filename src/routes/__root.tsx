@@ -147,6 +147,34 @@ function RootComponent() {
     );
   }, []);
 
+  // Синхронизируем реальную видимую высоту (visualViewport) с CSS-переменной,
+  // чтобы приложение и композер оставались над клавиатурой на iOS и не
+  // оставляли пустой полосы снизу.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    const update = () => {
+      const h = vv?.height ?? window.innerHeight;
+      root.style.setProperty("--app-h", `${h}px`);
+      const kbOpen = vv ? window.innerHeight - vv.height > 80 : false;
+      root.style.setProperty("--kb-open", kbOpen ? "1" : "0");
+      root.style.setProperty("--kb-open-inv", kbOpen ? "0" : "1");
+    };
+    update();
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
