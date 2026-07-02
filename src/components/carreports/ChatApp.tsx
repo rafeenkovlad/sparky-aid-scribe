@@ -233,7 +233,9 @@ export function ChatApp({ threadId }: Props) {
   const [composer, setComposer] = useState("");
   const [composerFocused, setComposerFocused] = useState(false);
   const [composerHeight, setComposerHeight] = useState<number | null>(null);
+  const [composerResizing, setComposerResizing] = useState(false);
   const composerDragRef = useRef<{ startY: number; startH: number } | null>(null);
+
   // Re-render when the visual viewport changes (e.g. mobile keyboard opens),
   // so the composer height cap recomputes against the actually visible area.
   const [, setVvTick] = useState(0);
