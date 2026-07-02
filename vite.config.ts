@@ -19,23 +19,25 @@ export default defineConfig({
       VitePWA({
         // We register the SW ourselves via a guarded wrapper (src/lib/pwa/register-sw.ts).
         injectRegister: null,
-        registerType: "autoUpdate",
+        // "prompt" — не включает skipWaiting/clientsClaim автоматически,
+        // чтобы новый SW ждал в waiting и мы могли показать пользователю
+        // диалог «Доступна новая версия».
+        registerType: "prompt",
         filename: "sw.js",
         // Use the manifest already shipped at public/manifest.webmanifest.
         manifest: false,
         devOptions: { enabled: false },
         workbox: {
+          // Явно выключаем — иначе новый SW сразу активируется и prompt никогда
+          // не показывается пользователю.
+          skipWaiting: false,
+          clientsClaim: false,
           // HTML navigations are handled via NetworkFirst below so the app
           // can still open offline once it's been visited at least once.
           navigateFallback: "/index.html",
           navigateFallbackDenylist: [/^\/api\//, /^\/~oauth/],
           navigationPreload: true,
           cleanupOutdatedCaches: true,
-          // Do NOT skipWaiting/clientsClaim: keep the new SW in "waiting" so
-          // the UI can prompt the user to reload into the new version.
-
-          // Only precache hashed static assets emitted by Vite. Skip HTML and
-          // the manifest so navigations stay network-first.
           globPatterns: ["**/*.{js,css,woff,woff2,png,svg,ico}"],
           globIgnores: ["**/index.html", "**/*.webmanifest", "**/sw.js", "**/workbox-*.js"],
           runtimeCaching: [
