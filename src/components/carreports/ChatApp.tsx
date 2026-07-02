@@ -3083,7 +3083,7 @@ export function ChatApp({ threadId }: Props) {
     summarizeStepDraft(currentStep, thread.draft).trim().length > 0;
 
   return (
-    <div className="flex flex-col h-[var(--app-h,100dvh)] bg-zinc-950 text-white">
+    <div className="flex flex-col h-full min-h-0 bg-zinc-950 text-white">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 h-12 border-b border-white/10 shrink-0">
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
