@@ -79,6 +79,7 @@ export async function rpc<T = unknown>(
       code = (errs as { code?: number }).code;
     }
     const status = /unauthorized/i.test(msg) ? 401 : undefined;
+    if (status === 401) setToken(null);
     throw new ApiError(`Storage ${method}: ${msg}`, status, code);
   }
   // Some methods return {result: ...}, others wrap as { result: { result: ... } }.
