@@ -39,6 +39,9 @@ export async function rpc<T = unknown>(
     } catch {
       /* ignore */
     }
+    if (res.status === 401 || res.status === 403) {
+      setToken(null);
+    }
     throw new ApiError(`Storage ${method}: HTTP ${res.status} ${body.slice(0, 200)}`, res.status);
   }
   const json = (await res.json()) as {
