@@ -1,7 +1,7 @@
 // Thin JSON-RPC 2.0 client for https://app.carreports.ru/
 // Auth: header Authorization: Bearer <token>.
 
-import { getToken } from "./tokenStore";
+import { getToken, setToken } from "./tokenStore";
 
 const STORAGE_URL = "/api/cr-proxy?target=storage";
 
