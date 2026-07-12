@@ -1,7 +1,7 @@
 // Thin JSON-RPC 2.0 client for https://app.carreports.ru/
 // Auth: header Authorization: Bearer <token>.
 
-import { getToken } from "./tokenStore";
+import { getToken, setToken } from "./tokenStore";
 
 const STORAGE_URL = "/api/cr-proxy?target=storage";
 
@@ -38,6 +38,9 @@ export async function rpc<T = unknown>(
       body = await res.text();
     } catch {
       /* ignore */
+    }
+    if (res.status === 401 || res.status === 403) {
+      setToken(null);
     }
     throw new ApiError(`Storage ${method}: HTTP ${res.status} ${body.slice(0, 200)}`, res.status);
   }
@@ -76,6 +79,7 @@ export async function rpc<T = unknown>(
       code = (errs as { code?: number }).code;
     }
     const status = /unauthorized/i.test(msg) ? 401 : undefined;
+    if (status === 401) setToken(null);
     throw new ApiError(`Storage ${method}: ${msg}`, status, code);
   }
   // Some methods return {result: ...}, others wrap as { result: { result: ... } }.

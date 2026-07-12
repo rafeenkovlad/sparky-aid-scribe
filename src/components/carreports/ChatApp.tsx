@@ -230,6 +230,11 @@ export function ChatApp({ threadId }: Props) {
     if (typeof window === "undefined") return false;
     return !getTokenNow();
   });
+  // Если токен пропал (401/логаут/очистили в другой вкладке) — сразу
+  // блокируем интерфейс диалогом авторизации.
+  useEffect(() => {
+    if (!token) setTokenOpen(true);
+  }, [token]);
   const [nameDialog, setNameDialog] = useState<{ open: boolean; mode: "create" | "rename"; value: string }>({ open: false, mode: "create", value: "" });
   const [menuOpen, setMenuOpen] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
